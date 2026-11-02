@@ -59,6 +59,7 @@ aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
 #world .tl-frame-grip{pointer-events:auto;cursor:grab}
 #world .tl-frame-grip:hover{background:rgba(255,255,255,.7)}
 #world .tl-frame.drag-preview{z-index:150;transition:none;box-shadow:0 10px 28px rgba(11,45,85,.22)}
+#world .drop-line{position:absolute;z-index:160;height:4px;border-radius:2px;background:var(--accent);box-shadow:0 0 0 3px rgba(0,159,227,.2);pointer-events:none}
 #world .drop-slot{position:absolute;z-index:6;border:2px dashed var(--accent);border-radius:10px;background:rgba(0,159,227,.08);pointer-events:none}
 #world .tl-frame.selected{box-shadow:0 0 0 3px var(--sel)}
 #world .tl-frame.drop{box-shadow:0 0 0 3px var(--sel);background:rgba(0,159,227,.08)}

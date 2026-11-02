@@ -49,7 +49,7 @@ Diagonale von oben links nach unten rechts.
 | Strg/⌘ oder Shift + Klick | Balken zur Auswahl hinzufügen / entfernen |
 | Shift + Ziehen auf freier Fläche | Auswahlrechteck |
 | Ausgewählten Balken ziehen | Alle ausgewählten gemeinsam verschieben |
-| Rahmen-Kopfzeile ziehen | Ganze Gruppe verschieben (zeitlich und in ein anderes Prio-Band) |
+| Rahmen-Kopfzeile ziehen | Ganze Gruppe verschieben (zeitlich und in ein anderes Prio-Band); im selben Band nach oben/unten = Reihenfolge der Rahmen ändern (gilt für alle Bänder) |
 | Klick auf Rahmen-Kopfzeile | Thema öffnen (Farbe, Mitglieder, Abhängigkeiten) |
 | Punkt rechts am Rahmen ziehen → in anderem Rahmen loslassen | Abhängigkeit Thema → Thema (ein Pfeil; gilt für alle Aufgaben) |
 | Balken-Punkt in einen Rahmen ziehen | Abhängigkeit Aufgabe → Thema |

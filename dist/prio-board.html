@@ -90,6 +90,7 @@ aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
 #world .tl-frame-grip{pointer-events:auto;cursor:grab}
 #world .tl-frame-grip:hover{background:rgba(255,255,255,.7)}
 #world .tl-frame.drag-preview{z-index:150;transition:none;box-shadow:0 10px 28px rgba(11,45,85,.22)}
+#world .drop-line{position:absolute;z-index:160;height:4px;border-radius:2px;background:var(--accent);box-shadow:0 0 0 3px rgba(0,159,227,.2);pointer-events:none}
 #world .drop-slot{position:absolute;z-index:6;border:2px dashed var(--accent);border-radius:10px;background:rgba(0,159,227,.08);pointer-events:none}
 #world .tl-frame.selected{box-shadow:0 0 0 3px var(--sel)}
 #world .tl-frame.drop{box-shadow:0 0 0 3px var(--sel);background:rgba(0,159,227,.08)}
@@ -921,14 +922,22 @@ PB.model = (() => {
   /**
    * Mehrere Aufgaben gleichzeitig ändern (z. B. Start, Priorität, Zeile nach dem Verschieben)
    * – ein Historieneintrag. patches = Map<taskId, Teiländerung>.
+   * themeOrder (optional): neue Reihenfolge einiger Themen; sie nehmen die Plätze ein,
+   * die diese Themen bisher in der Themenliste hatten (andere Themen bleiben, wo sie sind).
    */
-  function arrangeTasks(patches) {
-    if (!patches.size) return;
+  function arrangeTasks(patches, { themeOrder = null } = {}) {
+    if (!patches.size && !themeOrder) return;
     checkpoint();
     patches.forEach((patch, id) => {
       const task = getTask(id);
       if (task) Object.assign(task, patch);
     });
+    if (themeOrder) {
+      const slots = state.themes.map((t, i) => (themeOrder.includes(t.id) ? i : -1)).filter((i) => i >= 0);
+      const reordered = [...state.themes];
+      themeOrder.forEach((id, i) => { reordered[slots[i]] = getTheme(id); });
+      state.themes = reordered;
+    }
     commit({ type: 'layout' });
   }
 
@@ -2272,10 +2281,11 @@ PB.board = (() => {
    * Vorschau beim Verschieben: Balken (und ggf. ein Rahmen) folgen der Maus per CSS-Transform,
    * ohne neu zu zeichnen. Ziel-Band und Zielzeile (gestrichelter Platzhalter) werden markiert,
    * ein Etikett über dem gegriffenen Element zeigt Priorität und Start.
-   *   preview = { ids, dx, dy, priority, start, label?, frame?: { themeId, priority }, slot?: { x, top, width } }
+   *   preview = { ids, dx, dy, priority, start, label?, frame?: { themeId, priority },
+   *               slot?: { x, top, width }, line?: { x, top, width } }   (line = Einfügestelle für Rahmen)
    *   ids[0] ist das gegriffene Element (Position des Etiketts).
    */
-  function showMovePreview({ ids, dx, dy, priority, start, label = '', frame = null, slot = null }) {
+  function showMovePreview({ ids, dx, dy, priority, start, label = '', frame = null, slot = null, line = null }) {
     const moving = new Set(ids);
     const transform = `translate(${dx}px, ${dy}px)`;
     dom.world.classList.add('moving');
@@ -2294,6 +2304,9 @@ PB.board = (() => {
     const slotEl = ensureOverlay('drop-slot');
     slotEl.hidden = !slot;
     if (slot) Object.assign(slotEl.style, { left: `${slot.x}px`, top: `${slot.top}px`, width: `${slot.width}px`, height: `${C.BAR_HEIGHT}px` });
+    const lineEl = ensureOverlay('drop-line');
+    lineEl.hidden = !line;
+    if (line) Object.assign(lineEl.style, { left: `${line.x}px`, top: `${line.top}px`, width: `${line.width}px` });
 
     const anchor = frame
       ? dom.world.querySelector(`.tl-frame[data-theme="${CSS.escape(frame.themeId)}"][data-priority="${frame.priority}"]`)
@@ -2319,7 +2332,7 @@ PB.board = (() => {
       el.style.transform = '';
     });
     dom.world.querySelectorAll('.tl-band.drop').forEach((el) => el.classList.remove('drop'));
-    dom.world.querySelectorAll('.drag-hint, .drop-slot').forEach((el) => el.remove());
+    dom.world.querySelectorAll('.drag-hint, .drop-slot, .drop-line').forEach((el) => el.remove());
   }
 
   /** Aktuelles Layout (nur lesen) – für Interaktionen, die Zeilen und Bänder brauchen. */
@@ -2805,7 +2818,7 @@ PB.sidebar = (() => {
     <h3>Bedienen</h3>
     <ul class="help">
       <li><b>Balken frei ziehen</b>: waagrecht = Start, senkrecht = Priorität oder Zeile im selben Band. Ein gestrichelter Platzhalter zeigt, wo er landet; ist die Zeile belegt, wird er eingeschoben. Abhängigkeiten verschieben nichts automatisch; ein <b>oranger Pfeil</b> zeigt, wenn etwas vor dem Ende seines Vorgängers startet.</li>
-      <li><b>Gruppe verschieben</b>: an der Kopfzeile eines Rahmens ziehen – alle Aufgaben des Rahmens wandern mit (zeitlich und in ein anderes Prio-Band). Ein Klick darauf öffnet das Thema.</li>
+      <li><b>Gruppe verschieben</b>: an der Kopfzeile eines Rahmens ziehen – alle Aufgaben des Rahmens wandern mit (zeitlich und in ein anderes Prio-Band). Im selben Band nach oben/unten ziehen ändert die Reihenfolge der Rahmen (eine Linie zeigt die Einfügestelle). Ein Klick darauf öffnet das Thema.</li>
       <li><b>Mehrere auswählen</b>: Strg/⌘ oder Shift + Klick, oder <b>Shift + Ziehen</b> auf freier Fläche. Ein ausgewählter Balken zieht alle anderen mit; im Panel lassen sich Thema, Priorität, Status und Arbeitsweise gemeinsam setzen.</li>
       <li><b>Rechte Kante</b> = Dauer, <b>gestrichelte Kante</b> = Puffer.</li>
       <li><b>Punkt am Ende ziehen</b> und auf einer Aufgabe loslassen = Abhängigkeit. Der Punkt an einer <b>Iterationsgrenze</b> heisst: „braucht nur bis hier“.</li>
@@ -3428,8 +3441,30 @@ PB.interactions = (() => {
   }
 
   /**
-   * Ganzen Rahmen (alle Aufgaben eines Themas in diesem Band) verschieben: zeitlich und in ein
-   * anderes Band. Im Ziel-Band werden die Zeilen unter einen bestehenden Rahmen desselben Themas gehängt.
+   * Einordnung eines gezogenen Rahmens unter die anderen Rahmen desselben Bands.
+   * Liefert die neue Themen-Reihenfolge des Bands und die Linie, an der eingefügt wird.
+   */
+  function frameInsertion(layout, themeId, priority, centerY) {
+    const frames = layout.frames.filter((f) => f.priority === priority).sort((a, b) => a.y - b.y);
+    const self = frames.find((f) => f.themeId === themeId);
+    const others = frames.filter((f) => f !== self);
+    const index = others.filter((f) => f.y + f.height / 2 < centerY).length;
+    const order = others.map((f) => f.themeId);
+    order.splice(index, 0, themeId);
+    const lineY = index < others.length
+      ? others[index].y - C.SECTION_GAP / 2
+      : (others.length ? others[others.length - 1].y + others[others.length - 1].height : self.y) + C.SECTION_GAP / 2;
+    const left = Math.min(...frames.map((f) => f.x));
+    const right = Math.max(...frames.map((f) => f.x + f.width));
+    const unchanged = order.every((id, i) => id === frames[i].themeId);
+    return { order, unchanged, line: { x: left, top: lineY - 2, width: right - left } };
+  }
+
+  /**
+   * Ganzen Rahmen (alle Aufgaben eines Themas in diesem Band) verschieben:
+   *  - waagrecht: zeitlich
+   *  - senkrecht im selben Band: Reihenfolge der Rahmen ändern (Linie zeigt die Einfügestelle)
+   *  - in ein anderes Band: Zeilen werden unter einen bestehenden Rahmen desselben Themas gehängt
    * Ein Klick ohne Bewegung öffnet das Thema.
    */
   function startFrameMove(event, themeId, priority) {
@@ -3438,11 +3473,15 @@ PB.interactions = (() => {
     if (!members.length) return;
     const earliest = Math.min(...members.map((t) => t.start));
     const title = model.getTheme(themeId).title;
+    const frame = layout.frames.find((f) => f.themeId === themeId && f.priority === priority);
 
     dragWithPreview(event, (p, origin) => {
       const days = daysBetween(origin.x, p.x);
       const target = PB.layout.priorityAt(layout, p.y);
-      const rowOffset = target === priority ? 0 : PB.layout.rowsIn(layout, target, themeId);
+      const sameBand = target === priority;
+      const rowOffset = sameBand ? 0 : PB.layout.rowsIn(layout, target, themeId);
+      const insertion = sameBand ? frameInsertion(layout, themeId, priority, frame.y + frame.height / 2 + (p.y - origin.y)) : null;
+      const reorder = insertion && !insertion.unchanged;
       const moves = members.map((t) => ({
         id: t.id,
         start: Math.max(0, t.start + days),
@@ -3458,12 +3497,13 @@ PB.interactions = (() => {
           start: Math.max(0, earliest + days),
           label: `${title} · `,
           frame: { themeId, priority },
+          line: reorder ? insertion.line : null,
         },
         commit: () => {
           const patches = new Map();
           layout.boxes.forEach((box, id) => patches.set(id, { row: box.row }));
           moves.forEach((m) => patches.set(m.id, { start: m.start, priority: m.priority, row: m.row }));
-          if (days !== 0 || target !== priority) model.arrangeTasks(patches);
+          if (days !== 0 || !sameBand || reorder) model.arrangeTasks(patches, { themeOrder: reorder ? insertion.order : null });
         },
       };
     }, () => actions.select('theme', themeId));

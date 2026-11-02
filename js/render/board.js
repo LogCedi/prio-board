@@ -302,10 +302,11 @@ PB.board = (() => {
    * Vorschau beim Verschieben: Balken (und ggf. ein Rahmen) folgen der Maus per CSS-Transform,
    * ohne neu zu zeichnen. Ziel-Band und Zielzeile (gestrichelter Platzhalter) werden markiert,
    * ein Etikett über dem gegriffenen Element zeigt Priorität und Start.
-   *   preview = { ids, dx, dy, priority, start, label?, frame?: { themeId, priority }, slot?: { x, top, width } }
+   *   preview = { ids, dx, dy, priority, start, label?, frame?: { themeId, priority },
+   *               slot?: { x, top, width }, line?: { x, top, width } }   (line = Einfügestelle für Rahmen)
    *   ids[0] ist das gegriffene Element (Position des Etiketts).
    */
-  function showMovePreview({ ids, dx, dy, priority, start, label = '', frame = null, slot = null }) {
+  function showMovePreview({ ids, dx, dy, priority, start, label = '', frame = null, slot = null, line = null }) {
     const moving = new Set(ids);
     const transform = `translate(${dx}px, ${dy}px)`;
     dom.world.classList.add('moving');
@@ -324,6 +325,9 @@ PB.board = (() => {
     const slotEl = ensureOverlay('drop-slot');
     slotEl.hidden = !slot;
     if (slot) Object.assign(slotEl.style, { left: `${slot.x}px`, top: `${slot.top}px`, width: `${slot.width}px`, height: `${C.BAR_HEIGHT}px` });
+    const lineEl = ensureOverlay('drop-line');
+    lineEl.hidden = !line;
+    if (line) Object.assign(lineEl.style, { left: `${line.x}px`, top: `${line.top}px`, width: `${line.width}px` });
 
     const anchor = frame
       ? dom.world.querySelector(`.tl-frame[data-theme="${CSS.escape(frame.themeId)}"][data-priority="${frame.priority}"]`)
@@ -349,7 +353,7 @@ PB.board = (() => {
       el.style.transform = '';
     });
     dom.world.querySelectorAll('.tl-band.drop').forEach((el) => el.classList.remove('drop'));
-    dom.world.querySelectorAll('.drag-hint, .drop-slot').forEach((el) => el.remove());
+    dom.world.querySelectorAll('.drag-hint, .drop-slot, .drop-line').forEach((el) => el.remove());
   }
 
   /** Aktuelles Layout (nur lesen) – für Interaktionen, die Zeilen und Bänder brauchen. */

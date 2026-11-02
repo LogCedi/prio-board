@@ -364,14 +364,22 @@ PB.model = (() => {
   /**
    * Mehrere Aufgaben gleichzeitig ändern (z. B. Start, Priorität, Zeile nach dem Verschieben)
    * – ein Historieneintrag. patches = Map<taskId, Teiländerung>.
+   * themeOrder (optional): neue Reihenfolge einiger Themen; sie nehmen die Plätze ein,
+   * die diese Themen bisher in der Themenliste hatten (andere Themen bleiben, wo sie sind).
    */
-  function arrangeTasks(patches) {
-    if (!patches.size) return;
+  function arrangeTasks(patches, { themeOrder = null } = {}) {
+    if (!patches.size && !themeOrder) return;
     checkpoint();
     patches.forEach((patch, id) => {
       const task = getTask(id);
       if (task) Object.assign(task, patch);
     });
+    if (themeOrder) {
+      const slots = state.themes.map((t, i) => (themeOrder.includes(t.id) ? i : -1)).filter((i) => i >= 0);
+      const reordered = [...state.themes];
+      themeOrder.forEach((id, i) => { reordered[slots[i]] = getTheme(id); });
+      state.themes = reordered;
+    }
     commit({ type: 'layout' });
   }
 
