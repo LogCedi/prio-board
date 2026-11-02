@@ -108,7 +108,7 @@ PB.diagramStyles = (() => {
 .pb-world .pb-links{position:absolute;left:0;top:0;z-index:5;pointer-events:none;overflow:visible}
 .pb-world .pb-links .hit{fill:none;stroke:transparent;stroke-width:14}
 .pb-world .pb-links .vis{fill:none;stroke:var(--link);stroke-width:2;marker-end:url(#m-def)}
-.pb-world .pb-links .link.via-theme .vis{stroke-dasharray:2 4}
+.pb-world .pb-links .link.via-theme .vis{stroke-width:2.6;stroke-dasharray:8 4}
 .pb-world .pb-links .link.done .vis{stroke:var(--link-done);stroke-dasharray:5 4;marker-end:url(#m-done)}
 .pb-world .pb-links .link.risky .vis{stroke:var(--risky);stroke-width:2.4;marker-end:url(#m-risky)}
 .pb-world .pb-links .link.bad .vis{stroke:var(--bad);marker-end:url(#m-bad)}

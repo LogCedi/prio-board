@@ -10,11 +10,12 @@ PB.example = {
   view: { zoom: 1 },
   themes: [
     { id: 'th-skalierung', title: 'Skalierung', color: '#7b5ea7' },
+    { id: 'th-betrieb', title: 'Betrieb', color: '#e07a1f' },
   ],
   tasks: [
     {
       id: 't-quickwin-monitoring', kind: 'implementation', title: 'Quick Win: Monitoring-Alerts anpassen',
-      description: 'Keine Abhängigkeit – sofort machbar', priority: 1, durationDays: 2,
+      description: 'Keine Abhängigkeit – sofort machbar', priority: 1, durationDays: 2, theme: 'th-betrieb',
     },
     {
       id: 't-ui-zielarchitektur', kind: 'thinking', title: 'UI-Zielarchitektur',
@@ -57,7 +58,7 @@ PB.example = {
     },
     {
       id: 't-logging', kind: 'implementation', title: 'Logging vereinheitlichen',
-      priority: 4, durationDays: 5,
+      priority: 1, durationDays: 5, theme: 'th-betrieb',
     },
   ],
   dependencies: [
@@ -67,5 +68,6 @@ PB.example = {
     { id: 'd-prozess-komplett', from: 't-denken-prozessdaten', to: 't-umsetzung-prozess' },
     { id: 'd-harness', from: 't-denken-harness', to: 't-umsetzung-harness' },
     { id: 'd-quickwin-logging', from: 't-quickwin-monitoring', to: 't-logging' },
+    { id: 'd-betrieb-skalierung', from: 'th-betrieb', to: 'th-skalierung' },
   ],
 };

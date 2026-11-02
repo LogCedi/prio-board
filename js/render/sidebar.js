@@ -354,6 +354,7 @@ PB.sidebar = (() => {
       <li>Nachfolger werden automatisch <b>nach rechts geschoben</b>, wenn sie sonst zu früh starten würden.</li>
       <li><b>Doppelklick</b> auf eine freie Stelle = neue Aufgabe an diesem Tag in diesem Prio-Band.</li>
       <li><b>Klick auf einen Rahmen-Namen</b> öffnet das Thema. Eine Abhängigkeit auf ein Thema gilt für alle Aufgaben darin.</li>
+      <li><b>Thema → Thema</b>: Punkt rechts am Rahmen ziehen und in einem anderen Rahmen loslassen – ein Pfeil statt vieler. Loslassen auf einem Balken verbindet Thema → Aufgabe, ein Balken-Punkt in einen Rahmen gezogen verbindet Aufgabe → Thema.</li>
       <li><b>Hover</b> zeigt, was vorher nötig ist (orange) und was blockiert wird (blau).</li>
     </ul>
     <h3>Tastatur</h3>

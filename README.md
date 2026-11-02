@@ -33,7 +33,7 @@ node tools/build.mjs
 | Abschnitte im Balken | Iterationen mit eigener Intensität (✓ = erledigt, aufgehellt) |
 | Rahmen mit Namen | Thema (Aufgaben eines Themas liegen im Band zusammen) |
 | 🔓 n | Hebel: gibt n offene Umsetzungen frei |
-| Pfeil grau / gepunktet | Abhängigkeit / über ein Thema |
+| Pfeil grau / gestrichelt | Abhängigkeit zwischen Aufgaben / mit einem Thema (ein Pfeil von Rahmen zu Rahmen) |
 | Pfeil orange | riskant: startet im Puffer des Vorgängers |
 | Hover | Orange = wird vorher benötigt, Blau = wird dadurch blockiert |
 
@@ -50,6 +50,8 @@ Diagonale von oben links nach unten rechts.
 | Shift + Ziehen auf freier Fläche | Auswahlrechteck |
 | Ausgewählten Balken ziehen | Alle ausgewählten gemeinsam verschieben |
 | Klick auf Rahmen-Namen | Thema öffnen (Farbe, Mitglieder, Abhängigkeiten) |
+| Punkt rechts am Rahmen ziehen → in anderem Rahmen loslassen | Abhängigkeit Thema → Thema (ein Pfeil; gilt für alle Aufgaben) |
+| Balken-Punkt in einen Rahmen ziehen | Abhängigkeit Aufgabe → Thema |
 | Rechte Kante / gestricheltes Ende ziehen | Dauer / Puffer ändern |
 | Punkt am Ende ziehen → auf Aufgabe loslassen | Abhängigkeit anlegen |
 | Punkt an einer Iterationsgrenze ziehen | „braucht nur bis zu dieser Iteration“ |

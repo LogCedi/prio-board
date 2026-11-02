@@ -2,7 +2,7 @@
   "$schema": "../schema/prio-board.schema.json",
   "format": "prio-board",
   "version": 3,
-  "exportedAt": "2026-11-02T12:37:12.321Z",
+  "exportedAt": "2026-11-02T12:53:08.548Z",
   "board": {
     "title": "IT-Priorisierung"
   },
@@ -14,6 +14,11 @@
       "id": "th-skalierung",
       "title": "Skalierung",
       "color": "#7b5ea7"
+    },
+    {
+      "id": "th-betrieb",
+      "title": "Betrieb",
+      "color": "#e07a1f"
     }
   ],
   "tasks": [
@@ -31,7 +36,7 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "theme": null
+      "theme": "th-betrieb"
     },
     {
       "id": "t-ui-zielarchitektur",
@@ -188,14 +193,14 @@
       "description": "",
       "notes": [],
       "status": "open",
-      "priority": 4,
+      "priority": 1,
       "start": "2026-11-04",
       "durationDays": 5,
       "bufferDays": 0,
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "theme": null
+      "theme": "th-betrieb"
     }
   ],
   "dependencies": [
@@ -234,6 +239,12 @@
       "from": "t-quickwin-monitoring",
       "to": "t-logging",
       "fromIteration": null
+    },
+    {
+      "id": "d-betrieb-skalierung",
+      "from": "th-betrieb",
+      "to": "th-skalierung",
+      "fromIteration": null
     }
   ],
   "analysis": {
@@ -245,7 +256,7 @@
         "durationDays": 2,
         "wave": 1,
         "state": "ready",
-        "leverage": 1,
+        "leverage": 4,
         "blockedBy": []
       },
       "t-ui-zielarchitektur": {
@@ -267,59 +278,69 @@
       "t-denken-prozessdaten": {
         "end": "2026-12-07",
         "durationDays": 15,
-        "wave": 2,
+        "wave": 3,
         "state": "waiting",
         "leverage": 2,
         "blockedBy": [
           "t-ui-zielarchitektur",
-          "t-lz"
+          "t-lz",
+          "t-quickwin-monitoring",
+          "t-logging"
         ]
       },
       "t-umsetzung-level1": {
         "end": "2026-11-30",
         "durationDays": 5,
-        "wave": 3,
+        "wave": 4,
         "state": "waiting",
         "leverage": 0,
         "blockedBy": [
           "t-ui-zielarchitektur",
           "t-lz",
-          "t-denken-prozessdaten"
+          "t-denken-prozessdaten",
+          "t-quickwin-monitoring",
+          "t-logging"
         ]
       },
       "t-umsetzung-prozess": {
         "end": "2026-12-21",
         "durationDays": 10,
-        "wave": 3,
+        "wave": 4,
         "state": "waiting",
         "leverage": 0,
         "blockedBy": [
           "t-ui-zielarchitektur",
           "t-lz",
-          "t-denken-prozessdaten"
+          "t-denken-prozessdaten",
+          "t-quickwin-monitoring",
+          "t-logging"
         ]
       },
       "t-denken-harness": {
         "end": "2026-11-30",
         "durationDays": 10,
-        "wave": 2,
+        "wave": 3,
         "state": "waiting",
         "leverage": 1,
         "blockedBy": [
           "t-ui-zielarchitektur",
-          "t-lz"
+          "t-lz",
+          "t-quickwin-monitoring",
+          "t-logging"
         ]
       },
       "t-umsetzung-harness": {
         "end": "2026-12-14",
         "durationDays": 10,
-        "wave": 3,
+        "wave": 4,
         "state": "waiting",
         "leverage": 0,
         "blockedBy": [
           "t-ui-zielarchitektur",
           "t-lz",
-          "t-denken-harness"
+          "t-denken-harness",
+          "t-quickwin-monitoring",
+          "t-logging"
         ]
       },
       "t-logging": {
@@ -327,7 +348,7 @@
         "durationDays": 5,
         "wave": 2,
         "state": "waiting",
-        "leverage": 0,
+        "leverage": 3,
         "blockedBy": [
           "t-quickwin-monitoring"
         ]
@@ -340,9 +361,11 @@
         "t-lz"
       ],
       [
-        "t-denken-prozessdaten",
-        "t-denken-harness",
         "t-logging"
+      ],
+      [
+        "t-denken-prozessdaten",
+        "t-denken-harness"
       ],
       [
         "t-umsetzung-level1",

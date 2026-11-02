@@ -90,6 +90,9 @@ aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
 #world .tl-frame-label{pointer-events:auto;cursor:pointer;padding:0 4px;border-radius:6px}
 #world .tl-frame-label:hover{background:rgba(255,255,255,.9)}
 #world .tl-frame.selected{box-shadow:0 0 0 3px var(--sel)}
+#world .tl-frame.drop{box-shadow:0 0 0 3px var(--sel);background:rgba(0,159,227,.08)}
+#world .theme-port{pointer-events:auto;left:auto;right:-9px;top:12px;border-color:var(--c);opacity:.7}
+#world .theme-port:hover{background:var(--c);border-color:var(--c);opacity:1}
 #world .lasso{position:absolute;z-index:50;border:1.5px dashed var(--sel);background:rgba(0,159,227,.08);border-radius:4px;pointer-events:none}
 
 /* Griffe an Balken: Dauer (rechte Kante), Puffer (Ende gestrichelt), Abhängigkeit (Punkte) */
@@ -1588,11 +1591,12 @@ PB.example = {
   view: { zoom: 1 },
   themes: [
     { id: 'th-skalierung', title: 'Skalierung', color: '#7b5ea7' },
+    { id: 'th-betrieb', title: 'Betrieb', color: '#e07a1f' },
   ],
   tasks: [
     {
       id: 't-quickwin-monitoring', kind: 'implementation', title: 'Quick Win: Monitoring-Alerts anpassen',
-      description: 'Keine Abhängigkeit – sofort machbar', priority: 1, durationDays: 2,
+      description: 'Keine Abhängigkeit – sofort machbar', priority: 1, durationDays: 2, theme: 'th-betrieb',
     },
     {
       id: 't-ui-zielarchitektur', kind: 'thinking', title: 'UI-Zielarchitektur',
@@ -1635,7 +1639,7 @@ PB.example = {
     },
     {
       id: 't-logging', kind: 'implementation', title: 'Logging vereinheitlichen',
-      priority: 4, durationDays: 5,
+      priority: 1, durationDays: 5, theme: 'th-betrieb',
     },
   ],
   dependencies: [
@@ -1645,6 +1649,7 @@ PB.example = {
     { id: 'd-prozess-komplett', from: 't-denken-prozessdaten', to: 't-umsetzung-prozess' },
     { id: 'd-harness', from: 't-denken-harness', to: 't-umsetzung-harness' },
     { id: 'd-quickwin-logging', from: 't-quickwin-monitoring', to: 't-logging' },
+    { id: 'd-betrieb-skalierung', from: 'th-betrieb', to: 'th-skalierung' },
   ],
 };
 </script>
@@ -1760,7 +1765,7 @@ PB.diagramStyles = (() => {
 .pb-world .pb-links{position:absolute;left:0;top:0;z-index:5;pointer-events:none;overflow:visible}
 .pb-world .pb-links .hit{fill:none;stroke:transparent;stroke-width:14}
 .pb-world .pb-links .vis{fill:none;stroke:var(--link);stroke-width:2;marker-end:url(#m-def)}
-.pb-world .pb-links .link.via-theme .vis{stroke-dasharray:2 4}
+.pb-world .pb-links .link.via-theme .vis{stroke-width:2.6;stroke-dasharray:8 4}
 .pb-world .pb-links .link.done .vis{stroke:var(--link-done);stroke-dasharray:5 4;marker-end:url(#m-done)}
 .pb-world .pb-links .link.risky .vis{stroke:var(--risky);stroke-width:2.4;marker-end:url(#m-risky)}
 .pb-world .pb-links .link.bad .vis{stroke:var(--bad);marker-end:url(#m-bad)}
@@ -1942,11 +1947,13 @@ PB.board = (() => {
       <div class="tl-corner"><b>Prio ↓</b><br>Zeit →</div><div class="tl-today"></div>`;
   }
 
-  function framesHtml(layout) {
+  function framesHtml(layout, interactive) {
     return layout.frames.map((f) => {
       const theme = model.getTheme(f.themeId);
+      const port = interactive
+        ? '<div class="port theme-port" title="Ziehen: ganzes Thema → Aufgabe oder anderes Thema"></div>' : '';
       return `<div class="tl-frame" data-theme="${esc(theme.id)}" style="left:${f.x}px;top:${f.y}px;width:${f.width}px;height:${f.height}px;--c:${theme.color}">
-        <span class="tl-frame-label"><i></i>${esc(theme.title)}</span></div>`;
+        <span class="tl-frame-label"><i></i>${esc(theme.title)}</span>${port}</div>`;
     }).join('');
   }
 
@@ -2021,38 +2028,54 @@ PB.board = (() => {
     return `M${x1},${y1} C${x1 + k},${y1} ${x2 - k},${y2} ${x2 - 2},${y2}`;
   }
 
-  /** Startpunkt eines Pfeils: Ende der Aufgabe (Mitte) oder Ende einer Iteration (unten). */
-  function linkStart(task, box, iteration) {
-    const x = L.dayX(model.iterationEnd(task, iteration));
+  /**
+   * Ankerpunkte für Pfeile. Ein Thema wird über seinen Rahmen angebunden:
+   * ausgehend am rechten Rand des am weitesten rechts endenden Rahmens,
+   * eingehend am linken Rand des am weitesten links beginnenden Rahmens (jeweils auf Höhe des Namens).
+   */
+  function sourcePoint(layout, id, iteration) {
+    if (model.isTheme(id)) {
+      const frames = layout.frames.filter((f) => f.themeId === id);
+      if (!frames.length) return null;
+      const f = frames.reduce((best, x) => (x.x + x.width > best.x + best.width ? x : best));
+      return { x: f.x + f.width, y: f.y + C.FRAME_HEADER / 2 };
+    }
+    const box = layout.boxes.get(id);
+    if (!box) return null;
+    const x = L.dayX(model.iterationEnd(model.getTask(id), iteration));
     return { x, y: iteration !== null ? box.y + C.BAR_HEIGHT - 8 : box.y + C.BAR_HEIGHT / 2 };
   }
 
-  /**
-   * Themen-Abhängigkeiten nur dort zeichnen, wo sie im Thema „ankommen“ bzw. es „verlassen“:
-   * Mitglieder mit einem Vorgänger (bzw. Nachfolger) im selben Thema hängen ohnehin indirekt daran.
-   */
-  function isVisibleEdge(e, a) {
-    if (!e.viaTheme) return true;
-    const dep = model.getDependency(e.depId);
-    const inTheme = (themeId, taskId) => model.isTheme(themeId) && model.getTask(taskId).theme === themeId;
-    const entersInside = [...a.predecessors.get(e.to)].some((p) => inTheme(dep.to, p));
-    const leavesInside = [...a.successors.get(e.from)].some((s) => inTheme(dep.from, s));
-    return !(model.isTheme(dep.to) && entersInside) && !(model.isTheme(dep.from) && leavesInside);
+  function targetPoint(layout, id) {
+    if (model.isTheme(id)) {
+      const frames = layout.frames.filter((f) => f.themeId === id);
+      if (!frames.length) return null;
+      const f = frames.reduce((best, x) => (x.x < best.x ? x : best));
+      return { x: f.x, y: f.y + C.FRAME_HEADER / 2 };
+    }
+    const box = layout.boxes.get(id);
+    return box ? { x: box.x, y: box.y + C.BAR_HEIGHT / 2 } : null;
   }
 
+  /**
+   * Ein Pfeil pro Abhängigkeit – auch wenn Themen beteiligt sind (statt eines Pfeils je Aufgabe).
+   * data-from/data-to enthalten die betroffenen Aufgaben (für Hervorhebungen).
+   */
   function linksHtml(a, layout) {
-    return a.edges.filter((e) => isVisibleEdge(e, a)).map((e) => {
-      const from = model.getTask(e.from);
-      const fromBox = layout.boxes.get(e.from);
-      const toBox = layout.boxes.get(e.to);
-      const start = linkStart(from, fromBox, e.iteration);
-      const d = linkPath(start.x, start.y, toBox.x, toBox.y + C.BAR_HEIGHT / 2);
-      const classes = ['link',
-        e.viaTheme && 'via-theme',
-        from.status === 'done' && 'done',
-        a.cycle.has(e.from) && a.cycle.has(e.to) && 'bad',
-        a.isRisky(e.from, e.to) && 'risky'].filter(Boolean).join(' ');
-      return `<g class="${classes}" data-dep="${esc(e.depId)}" data-from="${esc(e.from)}" data-to="${esc(e.to)}">
+    return model.getState().dependencies.map((dep) => {
+      const iteration = model.isTheme(dep.from) ? null : dep.fromIteration;
+      const start = sourcePoint(layout, dep.from, iteration);
+      const end = targetPoint(layout, dep.to);
+      if (!start || !end) return '';
+      const fromTasks = model.tasksOf(dep.from);
+      const toTasks = model.tasksOf(dep.to);
+      const viaTheme = model.isTheme(dep.from) || model.isTheme(dep.to);
+      const done = fromTasks.length > 0 && fromTasks.every((id) => model.getTask(id).status === 'done');
+      const bad = fromTasks.some((f) => a.cycle.has(f)) && toTasks.some((t) => a.cycle.has(t));
+      const risky = !viaTheme && a.isRisky(dep.from, dep.to);
+      const classes = ['link', viaTheme && 'via-theme', done && 'done', bad && 'bad', risky && 'risky'].filter(Boolean).join(' ');
+      const d = linkPath(start.x, start.y, end.x, end.y);
+      return `<g class="${classes}" data-dep="${esc(dep.id)}" data-from="${esc(fromTasks.join(' '))}" data-to="${esc(toTasks.join(' '))}">
         <path class="hit" d="${d}"/><path class="vis" d="${d}"/></g>`;
     }).join('');
   }
@@ -2062,7 +2085,7 @@ PB.board = (() => {
     const layout = L.compute();
     const bars = model.getState().tasks.map((t) => barHtml(t, layout.boxes.get(t.id), a, layout, interactive)).join('');
     const extras = interactive ? '<path id="draftLink" class="draft" d="" style="display:none"/>' : '';
-    const html = `${gridHtml(layout)}${framesHtml(layout)}
+    const html = `${gridHtml(layout)}${framesHtml(layout, interactive)}
       <svg class="pb-links" width="${layout.width}" height="${layout.height}" xmlns="http://www.w3.org/2000/svg">
         <defs>${PB.diagramStyles.markerDefs()}</defs>${linksHtml(a, layout)}${extras}</svg>
       ${bars}${interactive ? '<div id="lasso" class="lasso" hidden></div>' : ''}`;
@@ -2095,11 +2118,21 @@ PB.board = (() => {
 
   function showDraftLink(fromId, iteration, point) {
     const draft = dom.world.querySelector('#draftLink');
-    const box = current.boxes.get(fromId);
-    if (!draft || !box) return;
-    const start = linkStart(model.getTask(fromId), box, iteration);
+    const start = sourcePoint(current, fromId, iteration);
+    if (!draft || !start) return;
     draft.style.display = '';
     draft.setAttribute('d', linkPath(start.x, start.y, point.x, point.y));
+  }
+
+  /** Thema, dessen Rahmen den Punkt enthält (für Abhängigkeiten auf ein Thema). */
+  function themeAt(point) {
+    const frame = current.frames.find((f) => point.x >= f.x && point.x <= f.x + f.width && point.y >= f.y && point.y <= f.y + f.height);
+    return frame ? frame.themeId : null;
+  }
+
+  /** Rahmen als Ziel beim Ziehen eines Pfeils markieren (null = keiner). */
+  function markDropTheme(themeId) {
+    dom.world.querySelectorAll('.tl-frame').forEach((el) => el.classList.toggle('drop', el.dataset.theme === themeId));
   }
 
   function hideDraftLink() {
@@ -2145,7 +2178,8 @@ PB.board = (() => {
     const rule = highlightRule();
     if (!rule) return;
     bars.forEach((el) => el.classList.add(rule.taskClass(el.dataset.id) || 'dim'));
-    links.forEach((el) => el.classList.add(rule.linkClass(el.dataset.from, el.dataset.to) || 'dim'));
+    const ids = (value) => (value ? value.split(' ') : []);
+    links.forEach((el) => el.classList.add(rule.linkClass(ids(el.dataset.from), ids(el.dataset.to)) || 'dim'));
   }
 
   function highlightRule() {
@@ -2156,8 +2190,9 @@ PB.board = (() => {
       return {
         taskClass: (id) => (focus.has(id) ? 'hl' : up.has(id) ? 'up' : down.has(id) ? 'down' : null),
         linkClass: (from, to) => {
-          if (up.has(from) && (up.has(to) || focus.has(to))) return 'up';
-          if ((focus.has(from) || down.has(from)) && down.has(to)) return 'down';
+          const any = (list, set) => list.some((id) => set.has(id));
+          if (any(from, up) && (any(to, up) || any(to, focus))) return 'up';
+          if ((any(from, focus) || any(from, down)) && any(to, down)) return 'down';
           return null;
         },
       };
@@ -2169,7 +2204,7 @@ PB.board = (() => {
       const index = new Map(analysis.criticalPath.map((id, i) => [id, i]));
       return {
         taskClass: (id) => (index.has(id) ? 'crit' : null),
-        linkClass: (from, to) => (index.has(from) && index.get(to) === index.get(from) + 1 ? 'crit' : null),
+        linkClass: (from, to) => (from.some((f) => index.has(f) && to.some((t) => index.get(t) === index.get(f) + 1)) ? 'crit' : null),
       };
     }
     return null;
@@ -2228,7 +2263,7 @@ PB.board = (() => {
 
   return {
     markup,
-    init, render, applyView, showDraftLink, hideDraftLink, showLasso, applySelection, applyHighlight,
+    init, render, applyView, showDraftLink, hideDraftLink, themeAt, markDropTheme, showLasso, applySelection, applyHighlight,
     toWorld, dayAt: L.dayAt, priorityAt, viewportCenter, setZoom, fit, scrollTo,
   };
 })();
@@ -2591,6 +2626,7 @@ PB.sidebar = (() => {
       <li>Nachfolger werden automatisch <b>nach rechts geschoben</b>, wenn sie sonst zu früh starten würden.</li>
       <li><b>Doppelklick</b> auf eine freie Stelle = neue Aufgabe an diesem Tag in diesem Prio-Band.</li>
       <li><b>Klick auf einen Rahmen-Namen</b> öffnet das Thema. Eine Abhängigkeit auf ein Thema gilt für alle Aufgaben darin.</li>
+      <li><b>Thema → Thema</b>: Punkt rechts am Rahmen ziehen und in einem anderen Rahmen loslassen – ein Pfeil statt vieler. Loslassen auf einem Balken verbindet Thema → Aufgabe, ein Balken-Punkt in einen Rahmen gezogen verbindet Aufgabe → Thema.</li>
       <li><b>Hover</b> zeigt, was vorher nötig ist (orange) und was blockiert wird (blau).</li>
     </ul>
     <h3>Tastatur</h3>
@@ -3009,7 +3045,8 @@ PB.dialog = (() => {
  *  - Strg/⌘/Shift + Klick: Balken zur Auswahl hinzufügen/entfernen
  *  - Shift + Ziehen auf leerer Fläche: Auswahlrechteck
  *  - rechte Kante = Dauer, gestrichelte Kante = Puffer
- *  - Punkt am Ende (oder an einer Iterationsgrenze) ziehen = Abhängigkeit
+ *  - Punkt am Ende (oder an einer Iterationsgrenze) ziehen = Abhängigkeit;
+ *    Punkt am Rahmen ziehen = Abhängigkeit des ganzen Themas; Loslassen im Rahmen = auf das Thema
  *  - Klick auf ein Rahmen-Etikett = Thema auswählen
  *  - leere Fläche ziehen = verschieben, Doppelklick = neue Aufgabe, Strg+Mausrad = Zoom
  */
@@ -3050,6 +3087,8 @@ PB.interactions = (() => {
       if (event.ctrlKey || event.metaKey || event.shiftKey) return actions.toggleTask(id);
       return startMove(event, id);
     }
+    const themePort = target.closest('.theme-port');
+    if (themePort && event.button === 0) return startLink(event, themePort.parentElement.dataset.theme, null);
     const frameLabel = target.closest('.tl-frame-label');
     if (frameLabel) return actions.select('theme', frameLabel.parentElement.dataset.theme);
     const link = target.closest('.link');
@@ -3171,6 +3210,10 @@ PB.interactions = (() => {
 
   /* ---------- Abhängigkeit ziehen ---------- */
 
+  /**
+   * Pfeil ziehen – von einer Aufgabe (optional ab einer Iteration) oder einem Thema (Rahmen-Punkt).
+   * Ziel ist der Balken unter dem Zeiger, sonst das Thema, in dessen Rahmen losgelassen wird.
+   */
   function startLink(event, fromId, iteration) {
     event.preventDefault();
     event.stopPropagation();
@@ -3178,13 +3221,22 @@ PB.interactions = (() => {
     document.body.classList.add('linking');
     board.applyHighlight();
 
+    const targetAt = (e) => {
+      const bar = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bar');
+      if (bar) return { id: bar.dataset.id, theme: null };
+      const theme = board.themeAt(board.toWorld(e.clientX, e.clientY));
+      return { id: theme, theme };
+    };
+
     track((e) => {
       board.showDraftLink(fromId, iteration, board.toWorld(e.clientX, e.clientY));
+      board.markDropTheme(targetAt(e).theme);
     }, (e) => {
       document.body.classList.remove('linking');
       board.hideDraftLink();
-      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bar');
-      if (target && target.dataset.id !== fromId) actions.addDependency(fromId, target.dataset.id, iteration);
+      board.markDropTheme(null);
+      const target = targetAt(e).id;
+      if (target && target !== fromId) actions.addDependency(fromId, target, iteration);
       else board.applyHighlight();
     });
   }

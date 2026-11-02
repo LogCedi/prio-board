@@ -4,7 +4,8 @@
  *  - Strg/⌘/Shift + Klick: Balken zur Auswahl hinzufügen/entfernen
  *  - Shift + Ziehen auf leerer Fläche: Auswahlrechteck
  *  - rechte Kante = Dauer, gestrichelte Kante = Puffer
- *  - Punkt am Ende (oder an einer Iterationsgrenze) ziehen = Abhängigkeit
+ *  - Punkt am Ende (oder an einer Iterationsgrenze) ziehen = Abhängigkeit;
+ *    Punkt am Rahmen ziehen = Abhängigkeit des ganzen Themas; Loslassen im Rahmen = auf das Thema
  *  - Klick auf ein Rahmen-Etikett = Thema auswählen
  *  - leere Fläche ziehen = verschieben, Doppelklick = neue Aufgabe, Strg+Mausrad = Zoom
  */
@@ -45,6 +46,8 @@ PB.interactions = (() => {
       if (event.ctrlKey || event.metaKey || event.shiftKey) return actions.toggleTask(id);
       return startMove(event, id);
     }
+    const themePort = target.closest('.theme-port');
+    if (themePort && event.button === 0) return startLink(event, themePort.parentElement.dataset.theme, null);
     const frameLabel = target.closest('.tl-frame-label');
     if (frameLabel) return actions.select('theme', frameLabel.parentElement.dataset.theme);
     const link = target.closest('.link');
@@ -166,6 +169,10 @@ PB.interactions = (() => {
 
   /* ---------- Abhängigkeit ziehen ---------- */
 
+  /**
+   * Pfeil ziehen – von einer Aufgabe (optional ab einer Iteration) oder einem Thema (Rahmen-Punkt).
+   * Ziel ist der Balken unter dem Zeiger, sonst das Thema, in dessen Rahmen losgelassen wird.
+   */
   function startLink(event, fromId, iteration) {
     event.preventDefault();
     event.stopPropagation();
@@ -173,13 +180,22 @@ PB.interactions = (() => {
     document.body.classList.add('linking');
     board.applyHighlight();
 
+    const targetAt = (e) => {
+      const bar = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bar');
+      if (bar) return { id: bar.dataset.id, theme: null };
+      const theme = board.themeAt(board.toWorld(e.clientX, e.clientY));
+      return { id: theme, theme };
+    };
+
     track((e) => {
       board.showDraftLink(fromId, iteration, board.toWorld(e.clientX, e.clientY));
+      board.markDropTheme(targetAt(e).theme);
     }, (e) => {
       document.body.classList.remove('linking');
       board.hideDraftLink();
-      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bar');
-      if (target && target.dataset.id !== fromId) actions.addDependency(fromId, target.dataset.id, iteration);
+      board.markDropTheme(null);
+      const target = targetAt(e).id;
+      if (target && target !== fromId) actions.addDependency(fromId, target, iteration);
       else board.applyHighlight();
     });
   }

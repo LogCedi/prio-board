@@ -59,6 +59,9 @@ aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
 #world .tl-frame-label{pointer-events:auto;cursor:pointer;padding:0 4px;border-radius:6px}
 #world .tl-frame-label:hover{background:rgba(255,255,255,.9)}
 #world .tl-frame.selected{box-shadow:0 0 0 3px var(--sel)}
+#world .tl-frame.drop{box-shadow:0 0 0 3px var(--sel);background:rgba(0,159,227,.08)}
+#world .theme-port{pointer-events:auto;left:auto;right:-9px;top:12px;border-color:var(--c);opacity:.7}
+#world .theme-port:hover{background:var(--c);border-color:var(--c);opacity:1}
 #world .lasso{position:absolute;z-index:50;border:1.5px dashed var(--sel);background:rgba(0,159,227,.08);border-radius:4px;pointer-events:none}
 
 /* Griffe an Balken: Dauer (rechte Kante), Puffer (Ende gestrichelt), Abhängigkeit (Punkte) */
