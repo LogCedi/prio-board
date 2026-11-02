@@ -9,7 +9,8 @@
  *     "tasks": [ { "id", "kind": "thinking|implementation", "title", "description", "notes": [],
  *                  "status": "open|in_progress|done", "priority": 1-5, "start": "YYYY-MM-DD",
  *                  "durationDays", "bufferDays", "intensity": "focused|medium|background", "ongoing",
- *                  "iterations": [ { "title", "durationDays", "intensity", "done" } ], "theme": id|null } ],
+ *                  "iterations": [ { "title", "durationDays", "intensity", "done" } ], "theme": id|null,
+ *                  "row": Zeile im Abschnitt | null } ],
  *     "dependencies": [ { "id", "from", "to", "fromIteration": null | index } ],
  *     "analysis": { … }   // nur Export, wird beim Import ignoriert
  *   }
@@ -64,6 +65,7 @@ PB.format = (() => {
         ongoing: t.ongoing,
         iterations: t.iterations.map((it) => ({ title: it.title, durationDays: it.durationDays, intensity: it.intensity, done: it.done })),
         theme: t.theme,
+        row: t.row,
       })),
       dependencies: state.dependencies.map((d) => ({ id: d.id, from: d.from, to: d.to, fromIteration: d.fromIteration })),
     };
@@ -206,6 +208,7 @@ PB.format = (() => {
         ongoing: kind === 'thinking' && t?.ongoing === true,
         iterations,
         theme,
+        row: readInt(t?.row, where, 'row', { min: 0, fallback: null }),
       };
     });
     const taskById = new Map(tasks.map((t) => [t.id, t]));

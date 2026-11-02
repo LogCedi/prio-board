@@ -2,7 +2,7 @@
   "$schema": "../schema/prio-board.schema.json",
   "format": "prio-board",
   "version": 3,
-  "exportedAt": "2026-11-02T12:55:08.382Z",
+  "exportedAt": "2026-11-02T15:10:22.398Z",
   "board": {
     "title": "IT-Priorisierung"
   },
@@ -36,7 +36,8 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "theme": "th-betrieb"
+      "theme": "th-betrieb",
+      "row": null
     },
     {
       "id": "t-ui-zielarchitektur",
@@ -65,7 +66,8 @@
           "done": false
         }
       ],
-      "theme": null
+      "theme": null,
+      "row": null
     },
     {
       "id": "t-lz",
@@ -81,7 +83,8 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "theme": null
+      "theme": null,
+      "row": null
     },
     {
       "id": "t-denken-prozessdaten",
@@ -116,7 +119,8 @@
           "done": false
         }
       ],
-      "theme": "th-skalierung"
+      "theme": "th-skalierung",
+      "row": null
     },
     {
       "id": "t-umsetzung-level1",
@@ -132,7 +136,8 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "theme": "th-skalierung"
+      "theme": "th-skalierung",
+      "row": null
     },
     {
       "id": "t-umsetzung-prozess",
@@ -148,7 +153,8 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "theme": "th-skalierung"
+      "theme": "th-skalierung",
+      "row": null
     },
     {
       "id": "t-denken-harness",
@@ -168,7 +174,8 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "theme": "th-skalierung"
+      "theme": "th-skalierung",
+      "row": null
     },
     {
       "id": "t-umsetzung-harness",
@@ -184,7 +191,8 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "theme": "th-skalierung"
+      "theme": "th-skalierung",
+      "row": null
     },
     {
       "id": "t-logging",
@@ -200,7 +208,8 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "theme": "th-betrieb"
+      "theme": "th-betrieb",
+      "row": null
     }
   ],
   "dependencies": [

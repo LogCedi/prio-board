@@ -6,10 +6,11 @@
  *     themes: [{ id, title, color }],
  *     tasks:  [{ id, kind, title, description, notes[], status, priority,
  *                start, durationDays, bufferDays, intensity, ongoing,
- *                iterations: [{ title, durationDays, intensity, done }], theme }],
+ *                iterations: [{ title, durationDays, intensity, done }], theme, row }],
  *     dependencies: [{ id, from, to, fromIteration }] }   // from muss vor to fertig sein
  *
  * Eine Aufgabe gehört zu höchstens einem Thema (theme = id | null).
+ * row = bevorzugte Zeile im Abschnitt (Thema bzw. „ohne Thema“) ihres Prio-Bands; null = automatisch.
  * from/to einer Abhängigkeit sind Aufgaben oder Themen (Thema = alle Aufgaben darin).
  * fromIteration (Index oder null): Nachfolger braucht nur diese Iteration des Vorgängers.
  *
@@ -159,6 +160,7 @@ PB.model = (() => {
       ongoing: false,
       iterations: [],
       theme: null,
+      row: null,
     };
     checkpoint();
     state.tasks.push(task);
@@ -213,7 +215,7 @@ PB.model = (() => {
   function duplicateTask(id) {
     const task = getTask(id);
     if (!task) return null;
-    const copy = { ...JSON.parse(JSON.stringify(task)), id: U.uid('t'), title: `${task.title} (Kopie)`, status: 'open' };
+    const copy = { ...JSON.parse(JSON.stringify(task)), id: U.uid('t'), title: `${task.title} (Kopie)`, status: 'open', row: null };
     copy.iterations.forEach((it) => { it.done = false; });
     checkpoint();
     state.tasks.push(copy);
@@ -359,20 +361,30 @@ PB.model = (() => {
     return { ok: true };
   }
 
-  /* ---------- Gesten (Ziehen von Balken) ---------- */
-  // Während einer Geste wird direkt geändert (ohne Ereignis); endGesture() meldet die Änderung.
-
-  const beginGesture = () => checkpoint();
-
-  /** Vorschau während einer Geste: patches = Map<taskId, Teiländerung>. */
-  function previewTasks(patches) {
+  /**
+   * Mehrere Aufgaben gleichzeitig ändern (z. B. Start, Priorität, Zeile nach dem Verschieben)
+   * – ein Historieneintrag. patches = Map<taskId, Teiländerung>.
+   */
+  function arrangeTasks(patches) {
+    if (!patches.size) return;
+    checkpoint();
     patches.forEach((patch, id) => {
       const task = getTask(id);
       if (task) Object.assign(task, patch);
     });
+    commit({ type: 'layout' });
   }
 
-  const previewTask = (id, patch) => previewTasks(new Map([[id, patch]]));
+  /* ---------- Gesten (Dauer/Puffer ziehen) ---------- */
+  // Während einer Geste wird direkt geändert (ohne Ereignis); endGesture() meldet die Änderung.
+
+  const beginGesture = () => checkpoint();
+
+  /** Vorschau während einer Geste (ohne Ereignis). */
+  function previewTask(id, patch) {
+    const task = getTask(id);
+    if (task) Object.assign(task, patch);
+  }
 
   /** Iterationsdauer während einer Geste ändern (Grösse der letzten Iteration). */
   function previewIteration(id, index, durationDays) {
@@ -392,7 +404,7 @@ PB.model = (() => {
     // Historie
     checkpoint, undo, redo, canUndo, canRedo,
     // Board
-    createEmptyState, load, replace, clear, setBoardTitle, setView,
+    load, replace, clear, setBoardTitle, setView,
     // Aufgaben & Iterationen
     addTask, updateTask, updateTasks, removeTasks, duplicateTask, addIteration, updateIteration, removeIteration,
     // Themen
@@ -400,7 +412,7 @@ PB.model = (() => {
     // Abhängigkeiten
     validateDependency, addDependency, removeDependency, setDependencyIteration, reverseDependency,
     // Gesten
-    beginGesture, previewTasks, previewTask, previewIteration, endGesture,
+    arrangeTasks, beginGesture, previewTask, previewIteration, endGesture,
   };
   return api;
 })();

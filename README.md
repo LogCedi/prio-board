@@ -45,11 +45,12 @@ Diagonale von oben links nach unten rechts.
 | Aktion | Wirkung |
 |---|---|
 | Balken waagrecht ziehen | Start frei verschieben (Abhängigkeiten schieben nichts automatisch) |
-| Balken senkrecht ziehen | Priorität ändern |
+| Balken senkrecht ziehen | Priorität ändern oder Zeile im selben Band wählen (Platzhalter zeigt das Ziel; belegte Zeile → einschieben) |
 | Strg/⌘ oder Shift + Klick | Balken zur Auswahl hinzufügen / entfernen |
 | Shift + Ziehen auf freier Fläche | Auswahlrechteck |
 | Ausgewählten Balken ziehen | Alle ausgewählten gemeinsam verschieben |
-| Klick auf Rahmen-Namen | Thema öffnen (Farbe, Mitglieder, Abhängigkeiten) |
+| Rahmen-Kopfzeile ziehen | Ganze Gruppe verschieben (zeitlich und in ein anderes Prio-Band) |
+| Klick auf Rahmen-Kopfzeile | Thema öffnen (Farbe, Mitglieder, Abhängigkeiten) |
 | Punkt rechts am Rahmen ziehen → in anderem Rahmen loslassen | Abhängigkeit Thema → Thema (ein Pfeil; gilt für alle Aufgaben) |
 | Balken-Punkt in einen Rahmen ziehen | Abhängigkeit Aufgabe → Thema |
 | Rechte Kante / gestricheltes Ende ziehen | Dauer / Puffer ändern |
@@ -96,12 +97,12 @@ js/
     static-export.js        Statische HTML-Seite nur mit dem Diagramm
   render/
     diagram-styles.js       CSS der Zeitachse (gemeinsam für App und HTML-Export)
-    layout.js               Geometrie: Bänder, Themen-Abschnitte mit Rahmen, Zeilenverteilung
+    layout.js               Geometrie: Bänder, Themen-Abschnitte mit Rahmen, Zeilen (gespeicherte Zeile bevorzugt)
     board.js                Markup + Live-Ansicht (Zoom, Auswahl, Auswahlrechteck, Hervorhebung)
     sidebar.js              Seitenleiste: Details (einzeln/mehrere), Ablauf, Hilfe
   ui/
     dialog.js               Eigene Dialoge (Bestätigen, Hinweis, Export mit Kopieren, Import mit Einfügen)
-    interactions.js         Maus: Ziehen (auch gemeinsam), Mehrfachauswahl, Dauer/Puffer, Verbinden, Pannen, Zoom
+    interactions.js         Maus: Ziehen mit Vorschau (Balken, Gruppen, Zeilen), Mehrfachauswahl, Dauer/Puffer, Verbinden, Pannen, Zoom
   app.js                    Einstieg: verbindet alles, Werkzeugleiste, Tastatur
 schema/prio-board.schema.json   JSON-Schema des Austauschformats
 examples/beispiel.json          Beispiel-Board als Datei
@@ -158,6 +159,7 @@ Die Module sind klassische Skripte im Namensraum `PB` statt ES-Module, weil Brow
 | `tasks[].ongoing` | nur Denken: läuft danach weiter (∞) |
 | `tasks[].iterations[]` | nur Denken: Schritte mit Titel, Dauer, Intensität, erledigt |
 | `tasks[].theme` | ID des Themas oder `null` (höchstens eines je Aufgabe) |
+| `tasks[].row` | Bevorzugte Zeile im Abschnitt (Thema bzw. ohne Thema) des Prio-Bands; `null` = automatisch |
 | `dependencies[]` | `from` muss fertig sein, bevor `to` startet. Beides darf eine Aufgabe oder ein Thema sein (Thema = alle Aufgaben darin). `fromIteration`: Es genügt diese Iteration von `from` |
 | `analysis` | Beim Export berechnet: Ende, Welle, Zustand, Hebel und Blocker je Aufgabe, wichtigste Denk-Themen, kritischer Pfad, Plan-Ende. Praktisch für Excel, Power BI usw. |
 

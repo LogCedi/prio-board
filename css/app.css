@@ -56,8 +56,10 @@ aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
 #world .bar:active{cursor:grabbing}
 #world .bar.selected{outline:3px solid var(--sel);outline-offset:3px}
 #world .tl-frame{pointer-events:none}
-#world .tl-frame-label{pointer-events:auto;cursor:pointer;padding:0 4px;border-radius:6px}
-#world .tl-frame-label:hover{background:rgba(255,255,255,.9)}
+#world .tl-frame-grip{pointer-events:auto;cursor:grab}
+#world .tl-frame-grip:hover{background:rgba(255,255,255,.7)}
+#world .tl-frame.drag-preview{z-index:150;transition:none;box-shadow:0 10px 28px rgba(11,45,85,.22)}
+#world .drop-slot{position:absolute;z-index:6;border:2px dashed var(--accent);border-radius:10px;background:rgba(0,159,227,.08);pointer-events:none}
 #world .tl-frame.selected{box-shadow:0 0 0 3px var(--sel)}
 #world .tl-frame.drop{box-shadow:0 0 0 3px var(--sel);background:rgba(0,159,227,.08)}
 #world .theme-port{pointer-events:auto;left:auto;right:-9px;top:12px;border-color:var(--c);opacity:.7}
@@ -65,7 +67,7 @@ aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
 /* Verschieben: Vorschau folgt der Maus, Ziel-Band markiert, übrige Elemente treten zurück */
 #world .bar.drag-preview{z-index:200;opacity:.92;box-shadow:0 10px 28px rgba(11,45,85,.28);transition:none;cursor:grabbing}
 #world .tl-band.drop{background:rgba(0,159,227,.09);box-shadow:inset 4px 0 0 var(--accent)}
-#world.moving .pb-links,#world.moving .tl-frame{opacity:.35}
+#world.moving .pb-links,#world.moving .tl-frame:not(.drag-preview){opacity:.35}
 #world .drag-hint{position:absolute;z-index:300;padding:4px 10px;border-radius:999px;background:var(--navy);color:#fff;
   font-size:13px;font-weight:600;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
 #world .lasso{position:absolute;z-index:50;border:1.5px dashed var(--sel);background:rgba(0,159,227,.08);border-radius:4px;pointer-events:none}

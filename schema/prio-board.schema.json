@@ -116,7 +116,8 @@
         "intensity": { "$ref": "#/$defs/intensity", "description": "Arbeitsweise ohne Iterationen (mit Iterationen gilt die jeweilige Iteration)" },
         "ongoing": { "type": "boolean", "default": false, "description": "Nur Denken: läuft nach der Dauer weiter (∞)" },
         "iterations": { "type": "array", "items": { "$ref": "#/$defs/iteration" }, "description": "Nur Denken: Schritte nacheinander" },
-        "theme": { "type": ["string", "null"], "minLength": 1, "description": "ID des Themas (höchstens eines)" }
+        "theme": { "type": ["string", "null"], "minLength": 1, "description": "ID des Themas (höchstens eines)" },
+        "row": { "type": ["integer", "null"], "minimum": 0, "description": "Bevorzugte Zeile im Abschnitt des Prio-Bands (null = automatisch)" }
       },
       "additionalProperties": false
     },

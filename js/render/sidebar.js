@@ -347,7 +347,8 @@ PB.sidebar = (() => {
     </ul>
     <h3>Bedienen</h3>
     <ul class="help">
-      <li><b>Balken frei ziehen</b>: waagrecht = Start, senkrecht = Priorität – das Ziel-Band wird markiert, übernommen wird beim Loslassen. Abhängigkeiten verschieben nichts automatisch; ein <b>oranger Pfeil</b> zeigt, wenn etwas vor dem Ende seines Vorgängers startet.</li>
+      <li><b>Balken frei ziehen</b>: waagrecht = Start, senkrecht = Priorität oder Zeile im selben Band. Ein gestrichelter Platzhalter zeigt, wo er landet; ist die Zeile belegt, wird er eingeschoben. Abhängigkeiten verschieben nichts automatisch; ein <b>oranger Pfeil</b> zeigt, wenn etwas vor dem Ende seines Vorgängers startet.</li>
+      <li><b>Gruppe verschieben</b>: an der Kopfzeile eines Rahmens ziehen – alle Aufgaben des Rahmens wandern mit (zeitlich und in ein anderes Prio-Band). Ein Klick darauf öffnet das Thema.</li>
       <li><b>Mehrere auswählen</b>: Strg/⌘ oder Shift + Klick, oder <b>Shift + Ziehen</b> auf freier Fläche. Ein ausgewählter Balken zieht alle anderen mit; im Panel lassen sich Thema, Priorität, Status und Arbeitsweise gemeinsam setzen.</li>
       <li><b>Rechte Kante</b> = Dauer, <b>gestrichelte Kante</b> = Puffer.</li>
       <li><b>Punkt am Ende ziehen</b> und auf einer Aufgabe loslassen = Abhängigkeit. Der Punkt an einer <b>Iterationsgrenze</b> heisst: „braucht nur bis hier“.</li>

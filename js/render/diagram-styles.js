@@ -92,6 +92,7 @@ PB.diagramStyles = (() => {
 
 /* Themen-Rahmen */
 .pb-world .tl-frame{position:absolute;z-index:4;border:2px solid var(--c);border-radius:14px;background:rgba(255,255,255,.35)}
+.pb-world .tl-frame-grip{position:absolute;left:0;right:0;top:0;height:${C.FRAME_HEADER}px;border-radius:12px 12px 0 0}
 .pb-world .tl-frame-label{position:absolute;left:10px;top:3px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
   color:var(--ink);white-space:nowrap}
 .pb-world .tl-frame-label i{width:9px;height:9px;border-radius:50%;background:var(--c)}

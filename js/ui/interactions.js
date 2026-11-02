@@ -6,7 +6,8 @@
  *  - rechte Kante = Dauer, gestrichelte Kante = Puffer
  *  - Punkt am Ende (oder an einer Iterationsgrenze) ziehen = Abhängigkeit;
  *    Punkt am Rahmen ziehen = Abhängigkeit des ganzen Themas; Loslassen im Rahmen = auf das Thema
- *  - Klick auf ein Rahmen-Etikett = Thema auswählen
+ *  - Rahmen-Kopfzeile: ziehen = ganze Gruppe verschieben, Klick = Thema auswählen
+ *  - senkrecht innerhalb eines Bandes: auf eine Zeile ablegen (Platzhalter zeigt das Ziel)
  *  - leere Fläche ziehen = verschieben, Doppelklick = neue Aufgabe, Strg+Mausrad = Zoom
  */
 PB.interactions = (() => {
@@ -14,6 +15,7 @@ PB.interactions = (() => {
   const model = PB.model;
   const board = PB.board;
   const ui = PB.ui;
+  const U = PB.util;
 
   /** Ab dieser Mausbewegung (px) gilt ein Klick als Ziehen. */
   const DRAG_THRESHOLD = 4;
@@ -48,8 +50,11 @@ PB.interactions = (() => {
     }
     const themePort = target.closest('.theme-port');
     if (themePort && event.button === 0) return startLink(event, themePort.parentElement.dataset.theme, null);
-    const frameLabel = target.closest('.tl-frame-label');
-    if (frameLabel) return actions.select('theme', frameLabel.parentElement.dataset.theme);
+    const grip = target.closest('.tl-frame-grip');
+    if (grip && event.button === 0) {
+      const frame = grip.parentElement;
+      return startFrameMove(event, frame.dataset.theme, Number(frame.dataset.priority));
+    }
     const link = target.closest('.link');
     if (link) return actions.select('dependency', link.dataset.dep);
     if (event.shiftKey && event.button === 0) return startLasso(event);
@@ -90,26 +95,18 @@ PB.interactions = (() => {
 
   /* ---------- Balken verschieben ---------- */
 
-  /**
-   * Verschiebt den gegriffenen Balken – und alle anderen ausgewählten mit (gleicher Versatz).
-   * Während des Ziehens bleibt das Board unverändert: Die Balken folgen als Vorschau der Maus
-   * (waagrecht tageweise, senkrecht frei), das Ziel-Band wird markiert. Erst beim Loslassen
-   * wird übernommen – so springt nichts, wenn sich Bandhöhen durch das Verschieben ändern.
-   */
-  function startMove(event, id) {
-    event.preventDefault();
-    const { type, ids } = ui.selection;
-    const group = type === 'task' && ids.includes(id) ? ids : [id];
-    if (group.length === 1) actions.select('task', id);
-    const origin = board.toWorld(event.clientX, event.clientY);
-    const leadPriority = model.getTask(id).priority;
-    const initial = group.map((taskId) => {
-      const t = model.getTask(taskId);
-      return { id: taskId, start: t.start, priority: t.priority };
-    });
-    let started = false;
-    let target = null;
+  /* ---------- Verschieben (Balken und ganze Rahmen) ---------- */
 
+  /**
+   * Gemeinsamer Ablauf beim Ziehen: Vorschau per Transform (Board bleibt ruhig), Übernahme beim
+   * Loslassen in einem Schritt. plan(p) liefert für die Zeigerposition { preview, commit() }.
+   * Ohne Bewegung wird onClick aufgerufen.
+   */
+  function dragWithPreview(event, plan, onClick) {
+    event.preventDefault();
+    const origin = board.toWorld(event.clientX, event.clientY);
+    let started = false;
+    let latest = null;
     track((e) => {
       const p = board.toWorld(e.clientX, e.clientY);
       if (!started && Math.hypot(p.x - origin.x, p.y - origin.y) * model.getState().view.zoom < DRAG_THRESHOLD) return;
@@ -118,28 +115,132 @@ PB.interactions = (() => {
         ui.dragging = true;
         board.applyHighlight();
       }
-      const days = daysBetween(origin.x, p.x);
-      const priorityShift = board.priorityAt(p.y) - leadPriority;
-      target = initial.map((t) => ({
-        id: t.id,
-        start: Math.max(0, t.start + days),
-        priority: Math.min(C.PRIORITY_LEVELS, Math.max(1, t.priority + priorityShift)),
-      }));
-      const lead = target.find((t) => t.id === id);
-      board.showMovePreview([id, ...group.filter((x) => x !== id)], (lead.start - model.getTask(id).start) * C.DAY_WIDTH, p.y - origin.y,
-        { priority: lead.priority, start: lead.start, point: p });
+      latest = plan(p, origin);
+      board.showMovePreview(latest.preview);
     }, () => {
       board.hideMovePreview();
-      if (!started || !target) return;
-      const changed = target.some((t, i) => t.start !== initial[i].start || t.priority !== initial[i].priority);
-      if (!changed) {
-        board.applyHighlight();
-        return;
-      }
-      model.beginGesture();
-      model.previewTasks(new Map(target.map((t) => [t.id, { start: t.start, priority: t.priority }])));
-      model.endGesture();
+      if (!started) onClick?.();
+      else if (latest) latest.commit();
+      board.applyHighlight();
     });
+  }
+
+  /**
+   * Neue Start-/Prioritäts-/Zeilenwerte für eine Gruppe von Aufgaben übernehmen.
+   * Alle Aufgaben bekommen ihre aktuell angezeigte Zeile fest zugewiesen, damit nichts springt;
+   * ist die Zielzeile im Zielabschnitt zeitlich belegt, rutschen die Zeilen ab dort nach unten.
+   */
+  function commitMove(moves, layout) {
+    const patches = new Map();
+    layout.boxes.forEach((box, id) => patches.set(id, { row: box.row }));
+    const moving = new Set(moves.map((m) => m.id));
+    const lead = moves[0];
+    const leadTask = model.getTask(lead.id);
+    const leadAtTarget = { ...leadTask, start: lead.start };
+    const neighbours = model.getState().tasks.filter((t) =>
+      !moving.has(t.id) && t.priority === lead.priority && (t.theme || null) === (leadTask.theme || null));
+    const blocked = neighbours.some((t) =>
+      patches.get(t.id)?.row === lead.row && PB.layout.collides(t, leadAtTarget, layout.width));
+    if (blocked) {
+      const shift = Math.max(...moves.map((m) => m.row)) - lead.row + 1;
+      neighbours.forEach((t) => {
+        const row = patches.get(t.id)?.row;
+        if (row !== undefined && row >= lead.row) patches.get(t.id).row = row + shift;
+      });
+    }
+    moves.forEach((m) => patches.set(m.id, { start: m.start, priority: m.priority, row: m.row }));
+    const changed = moves.some((m) => {
+      const t = model.getTask(m.id);
+      return t.start !== m.start || t.priority !== m.priority || layout.boxes.get(m.id)?.row !== m.row;
+    });
+    if (changed) model.arrangeTasks(patches);
+  }
+
+  /**
+   * Balken verschieben – mit allen ausgewählten (gleicher Versatz in Zeit, Band und Zeile).
+   * Waagrecht tageweise, senkrecht auf eine Zeile im Ziel-Band (gestrichelter Platzhalter).
+   * Ein Klick ohne Ziehen wählt nur diesen Balken aus (auch aus einer Mehrfachauswahl heraus).
+   */
+  function startMove(event, id) {
+    const { type, ids } = ui.selection;
+    const group = type === 'task' && ids.includes(id) ? [id, ...ids.filter((x) => x !== id)] : [id];
+    if (group.length === 1) actions.select('task', id);
+    const layout = board.currentLayout();
+    const leadTask = model.getTask(id);
+    const leadBox = layout.boxes.get(id);
+
+    dragWithPreview(event, (p, origin) => {
+      const days = daysBetween(origin.x, p.x);
+      const centerY = leadBox.y + C.BAR_HEIGHT / 2 + (p.y - origin.y);
+      const priority = PB.layout.priorityAt(layout, centerY);
+      const slot = PB.layout.slotAt(layout, priority, leadTask.theme || null, centerY);
+      const priorityShift = priority - leadTask.priority;
+      const rowShift = slot.row - (priority === leadTask.priority ? leadBox.row : 0);
+      const moves = group.map((taskId) => {
+        const t = model.getTask(taskId);
+        const box = layout.boxes.get(taskId);
+        return {
+          id: taskId,
+          start: Math.max(0, t.start + days),
+          priority: U.clamp(t.priority + priorityShift, 1, C.PRIORITY_LEVELS),
+          row: Math.max(0, (taskId === id ? slot.row : box.row + rowShift)),
+        };
+      });
+      const start = moves[0].start;
+      return {
+        preview: {
+          ids: group,
+          dx: (start - leadTask.start) * C.DAY_WIDTH,
+          dy: p.y - origin.y,
+          priority,
+          start,
+          slot: { x: PB.layout.dayX(start), top: slot.top, width: leadBox.w },
+        },
+        commit: () => commitMove(moves, layout),
+      };
+    }, () => actions.select('task', id)); // Klick ohne Ziehen: nur diesen Balken auswählen
+  }
+
+  /**
+   * Ganzen Rahmen (alle Aufgaben eines Themas in diesem Band) verschieben: zeitlich und in ein
+   * anderes Band. Im Ziel-Band werden die Zeilen unter einen bestehenden Rahmen desselben Themas gehängt.
+   * Ein Klick ohne Bewegung öffnet das Thema.
+   */
+  function startFrameMove(event, themeId, priority) {
+    const layout = board.currentLayout();
+    const members = model.getState().tasks.filter((t) => t.theme === themeId && t.priority === priority);
+    if (!members.length) return;
+    const earliest = Math.min(...members.map((t) => t.start));
+    const title = model.getTheme(themeId).title;
+
+    dragWithPreview(event, (p, origin) => {
+      const days = daysBetween(origin.x, p.x);
+      const target = PB.layout.priorityAt(layout, p.y);
+      const rowOffset = target === priority ? 0 : PB.layout.rowsIn(layout, target, themeId);
+      const moves = members.map((t) => ({
+        id: t.id,
+        start: Math.max(0, t.start + days),
+        priority: target,
+        row: layout.boxes.get(t.id).row + rowOffset,
+      }));
+      return {
+        preview: {
+          ids: members.map((t) => t.id),
+          dx: (Math.max(0, earliest + days) - earliest) * C.DAY_WIDTH,
+          dy: p.y - origin.y,
+          priority: target,
+          start: Math.max(0, earliest + days),
+          label: `${title} · `,
+          frame: { themeId, priority },
+        },
+        commit: () => {
+          const patches = new Map();
+          layout.boxes.forEach((box, id) => patches.set(id, { row: box.row }));
+          moves.forEach((m) => patches.set(m.id, { start: m.start, priority: m.priority, row: m.row }));
+          if (days !== 0 || target !== priority) model.arrangeTasks(patches);
+        },
+      };
+    }, () => actions.select('theme', themeId));
   }
 
   /* ---------- Auswahlrechteck ---------- */

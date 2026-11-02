@@ -42,8 +42,9 @@ PB.board = (() => {
       const theme = model.getTheme(f.themeId);
       const port = interactive
         ? '<div class="port theme-port" title="Ziehen: ganzes Thema → Aufgabe oder anderes Thema"></div>' : '';
-      return `<div class="tl-frame" data-theme="${esc(theme.id)}" style="left:${f.x}px;top:${f.y}px;width:${f.width}px;height:${f.height}px;--c:${theme.color}">
-        <span class="tl-frame-label"><i></i>${esc(theme.title)}</span>${port}</div>`;
+      const gripTitle = interactive ? ' title="Ziehen: Gruppe verschieben · Klick: Thema öffnen"' : '';
+      return `<div class="tl-frame" data-theme="${esc(theme.id)}" data-priority="${f.priority}" style="left:${f.x}px;top:${f.y}px;width:${f.width}px;height:${f.height}px;--c:${theme.color}">
+        <div class="tl-frame-grip"${gripTitle}><span class="tl-frame-label"><i></i>${esc(theme.title)}</span></div>${port}</div>`;
     }).join('');
   }
 
@@ -298,42 +299,61 @@ PB.board = (() => {
   }
 
   /**
-   * Vorschau beim Verschieben: Balken folgen der Maus per CSS-Transform (ohne neu zu zeichnen),
-   * Ziel-Band wird markiert, ein Etikett zeigt Priorität und Start.
+   * Vorschau beim Verschieben: Balken (und ggf. ein Rahmen) folgen der Maus per CSS-Transform,
+   * ohne neu zu zeichnen. Ziel-Band und Zielzeile (gestrichelter Platzhalter) werden markiert,
+   * ein Etikett über dem gegriffenen Element zeigt Priorität und Start.
+   *   preview = { ids, dx, dy, priority, start, label?, frame?: { themeId, priority }, slot?: { x, top, width } }
+   *   ids[0] ist das gegriffene Element (Position des Etiketts).
    */
-  function showMovePreview(ids, dx, dy, { priority, start, point }) { // ids[0] = gegriffener Balken
+  function showMovePreview({ ids, dx, dy, priority, start, label = '', frame = null, slot = null }) {
     const moving = new Set(ids);
+    const transform = `translate(${dx}px, ${dy}px)`;
     dom.world.classList.add('moving');
     dom.world.querySelectorAll('.bar').forEach((el) => {
       const active = moving.has(el.dataset.id);
       el.classList.toggle('drag-preview', active);
-      el.style.transform = active ? `translate(${dx}px, ${dy}px)` : '';
+      el.style.transform = active ? transform : '';
+    });
+    dom.world.querySelectorAll('.tl-frame').forEach((el) => {
+      const active = frame && el.dataset.theme === frame.themeId && Number(el.dataset.priority) === frame.priority;
+      el.classList.toggle('drag-preview', Boolean(active));
+      el.style.transform = active ? transform : '';
     });
     dom.world.querySelectorAll('.tl-band').forEach((el) => el.classList.toggle('drop', Number(el.dataset.priority) === priority));
-    let hint = dom.world.querySelector('.drag-hint');
-    if (!hint) {
-      hint = document.createElement('div');
-      hint.className = 'drag-hint';
-      dom.world.appendChild(hint);
-    }
+
+    const slotEl = ensureOverlay('drop-slot');
+    slotEl.hidden = !slot;
+    if (slot) Object.assign(slotEl.style, { left: `${slot.x}px`, top: `${slot.top}px`, width: `${slot.width}px`, height: `${C.BAR_HEIGHT}px` });
+
+    const anchor = frame
+      ? dom.world.querySelector(`.tl-frame[data-theme="${CSS.escape(frame.themeId)}"][data-priority="${frame.priority}"]`)
+      : dom.world.querySelector(`.bar[data-id="${CSS.escape(ids[0])}"]`);
+    const hint = ensureOverlay('drag-hint');
     const date = CAL.dateOf(start);
-    hint.textContent = `Prio ${priority} · ab ${CAL.shortDate(date)} (KW ${CAL.weekNumber(date)})`;
-    // Über dem gegriffenen Balken (lead = erster in ids), damit der Titel sichtbar bleibt
-    const lead = dom.world.querySelector(`.bar[data-id="${CSS.escape(ids[0])}"]`);
-    const x = lead ? parseFloat(lead.style.left) + dx : point.x;
-    const y = lead ? parseFloat(lead.style.top) + dy - 34 : point.y - 34;
-    Object.assign(hint.style, { left: `${x}px`, top: `${y}px` });
+    hint.textContent = `${label}Prio ${priority} · ab ${CAL.shortDate(date)} (KW ${CAL.weekNumber(date)})`;
+    Object.assign(hint.style, {
+      left: `${(anchor ? parseFloat(anchor.style.left) : 0) + dx}px`,
+      top: `${(anchor ? parseFloat(anchor.style.top) : 0) + dy - 34}px`,
+    });
+  }
+
+  function ensureOverlay(className) {
+    return dom.world.querySelector(`.${className}`)
+      || dom.world.appendChild(Object.assign(document.createElement('div'), { className }));
   }
 
   function hideMovePreview() {
     dom.world.classList.remove('moving');
-    dom.world.querySelectorAll('.bar.drag-preview').forEach((el) => {
+    dom.world.querySelectorAll('.drag-preview').forEach((el) => {
       el.classList.remove('drag-preview');
       el.style.transform = '';
     });
     dom.world.querySelectorAll('.tl-band.drop').forEach((el) => el.classList.remove('drop'));
-    dom.world.querySelector('.drag-hint')?.remove();
+    dom.world.querySelectorAll('.drag-hint, .drop-slot').forEach((el) => el.remove());
   }
+
+  /** Aktuelles Layout (nur lesen) – für Interaktionen, die Zeilen und Bänder brauchen. */
+  const currentLayout = () => current;
 
   /** Auswahlrechteck (Weltkoordinaten); null blendet es aus. Liefert die getroffenen Aufgaben. */
   function showLasso(rect) {
@@ -458,7 +478,7 @@ PB.board = (() => {
 
   return {
     markup,
-    init, render, applyView, showDraftLink, hideDraftLink, themeAt, markDropTheme, showMovePreview, hideMovePreview, showLasso, applySelection, applyHighlight,
-    toWorld, dayAt: L.dayAt, priorityAt, viewportCenter, setZoom, fit, scrollTo,
+    init, render, showDraftLink, hideDraftLink, themeAt, markDropTheme, showMovePreview, hideMovePreview, showLasso, applySelection, applyHighlight,
+    toWorld, currentLayout, dayAt: L.dayAt, priorityAt, viewportCenter, setZoom, fit, scrollTo,
   };
 })();

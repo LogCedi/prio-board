@@ -87,8 +87,10 @@ aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
 #world .bar:active{cursor:grabbing}
 #world .bar.selected{outline:3px solid var(--sel);outline-offset:3px}
 #world .tl-frame{pointer-events:none}
-#world .tl-frame-label{pointer-events:auto;cursor:pointer;padding:0 4px;border-radius:6px}
-#world .tl-frame-label:hover{background:rgba(255,255,255,.9)}
+#world .tl-frame-grip{pointer-events:auto;cursor:grab}
+#world .tl-frame-grip:hover{background:rgba(255,255,255,.7)}
+#world .tl-frame.drag-preview{z-index:150;transition:none;box-shadow:0 10px 28px rgba(11,45,85,.22)}
+#world .drop-slot{position:absolute;z-index:6;border:2px dashed var(--accent);border-radius:10px;background:rgba(0,159,227,.08);pointer-events:none}
 #world .tl-frame.selected{box-shadow:0 0 0 3px var(--sel)}
 #world .tl-frame.drop{box-shadow:0 0 0 3px var(--sel);background:rgba(0,159,227,.08)}
 #world .theme-port{pointer-events:auto;left:auto;right:-9px;top:12px;border-color:var(--c);opacity:.7}
@@ -96,7 +98,7 @@ aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
 /* Verschieben: Vorschau folgt der Maus, Ziel-Band markiert, übrige Elemente treten zurück */
 #world .bar.drag-preview{z-index:200;opacity:.92;box-shadow:0 10px 28px rgba(11,45,85,.28);transition:none;cursor:grabbing}
 #world .tl-band.drop{background:rgba(0,159,227,.09);box-shadow:inset 4px 0 0 var(--accent)}
-#world.moving .pb-links,#world.moving .tl-frame{opacity:.35}
+#world.moving .pb-links,#world.moving .tl-frame:not(.drag-preview){opacity:.35}
 #world .drag-hint{position:absolute;z-index:300;padding:4px 10px;border-radius:999px;background:var(--navy);color:#fff;
   font-size:13px;font-weight:600;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
 #world .lasso{position:absolute;z-index:50;border:1.5px dashed var(--sel);background:rgba(0,159,227,.08);border-radius:4px;pointer-events:none}
@@ -561,10 +563,11 @@ PB.ui = {
  *     themes: [{ id, title, color }],
  *     tasks:  [{ id, kind, title, description, notes[], status, priority,
  *                start, durationDays, bufferDays, intensity, ongoing,
- *                iterations: [{ title, durationDays, intensity, done }], theme }],
+ *                iterations: [{ title, durationDays, intensity, done }], theme, row }],
  *     dependencies: [{ id, from, to, fromIteration }] }   // from muss vor to fertig sein
  *
  * Eine Aufgabe gehört zu höchstens einem Thema (theme = id | null).
+ * row = bevorzugte Zeile im Abschnitt (Thema bzw. „ohne Thema“) ihres Prio-Bands; null = automatisch.
  * from/to einer Abhängigkeit sind Aufgaben oder Themen (Thema = alle Aufgaben darin).
  * fromIteration (Index oder null): Nachfolger braucht nur diese Iteration des Vorgängers.
  *
@@ -714,6 +717,7 @@ PB.model = (() => {
       ongoing: false,
       iterations: [],
       theme: null,
+      row: null,
     };
     checkpoint();
     state.tasks.push(task);
@@ -768,7 +772,7 @@ PB.model = (() => {
   function duplicateTask(id) {
     const task = getTask(id);
     if (!task) return null;
-    const copy = { ...JSON.parse(JSON.stringify(task)), id: U.uid('t'), title: `${task.title} (Kopie)`, status: 'open' };
+    const copy = { ...JSON.parse(JSON.stringify(task)), id: U.uid('t'), title: `${task.title} (Kopie)`, status: 'open', row: null };
     copy.iterations.forEach((it) => { it.done = false; });
     checkpoint();
     state.tasks.push(copy);
@@ -914,20 +918,30 @@ PB.model = (() => {
     return { ok: true };
   }
 
-  /* ---------- Gesten (Ziehen von Balken) ---------- */
-  // Während einer Geste wird direkt geändert (ohne Ereignis); endGesture() meldet die Änderung.
-
-  const beginGesture = () => checkpoint();
-
-  /** Vorschau während einer Geste: patches = Map<taskId, Teiländerung>. */
-  function previewTasks(patches) {
+  /**
+   * Mehrere Aufgaben gleichzeitig ändern (z. B. Start, Priorität, Zeile nach dem Verschieben)
+   * – ein Historieneintrag. patches = Map<taskId, Teiländerung>.
+   */
+  function arrangeTasks(patches) {
+    if (!patches.size) return;
+    checkpoint();
     patches.forEach((patch, id) => {
       const task = getTask(id);
       if (task) Object.assign(task, patch);
     });
+    commit({ type: 'layout' });
   }
 
-  const previewTask = (id, patch) => previewTasks(new Map([[id, patch]]));
+  /* ---------- Gesten (Dauer/Puffer ziehen) ---------- */
+  // Während einer Geste wird direkt geändert (ohne Ereignis); endGesture() meldet die Änderung.
+
+  const beginGesture = () => checkpoint();
+
+  /** Vorschau während einer Geste (ohne Ereignis). */
+  function previewTask(id, patch) {
+    const task = getTask(id);
+    if (task) Object.assign(task, patch);
+  }
 
   /** Iterationsdauer während einer Geste ändern (Grösse der letzten Iteration). */
   function previewIteration(id, index, durationDays) {
@@ -947,7 +961,7 @@ PB.model = (() => {
     // Historie
     checkpoint, undo, redo, canUndo, canRedo,
     // Board
-    createEmptyState, load, replace, clear, setBoardTitle, setView,
+    load, replace, clear, setBoardTitle, setView,
     // Aufgaben & Iterationen
     addTask, updateTask, updateTasks, removeTasks, duplicateTask, addIteration, updateIteration, removeIteration,
     // Themen
@@ -955,7 +969,7 @@ PB.model = (() => {
     // Abhängigkeiten
     validateDependency, addDependency, removeDependency, setDependencyIteration, reverseDependency,
     // Gesten
-    beginGesture, previewTasks, previewTask, previewIteration, endGesture,
+    arrangeTasks, beginGesture, previewTask, previewIteration, endGesture,
   };
   return api;
 })();
@@ -1147,7 +1161,8 @@ PB.analysis = (() => {
  *     "tasks": [ { "id", "kind": "thinking|implementation", "title", "description", "notes": [],
  *                  "status": "open|in_progress|done", "priority": 1-5, "start": "YYYY-MM-DD",
  *                  "durationDays", "bufferDays", "intensity": "focused|medium|background", "ongoing",
- *                  "iterations": [ { "title", "durationDays", "intensity", "done" } ], "theme": id|null } ],
+ *                  "iterations": [ { "title", "durationDays", "intensity", "done" } ], "theme": id|null,
+ *                  "row": Zeile im Abschnitt | null } ],
  *     "dependencies": [ { "id", "from", "to", "fromIteration": null | index } ],
  *     "analysis": { … }   // nur Export, wird beim Import ignoriert
  *   }
@@ -1202,6 +1217,7 @@ PB.format = (() => {
         ongoing: t.ongoing,
         iterations: t.iterations.map((it) => ({ title: it.title, durationDays: it.durationDays, intensity: it.intensity, done: it.done })),
         theme: t.theme,
+        row: t.row,
       })),
       dependencies: state.dependencies.map((d) => ({ id: d.id, from: d.from, to: d.to, fromIteration: d.fromIteration })),
     };
@@ -1344,6 +1360,7 @@ PB.format = (() => {
         ongoing: kind === 'thinking' && t?.ongoing === true,
         iterations,
         theme,
+        row: readInt(t?.row, where, 'row', { min: 0, fallback: null }),
       };
     });
     const taskById = new Map(tasks.map((t) => [t.id, t]));
@@ -1742,6 +1759,7 @@ PB.diagramStyles = (() => {
 
 /* Themen-Rahmen */
 .pb-world .tl-frame{position:absolute;z-index:4;border:2px solid var(--c);border-radius:14px;background:rgba(255,255,255,.35)}
+.pb-world .tl-frame-grip{position:absolute;left:0;right:0;top:0;height:${C.FRAME_HEADER}px;border-radius:12px 12px 0 0}
 .pb-world .tl-frame-label{position:absolute;left:10px;top:3px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
   color:var(--ink);white-space:nowrap}
 .pb-world .tl-frame-label i{width:9px;height:9px;border-radius:50%;background:var(--c)}
@@ -1794,56 +1812,84 @@ PB.diagramStyles = (() => {
  * Geometrie der Zeitachse (reine Berechnung, kein DOM).
  *
  *   x = Arbeitstage ab heute, y = Prioritätsbänder (1 oben).
- *   Jedes Band besteht aus Abschnitten: je ein Abschnitt pro Thema (mit Rahmen) und
- *   ein Abschnitt für Aufgaben ohne Thema. Innerhalb eines Abschnitts werden Balken
- *   so auf Zeilen verteilt, dass sie sich nicht überlappen.
+ *   Jedes Band besteht aus Abschnitten: je ein Abschnitt pro Thema (mit Rahmen, Reihenfolge wie
+ *   die Themenliste) und zuletzt einer für Aufgaben ohne Thema. Innerhalb eines Abschnitts liegen
+ *   Balken auf Zeilen: bevorzugt auf ihrer gespeicherten Zeile (task.row), bei zeitlicher
+ *   Überschneidung auf der nächsten freien darunter. Aufgaben ohne Zeile füllen Lücken auf.
  */
 PB.layout = (() => {
   const C = PB.config;
   const model = PB.model;
 
+  const ROW_STEP = C.BAR_HEIGHT + C.ROW_GAP;
   const dayX = (day) => C.LABEL_WIDTH + day * C.DAY_WIDTH;
   const rowsHeight = (rows) => rows * C.BAR_HEIGHT + (rows - 1) * C.ROW_GAP;
 
-  /** Verteilt Aufgaben (nach Start sortiert) auf Zeilen; liefert Boxen und Zeilenzahl. */
-  function packRows(tasks, width) {
-    const rowEnds = [];
-    const boxes = tasks.map((task) => {
-      const x = dayX(task.start);
-      const w = model.durationOf(task) * C.DAY_WIDTH;
-      const bufferWidth = task.bufferDays * C.DAY_WIDTH;
-      const narrow = w < C.NARROW_BAR;
-      const right = task.ongoing ? width : x + w + bufferWidth + (narrow ? C.LABEL_RESERVE : 0);
-      let row = rowEnds.findIndex((end) => end + C.DAY_WIDTH / 2 <= x);
-      if (row < 0) row = rowEnds.push(0) - 1;
-      rowEnds[row] = right;
-      return { id: task.id, x, w, bufferWidth, narrow, row, right };
-    });
-    return { boxes, rows: Math.max(1, rowEnds.length) };
+  /** Horizontale Ausdehnung eines Balkens inkl. Puffer, ∞ und Platz für einen Titel daneben. */
+  function extentOf(task, width) {
+    const x = dayX(task.start);
+    const w = model.durationOf(task) * C.DAY_WIDTH;
+    const bufferWidth = task.bufferDays * C.DAY_WIDTH;
+    const narrow = w < C.NARROW_BAR;
+    const right = task.ongoing ? width : x + w + bufferWidth + (narrow ? C.LABEL_RESERVE : 0);
+    return { x, w, bufferWidth, narrow, right };
   }
 
-  /** Abschnitte eines Bandes: Themen (nach frühestem Start), danach Aufgaben ohne Thema. */
-  function sectionsOf(tasks) {
-    const byTheme = new Map();
-    const loose = [];
-    for (const task of tasks) {
-      if (task.theme && model.getTheme(task.theme)) {
-        if (!byTheme.has(task.theme)) byTheme.set(task.theme, []);
-        byTheme.get(task.theme).push(task);
-      } else {
-        loose.push(task);
-      }
+  /**
+   * Verteilt Aufgaben auf Zeilen. Gespeicherte Zeilen haben Vorrang (in Zeilen-Reihenfolge),
+   * leere Zeilen werden am Ende entfernt (Anzeige kompakt, gespeicherte Werte bleiben unberührt).
+   */
+  /** Zwei Ausdehnungen überschneiden sich (mit halbem Tag Mindestabstand). */
+  const extentsOverlap = (a, b) => a.x < b.right + C.DAY_WIDTH / 2 && b.x < a.right + C.DAY_WIDTH / 2;
+
+  /** Würden zwei Aufgaben auf derselben Zeile kollidieren? (gleiche Regel wie beim Verteilen) */
+  const collides = (taskA, taskB, width) => extentsOverlap(extentOf(taskA, width), extentOf(taskB, width));
+
+  function packRows(tasks, width) {
+    const rows = []; // je Zeile: Liste belegter Ausdehnungen
+    const fits = (row, e) => !(rows[row] || []).some((other) => extentsOverlap(e, other));
+    const place = (row, e) => {
+      while (!fits(row, e)) row++;
+      (rows[row] ||= []).push(e);
+      return row;
+    };
+    const byStart = (a, b) => a.start - b.start || a.title.localeCompare(b.title, 'de');
+    const fixed = tasks.filter((t) => Number.isInteger(t.row)).sort((a, b) => a.row - b.row || byStart(a, b));
+    const free = tasks.filter((t) => !Number.isInteger(t.row)).sort(byStart);
+
+    const placed = [];
+    for (const task of fixed) {
+      const e = extentOf(task, width);
+      placed.push({ id: task.id, ...e, row: place(task.row, e) });
     }
-    const themed = [...byTheme.entries()]
-      .map(([themeId, list]) => ({ themeId, tasks: list }))
-      .sort((a, b) => a.tasks[0].start - b.tasks[0].start);
+    for (const task of free) {
+      const e = extentOf(task, width);
+      placed.push({ id: task.id, ...e, row: place(0, e) });
+    }
+    // Leere Zeilen entfernen
+    const used = [...new Set(placed.map((b) => b.row))].sort((a, b) => a - b);
+    const compact = new Map(used.map((row, i) => [row, i]));
+    placed.forEach((b) => { b.row = compact.get(b.row); });
+    return { boxes: placed, rows: Math.max(1, used.length) };
+  }
+
+  /** Abschnitte eines Bandes: Themen in der Reihenfolge der Themenliste, danach ohne Thema. */
+  function sectionsOf(tasks) {
+    const { themes } = model.getState();
+    const themed = themes
+      .map((th) => ({ themeId: th.id, tasks: tasks.filter((t) => t.theme === th.id) }))
+      .filter((s) => s.tasks.length);
+    const loose = tasks.filter((t) => !t.theme || !model.getTheme(t.theme));
     return loose.length ? [...themed, { themeId: null, tasks: loose }] : themed;
   }
 
   /**
    * Komplettes Layout:
-   *   { width, height, horizon, bands[{ priority, y, height }],
-   *     boxes Map<taskId, { x, y, w, bufferWidth, narrow }>, frames[{ themeId, x, y, width, height }] }
+   *   { width, height, horizon,
+   *     bands    [{ priority, y, height }],
+   *     sections [{ priority, themeId, barsTop, rows }],
+   *     boxes    Map<taskId, { x, y, w, bufferWidth, narrow, row, priority, themeId }>,
+   *     frames   [{ themeId, priority, x, y, width, height }] }
    */
   function compute() {
     const { tasks } = model.getState();
@@ -1852,30 +1898,31 @@ PB.layout = (() => {
     const width = dayX(horizon);
     const boxes = new Map();
     const bands = [];
+    const sections = [];
     const frames = [];
     let y = C.HEADER_HEIGHT;
 
     for (let priority = 1; priority <= C.PRIORITY_LEVELS; priority++) {
-      const bandTasks = tasks
-        .filter((t) => t.priority === priority)
-        .sort((a, b) => a.start - b.start || a.title.localeCompare(b.title, 'de'));
       const bandTop = y;
       let cursor = bandTop + C.BAND_PADDING;
 
-      sectionsOf(bandTasks).forEach((section, i) => {
+      sectionsOf(tasks.filter((t) => t.priority === priority)).forEach((section, i) => {
         if (i > 0) cursor += C.SECTION_GAP;
         const framed = section.themeId !== null;
         const packed = packRows(section.tasks, width);
         const barsTop = cursor + (framed ? C.FRAME_HEADER : 0);
         for (const box of packed.boxes) {
-          box.y = barsTop + box.row * (C.BAR_HEIGHT + C.ROW_GAP);
+          box.y = barsTop + box.row * ROW_STEP;
+          box.priority = priority;
+          box.themeId = section.themeId;
           boxes.set(box.id, box);
         }
+        sections.push({ priority, themeId: section.themeId, barsTop, rows: packed.rows });
         const height = (framed ? C.FRAME_HEADER + C.FRAME_PADDING : 0) + rowsHeight(packed.rows);
         if (framed) {
           const left = Math.max(C.LABEL_WIDTH + 2, Math.min(...packed.boxes.map((b) => b.x)) - C.FRAME_PADDING);
           const right = Math.min(width, Math.max(...packed.boxes.map((b) => b.right)) + C.FRAME_PADDING);
-          frames.push({ themeId: section.themeId, x: left, y: cursor, width: right - left, height });
+          frames.push({ themeId: section.themeId, priority, x: left, y: cursor, width: right - left, height });
         }
         cursor += height;
       });
@@ -1884,7 +1931,7 @@ PB.layout = (() => {
       bands.push({ priority, y: bandTop, height });
       y = bandTop + height;
     }
-    return { width, height: y, horizon, bands, boxes, frames };
+    return { width, height: y, horizon, bands, sections, boxes, frames };
   }
 
   /** Arbeitstag an einer x-Position (≥ 0). */
@@ -1896,7 +1943,27 @@ PB.layout = (() => {
     return band ? band.priority : C.PRIORITY_LEVELS;
   }
 
-  return { compute, dayX, dayAt, priorityAt };
+  /**
+   * Zielzeile für einen Balken, dessen Mitte bei y liegt, im Abschnitt (priority, themeId).
+   * Liefert { row, top }: row ∈ [0, rows] (rows = neue Zeile unten), top = y-Position dieser Zeile.
+   * Gibt es den Abschnitt im Ziel-Band noch nicht, ist es Zeile 0 eines neuen Abschnitts.
+   */
+  function slotAt(layout, priority, themeId, y) {
+    const section = layout.sections.find((s) => s.priority === priority && s.themeId === themeId);
+    if (!section) {
+      const band = layout.bands.find((b) => b.priority === priority);
+      return { row: 0, top: band.y + C.BAND_PADDING + (themeId ? C.FRAME_HEADER : 0) };
+    }
+    const row = Math.max(0, Math.min(section.rows, Math.round((y - section.barsTop - C.BAR_HEIGHT / 2) / ROW_STEP)));
+    return { row, top: section.barsTop + row * ROW_STEP };
+  }
+
+  /** Zeilenzahl eines Abschnitts (0, wenn es ihn nicht gibt). */
+  function rowsIn(layout, priority, themeId) {
+    return layout.sections.find((s) => s.priority === priority && s.themeId === themeId)?.rows ?? 0;
+  }
+
+  return { compute, collides, dayX, dayAt, priorityAt, slotAt, rowsIn };
 })();
 </script>
   <script>
@@ -1945,8 +2012,9 @@ PB.board = (() => {
       const theme = model.getTheme(f.themeId);
       const port = interactive
         ? '<div class="port theme-port" title="Ziehen: ganzes Thema → Aufgabe oder anderes Thema"></div>' : '';
-      return `<div class="tl-frame" data-theme="${esc(theme.id)}" style="left:${f.x}px;top:${f.y}px;width:${f.width}px;height:${f.height}px;--c:${theme.color}">
-        <span class="tl-frame-label"><i></i>${esc(theme.title)}</span>${port}</div>`;
+      const gripTitle = interactive ? ' title="Ziehen: Gruppe verschieben · Klick: Thema öffnen"' : '';
+      return `<div class="tl-frame" data-theme="${esc(theme.id)}" data-priority="${f.priority}" style="left:${f.x}px;top:${f.y}px;width:${f.width}px;height:${f.height}px;--c:${theme.color}">
+        <div class="tl-frame-grip"${gripTitle}><span class="tl-frame-label"><i></i>${esc(theme.title)}</span></div>${port}</div>`;
     }).join('');
   }
 
@@ -2201,42 +2269,61 @@ PB.board = (() => {
   }
 
   /**
-   * Vorschau beim Verschieben: Balken folgen der Maus per CSS-Transform (ohne neu zu zeichnen),
-   * Ziel-Band wird markiert, ein Etikett zeigt Priorität und Start.
+   * Vorschau beim Verschieben: Balken (und ggf. ein Rahmen) folgen der Maus per CSS-Transform,
+   * ohne neu zu zeichnen. Ziel-Band und Zielzeile (gestrichelter Platzhalter) werden markiert,
+   * ein Etikett über dem gegriffenen Element zeigt Priorität und Start.
+   *   preview = { ids, dx, dy, priority, start, label?, frame?: { themeId, priority }, slot?: { x, top, width } }
+   *   ids[0] ist das gegriffene Element (Position des Etiketts).
    */
-  function showMovePreview(ids, dx, dy, { priority, start, point }) { // ids[0] = gegriffener Balken
+  function showMovePreview({ ids, dx, dy, priority, start, label = '', frame = null, slot = null }) {
     const moving = new Set(ids);
+    const transform = `translate(${dx}px, ${dy}px)`;
     dom.world.classList.add('moving');
     dom.world.querySelectorAll('.bar').forEach((el) => {
       const active = moving.has(el.dataset.id);
       el.classList.toggle('drag-preview', active);
-      el.style.transform = active ? `translate(${dx}px, ${dy}px)` : '';
+      el.style.transform = active ? transform : '';
+    });
+    dom.world.querySelectorAll('.tl-frame').forEach((el) => {
+      const active = frame && el.dataset.theme === frame.themeId && Number(el.dataset.priority) === frame.priority;
+      el.classList.toggle('drag-preview', Boolean(active));
+      el.style.transform = active ? transform : '';
     });
     dom.world.querySelectorAll('.tl-band').forEach((el) => el.classList.toggle('drop', Number(el.dataset.priority) === priority));
-    let hint = dom.world.querySelector('.drag-hint');
-    if (!hint) {
-      hint = document.createElement('div');
-      hint.className = 'drag-hint';
-      dom.world.appendChild(hint);
-    }
+
+    const slotEl = ensureOverlay('drop-slot');
+    slotEl.hidden = !slot;
+    if (slot) Object.assign(slotEl.style, { left: `${slot.x}px`, top: `${slot.top}px`, width: `${slot.width}px`, height: `${C.BAR_HEIGHT}px` });
+
+    const anchor = frame
+      ? dom.world.querySelector(`.tl-frame[data-theme="${CSS.escape(frame.themeId)}"][data-priority="${frame.priority}"]`)
+      : dom.world.querySelector(`.bar[data-id="${CSS.escape(ids[0])}"]`);
+    const hint = ensureOverlay('drag-hint');
     const date = CAL.dateOf(start);
-    hint.textContent = `Prio ${priority} · ab ${CAL.shortDate(date)} (KW ${CAL.weekNumber(date)})`;
-    // Über dem gegriffenen Balken (lead = erster in ids), damit der Titel sichtbar bleibt
-    const lead = dom.world.querySelector(`.bar[data-id="${CSS.escape(ids[0])}"]`);
-    const x = lead ? parseFloat(lead.style.left) + dx : point.x;
-    const y = lead ? parseFloat(lead.style.top) + dy - 34 : point.y - 34;
-    Object.assign(hint.style, { left: `${x}px`, top: `${y}px` });
+    hint.textContent = `${label}Prio ${priority} · ab ${CAL.shortDate(date)} (KW ${CAL.weekNumber(date)})`;
+    Object.assign(hint.style, {
+      left: `${(anchor ? parseFloat(anchor.style.left) : 0) + dx}px`,
+      top: `${(anchor ? parseFloat(anchor.style.top) : 0) + dy - 34}px`,
+    });
+  }
+
+  function ensureOverlay(className) {
+    return dom.world.querySelector(`.${className}`)
+      || dom.world.appendChild(Object.assign(document.createElement('div'), { className }));
   }
 
   function hideMovePreview() {
     dom.world.classList.remove('moving');
-    dom.world.querySelectorAll('.bar.drag-preview').forEach((el) => {
+    dom.world.querySelectorAll('.drag-preview').forEach((el) => {
       el.classList.remove('drag-preview');
       el.style.transform = '';
     });
     dom.world.querySelectorAll('.tl-band.drop').forEach((el) => el.classList.remove('drop'));
-    dom.world.querySelector('.drag-hint')?.remove();
+    dom.world.querySelectorAll('.drag-hint, .drop-slot').forEach((el) => el.remove());
   }
+
+  /** Aktuelles Layout (nur lesen) – für Interaktionen, die Zeilen und Bänder brauchen. */
+  const currentLayout = () => current;
 
   /** Auswahlrechteck (Weltkoordinaten); null blendet es aus. Liefert die getroffenen Aufgaben. */
   function showLasso(rect) {
@@ -2361,8 +2448,8 @@ PB.board = (() => {
 
   return {
     markup,
-    init, render, applyView, showDraftLink, hideDraftLink, themeAt, markDropTheme, showMovePreview, hideMovePreview, showLasso, applySelection, applyHighlight,
-    toWorld, dayAt: L.dayAt, priorityAt, viewportCenter, setZoom, fit, scrollTo,
+    init, render, showDraftLink, hideDraftLink, themeAt, markDropTheme, showMovePreview, hideMovePreview, showLasso, applySelection, applyHighlight,
+    toWorld, currentLayout, dayAt: L.dayAt, priorityAt, viewportCenter, setZoom, fit, scrollTo,
   };
 })();
 </script>
@@ -2717,7 +2804,8 @@ PB.sidebar = (() => {
     </ul>
     <h3>Bedienen</h3>
     <ul class="help">
-      <li><b>Balken frei ziehen</b>: waagrecht = Start, senkrecht = Priorität – das Ziel-Band wird markiert, übernommen wird beim Loslassen. Abhängigkeiten verschieben nichts automatisch; ein <b>oranger Pfeil</b> zeigt, wenn etwas vor dem Ende seines Vorgängers startet.</li>
+      <li><b>Balken frei ziehen</b>: waagrecht = Start, senkrecht = Priorität oder Zeile im selben Band. Ein gestrichelter Platzhalter zeigt, wo er landet; ist die Zeile belegt, wird er eingeschoben. Abhängigkeiten verschieben nichts automatisch; ein <b>oranger Pfeil</b> zeigt, wenn etwas vor dem Ende seines Vorgängers startet.</li>
+      <li><b>Gruppe verschieben</b>: an der Kopfzeile eines Rahmens ziehen – alle Aufgaben des Rahmens wandern mit (zeitlich und in ein anderes Prio-Band). Ein Klick darauf öffnet das Thema.</li>
       <li><b>Mehrere auswählen</b>: Strg/⌘ oder Shift + Klick, oder <b>Shift + Ziehen</b> auf freier Fläche. Ein ausgewählter Balken zieht alle anderen mit; im Panel lassen sich Thema, Priorität, Status und Arbeitsweise gemeinsam setzen.</li>
       <li><b>Rechte Kante</b> = Dauer, <b>gestrichelte Kante</b> = Puffer.</li>
       <li><b>Punkt am Ende ziehen</b> und auf einer Aufgabe loslassen = Abhängigkeit. Der Punkt an einer <b>Iterationsgrenze</b> heisst: „braucht nur bis hier“.</li>
@@ -3144,7 +3232,8 @@ PB.dialog = (() => {
  *  - rechte Kante = Dauer, gestrichelte Kante = Puffer
  *  - Punkt am Ende (oder an einer Iterationsgrenze) ziehen = Abhängigkeit;
  *    Punkt am Rahmen ziehen = Abhängigkeit des ganzen Themas; Loslassen im Rahmen = auf das Thema
- *  - Klick auf ein Rahmen-Etikett = Thema auswählen
+ *  - Rahmen-Kopfzeile: ziehen = ganze Gruppe verschieben, Klick = Thema auswählen
+ *  - senkrecht innerhalb eines Bandes: auf eine Zeile ablegen (Platzhalter zeigt das Ziel)
  *  - leere Fläche ziehen = verschieben, Doppelklick = neue Aufgabe, Strg+Mausrad = Zoom
  */
 PB.interactions = (() => {
@@ -3152,6 +3241,7 @@ PB.interactions = (() => {
   const model = PB.model;
   const board = PB.board;
   const ui = PB.ui;
+  const U = PB.util;
 
   /** Ab dieser Mausbewegung (px) gilt ein Klick als Ziehen. */
   const DRAG_THRESHOLD = 4;
@@ -3186,8 +3276,11 @@ PB.interactions = (() => {
     }
     const themePort = target.closest('.theme-port');
     if (themePort && event.button === 0) return startLink(event, themePort.parentElement.dataset.theme, null);
-    const frameLabel = target.closest('.tl-frame-label');
-    if (frameLabel) return actions.select('theme', frameLabel.parentElement.dataset.theme);
+    const grip = target.closest('.tl-frame-grip');
+    if (grip && event.button === 0) {
+      const frame = grip.parentElement;
+      return startFrameMove(event, frame.dataset.theme, Number(frame.dataset.priority));
+    }
     const link = target.closest('.link');
     if (link) return actions.select('dependency', link.dataset.dep);
     if (event.shiftKey && event.button === 0) return startLasso(event);
@@ -3228,26 +3321,18 @@ PB.interactions = (() => {
 
   /* ---------- Balken verschieben ---------- */
 
-  /**
-   * Verschiebt den gegriffenen Balken – und alle anderen ausgewählten mit (gleicher Versatz).
-   * Während des Ziehens bleibt das Board unverändert: Die Balken folgen als Vorschau der Maus
-   * (waagrecht tageweise, senkrecht frei), das Ziel-Band wird markiert. Erst beim Loslassen
-   * wird übernommen – so springt nichts, wenn sich Bandhöhen durch das Verschieben ändern.
-   */
-  function startMove(event, id) {
-    event.preventDefault();
-    const { type, ids } = ui.selection;
-    const group = type === 'task' && ids.includes(id) ? ids : [id];
-    if (group.length === 1) actions.select('task', id);
-    const origin = board.toWorld(event.clientX, event.clientY);
-    const leadPriority = model.getTask(id).priority;
-    const initial = group.map((taskId) => {
-      const t = model.getTask(taskId);
-      return { id: taskId, start: t.start, priority: t.priority };
-    });
-    let started = false;
-    let target = null;
+  /* ---------- Verschieben (Balken und ganze Rahmen) ---------- */
 
+  /**
+   * Gemeinsamer Ablauf beim Ziehen: Vorschau per Transform (Board bleibt ruhig), Übernahme beim
+   * Loslassen in einem Schritt. plan(p) liefert für die Zeigerposition { preview, commit() }.
+   * Ohne Bewegung wird onClick aufgerufen.
+   */
+  function dragWithPreview(event, plan, onClick) {
+    event.preventDefault();
+    const origin = board.toWorld(event.clientX, event.clientY);
+    let started = false;
+    let latest = null;
     track((e) => {
       const p = board.toWorld(e.clientX, e.clientY);
       if (!started && Math.hypot(p.x - origin.x, p.y - origin.y) * model.getState().view.zoom < DRAG_THRESHOLD) return;
@@ -3256,28 +3341,132 @@ PB.interactions = (() => {
         ui.dragging = true;
         board.applyHighlight();
       }
-      const days = daysBetween(origin.x, p.x);
-      const priorityShift = board.priorityAt(p.y) - leadPriority;
-      target = initial.map((t) => ({
-        id: t.id,
-        start: Math.max(0, t.start + days),
-        priority: Math.min(C.PRIORITY_LEVELS, Math.max(1, t.priority + priorityShift)),
-      }));
-      const lead = target.find((t) => t.id === id);
-      board.showMovePreview([id, ...group.filter((x) => x !== id)], (lead.start - model.getTask(id).start) * C.DAY_WIDTH, p.y - origin.y,
-        { priority: lead.priority, start: lead.start, point: p });
+      latest = plan(p, origin);
+      board.showMovePreview(latest.preview);
     }, () => {
       board.hideMovePreview();
-      if (!started || !target) return;
-      const changed = target.some((t, i) => t.start !== initial[i].start || t.priority !== initial[i].priority);
-      if (!changed) {
-        board.applyHighlight();
-        return;
-      }
-      model.beginGesture();
-      model.previewTasks(new Map(target.map((t) => [t.id, { start: t.start, priority: t.priority }])));
-      model.endGesture();
+      if (!started) onClick?.();
+      else if (latest) latest.commit();
+      board.applyHighlight();
     });
+  }
+
+  /**
+   * Neue Start-/Prioritäts-/Zeilenwerte für eine Gruppe von Aufgaben übernehmen.
+   * Alle Aufgaben bekommen ihre aktuell angezeigte Zeile fest zugewiesen, damit nichts springt;
+   * ist die Zielzeile im Zielabschnitt zeitlich belegt, rutschen die Zeilen ab dort nach unten.
+   */
+  function commitMove(moves, layout) {
+    const patches = new Map();
+    layout.boxes.forEach((box, id) => patches.set(id, { row: box.row }));
+    const moving = new Set(moves.map((m) => m.id));
+    const lead = moves[0];
+    const leadTask = model.getTask(lead.id);
+    const leadAtTarget = { ...leadTask, start: lead.start };
+    const neighbours = model.getState().tasks.filter((t) =>
+      !moving.has(t.id) && t.priority === lead.priority && (t.theme || null) === (leadTask.theme || null));
+    const blocked = neighbours.some((t) =>
+      patches.get(t.id)?.row === lead.row && PB.layout.collides(t, leadAtTarget, layout.width));
+    if (blocked) {
+      const shift = Math.max(...moves.map((m) => m.row)) - lead.row + 1;
+      neighbours.forEach((t) => {
+        const row = patches.get(t.id)?.row;
+        if (row !== undefined && row >= lead.row) patches.get(t.id).row = row + shift;
+      });
+    }
+    moves.forEach((m) => patches.set(m.id, { start: m.start, priority: m.priority, row: m.row }));
+    const changed = moves.some((m) => {
+      const t = model.getTask(m.id);
+      return t.start !== m.start || t.priority !== m.priority || layout.boxes.get(m.id)?.row !== m.row;
+    });
+    if (changed) model.arrangeTasks(patches);
+  }
+
+  /**
+   * Balken verschieben – mit allen ausgewählten (gleicher Versatz in Zeit, Band und Zeile).
+   * Waagrecht tageweise, senkrecht auf eine Zeile im Ziel-Band (gestrichelter Platzhalter).
+   * Ein Klick ohne Ziehen wählt nur diesen Balken aus (auch aus einer Mehrfachauswahl heraus).
+   */
+  function startMove(event, id) {
+    const { type, ids } = ui.selection;
+    const group = type === 'task' && ids.includes(id) ? [id, ...ids.filter((x) => x !== id)] : [id];
+    if (group.length === 1) actions.select('task', id);
+    const layout = board.currentLayout();
+    const leadTask = model.getTask(id);
+    const leadBox = layout.boxes.get(id);
+
+    dragWithPreview(event, (p, origin) => {
+      const days = daysBetween(origin.x, p.x);
+      const centerY = leadBox.y + C.BAR_HEIGHT / 2 + (p.y - origin.y);
+      const priority = PB.layout.priorityAt(layout, centerY);
+      const slot = PB.layout.slotAt(layout, priority, leadTask.theme || null, centerY);
+      const priorityShift = priority - leadTask.priority;
+      const rowShift = slot.row - (priority === leadTask.priority ? leadBox.row : 0);
+      const moves = group.map((taskId) => {
+        const t = model.getTask(taskId);
+        const box = layout.boxes.get(taskId);
+        return {
+          id: taskId,
+          start: Math.max(0, t.start + days),
+          priority: U.clamp(t.priority + priorityShift, 1, C.PRIORITY_LEVELS),
+          row: Math.max(0, (taskId === id ? slot.row : box.row + rowShift)),
+        };
+      });
+      const start = moves[0].start;
+      return {
+        preview: {
+          ids: group,
+          dx: (start - leadTask.start) * C.DAY_WIDTH,
+          dy: p.y - origin.y,
+          priority,
+          start,
+          slot: { x: PB.layout.dayX(start), top: slot.top, width: leadBox.w },
+        },
+        commit: () => commitMove(moves, layout),
+      };
+    }, () => actions.select('task', id)); // Klick ohne Ziehen: nur diesen Balken auswählen
+  }
+
+  /**
+   * Ganzen Rahmen (alle Aufgaben eines Themas in diesem Band) verschieben: zeitlich und in ein
+   * anderes Band. Im Ziel-Band werden die Zeilen unter einen bestehenden Rahmen desselben Themas gehängt.
+   * Ein Klick ohne Bewegung öffnet das Thema.
+   */
+  function startFrameMove(event, themeId, priority) {
+    const layout = board.currentLayout();
+    const members = model.getState().tasks.filter((t) => t.theme === themeId && t.priority === priority);
+    if (!members.length) return;
+    const earliest = Math.min(...members.map((t) => t.start));
+    const title = model.getTheme(themeId).title;
+
+    dragWithPreview(event, (p, origin) => {
+      const days = daysBetween(origin.x, p.x);
+      const target = PB.layout.priorityAt(layout, p.y);
+      const rowOffset = target === priority ? 0 : PB.layout.rowsIn(layout, target, themeId);
+      const moves = members.map((t) => ({
+        id: t.id,
+        start: Math.max(0, t.start + days),
+        priority: target,
+        row: layout.boxes.get(t.id).row + rowOffset,
+      }));
+      return {
+        preview: {
+          ids: members.map((t) => t.id),
+          dx: (Math.max(0, earliest + days) - earliest) * C.DAY_WIDTH,
+          dy: p.y - origin.y,
+          priority: target,
+          start: Math.max(0, earliest + days),
+          label: `${title} · `,
+          frame: { themeId, priority },
+        },
+        commit: () => {
+          const patches = new Map();
+          layout.boxes.forEach((box, id) => patches.set(id, { row: box.row }));
+          moves.forEach((m) => patches.set(m.id, { start: m.start, priority: m.priority, row: m.row }));
+          if (days !== 0 || target !== priority) model.arrangeTasks(patches);
+        },
+      };
+    }, () => actions.select('theme', themeId));
   }
 
   /* ---------- Auswahlrechteck ---------- */
