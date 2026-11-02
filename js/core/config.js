@@ -22,6 +22,10 @@ PB.config = Object.freeze({
   BAR_HEIGHT: 58,
   ROW_GAP: 12,
   BAND_PADDING: 14,
+  /** Themen-Rahmen: Kopfzeile mit Namen, Innenabstand, Abstand zwischen Abschnitten eines Bandes. */
+  FRAME_HEADER: 24,
+  FRAME_PADDING: 10,
+  SECTION_GAP: 12,
   /** Schmaler als das → Titel steht rechts neben dem Balken. */
   NARROW_BAR: 150,
   /** Platz, der für einen Titel neben einem schmalen Balken reserviert wird. */
@@ -30,7 +34,7 @@ PB.config = Object.freeze({
   /* ---------- Inhalte ---------- */
   KIND_LABELS: { thinking: 'Denken', implementation: 'Umsetzung' },
   STATUS_LABELS: { open: 'Offen', in_progress: 'Läuft', done: 'Fertig' },
-  INTENSITY_LABELS: { focused: 'Intensiv', background: 'Nebenbei / reift' },
+  INTENSITY_LABELS: { focused: 'Intensiv', medium: 'Mittel', background: 'Nebenbei / reift' },
   DEFAULT_TITLES: { thinking: 'Neues Denk-Thema', implementation: 'Neue Umsetzung', theme: 'Neues Thema' },
   DEFAULT_DURATION: { thinking: 10, implementation: 5 },
   DURATION_PRESETS: [
@@ -46,7 +50,7 @@ PB.config = Object.freeze({
   HISTORY_LIMIT: 100,
 
   /** Dateiformat für Import/Export (siehe schema/prio-board.schema.json). */
-  FORMAT: { name: 'prio-board', version: 2 },
+  FORMAT: { name: 'prio-board', version: 3 },
 
   STORAGE_KEY: 'prioBoard.document',
   /** Ältere Speicherstände: v1 hatte „hohe Prio rechts“ und wird gespiegelt. */

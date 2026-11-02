@@ -1,21 +1,21 @@
 /**
- * JSON-Dateiformat „prio-board“ (Version 2) – Export, Import, Validierung, Migration.
+ * JSON-Dateiformat „prio-board“ (Version 3) – Export, Import, Validierung, Migration.
  * Beschreibung: schema/prio-board.schema.json und README.md.
  *
  *   {
- *     "format": "prio-board", "version": 2, "exportedAt": "…",
+ *     "format": "prio-board", "version": 3, "exportedAt": "…",
  *     "board": { "title": "…" }, "view": { "zoom": 1 },
  *     "themes": [ { "id", "title", "color": "#rrggbb" } ],
  *     "tasks": [ { "id", "kind": "thinking|implementation", "title", "description", "notes": [],
  *                  "status": "open|in_progress|done", "priority": 1-5, "start": "YYYY-MM-DD",
- *                  "durationDays", "bufferDays", "intensity": "focused|background", "ongoing",
- *                  "iterations": [ { "title", "durationDays", "done" } ], "themes": [themeId] } ],
+ *                  "durationDays", "bufferDays", "intensity": "focused|medium|background", "ongoing",
+ *                  "iterations": [ { "title", "durationDays", "intensity", "done" } ], "theme": id|null } ],
  *     "dependencies": [ { "id", "from", "to", "fromIteration": null | index } ],
  *     "analysis": { … }   // nur Export, wird beim Import ignoriert
  *   }
  *
- * Ältere Stände werden migriert: v1 (freies Board mit Gruppen) und die ersten internen
- * Speicherstände ({ blocks, deps }).
+ * Ältere Stände werden schrittweise migriert: erste interne Speicherstände ({ blocks, deps }) → v1
+ * (freies Board mit Gruppen) → v2 (Zeitachse, mehrere Themen je Aufgabe) → v3.
  */
 PB.format = (() => {
   const C = PB.config;
@@ -23,7 +23,7 @@ PB.format = (() => {
   const CAL = PB.calendar;
   const KINDS = ['thinking', 'implementation'];
   const STATUSES = ['open', 'in_progress', 'done'];
-  const INTENSITIES = ['focused', 'background'];
+  const INTENSITIES = ['focused', 'medium', 'background'];
 
   class FormatError extends Error {
     constructor(problems) {
@@ -62,8 +62,8 @@ PB.format = (() => {
         bufferDays: t.bufferDays,
         intensity: t.intensity,
         ongoing: t.ongoing,
-        iterations: t.iterations.map((it) => ({ title: it.title, durationDays: it.durationDays, done: it.done })),
-        themes: [...t.themes],
+        iterations: t.iterations.map((it) => ({ title: it.title, durationDays: it.durationDays, intensity: it.intensity, done: it.done })),
+        theme: t.theme,
       })),
       dependencies: state.dependencies.map((d) => ({ id: d.id, from: d.from, to: d.to, fromIteration: d.fromIteration })),
     };
@@ -111,6 +111,7 @@ PB.format = (() => {
     }
     if (isLegacy(raw)) raw = migrateLegacy(raw);
     if (raw?.format === C.FORMAT.name && raw.version === 1) raw = migrateV1(raw);
+    if (raw?.format === C.FORMAT.name && raw.version === 2) raw = migrateV2(raw);
     return normalize(raw, { repair, onWarning });
   }
 
@@ -176,18 +177,20 @@ PB.format = (() => {
         report(`${where}: "start" muss ein Datum im Format JJJJ-MM-TT sein`);
         start = 0;
       }
+      const intensity = readEnum(t?.intensity, INTENSITIES, where, 'intensity', 'focused');
       const iterations = kind === 'thinking' && Array.isArray(t?.iterations)
         ? t.iterations.map((it, j) => ({
           title: text(it?.title) || `Iteration ${j + 1}`,
           durationDays: readInt(it?.durationDays, `${where}.iterations[${j}]`, 'durationDays', { min: 1, fallback: 5 }),
+          intensity: readEnum(it?.intensity, INTENSITIES, `${where}.iterations[${j}]`, 'intensity', intensity),
           done: it?.done === true,
         }))
         : [];
-      const taskThemes = Array.isArray(t?.themes) ? t.themes.filter((id) => {
-        if (themeIds.has(id)) return true;
-        report(`${where}: unbekanntes Thema "${id}"${repair ? ' – entfernt' : ''}`);
-        return false;
-      }) : [];
+      let theme = t?.theme ?? null;
+      if (theme !== null && !themeIds.has(theme)) {
+        report(`${where}: unbekanntes Thema "${theme}"${repair ? ' – entfernt' : ''}`);
+        theme = null;
+      }
       return {
         id: readId(t?.id, where),
         kind,
@@ -199,10 +202,10 @@ PB.format = (() => {
         start,
         durationDays: readInt(t?.durationDays, where, 'durationDays', { min: 1, fallback: C.DEFAULT_DURATION[kind] }),
         bufferDays: readInt(t?.bufferDays, where, 'bufferDays', { min: 0, fallback: 0 }),
-        intensity: readEnum(t?.intensity, INTENSITIES, where, 'intensity', 'focused'),
+        intensity,
         ongoing: kind === 'thinking' && t?.ongoing === true,
         iterations,
-        themes: [...new Set(taskThemes)],
+        theme,
       };
     });
     const taskById = new Map(tasks.map((t) => [t.id, t]));
@@ -249,10 +252,41 @@ PB.format = (() => {
   const V1_ZONE_WIDTH = 480;
 
   /**
+   * v2 → v3: höchstens ein Thema je Aufgabe (das erste bleibt).
+   * Damit keine Abhängigkeit verloren geht, werden Abhängigkeiten der übrigen Themen
+   * direkt auf die Aufgabe übertragen. Iterationen übernehmen die Intensität der Aufgabe.
+   */
+  function migrateV2(v2) {
+    const tasks = Array.isArray(v2.tasks) ? v2.tasks : [];
+    const dependencies = Array.isArray(v2.dependencies) ? [...v2.dependencies] : [];
+    for (const task of tasks) {
+      const themes = Array.isArray(task.themes) ? task.themes : [];
+      for (const dropped of themes.slice(1)) {
+        for (const d of v2.dependencies || []) {
+          if (d.to === dropped && d.from !== task.id) dependencies.push({ from: d.from, to: task.id, fromIteration: d.fromIteration ?? null });
+          if (d.from === dropped && d.to !== task.id) dependencies.push({ from: task.id, to: d.to, fromIteration: null });
+        }
+      }
+    }
+    return {
+      ...v2,
+      version: 3,
+      tasks: tasks.map(({ themes, ...task }) => ({
+        ...task,
+        theme: Array.isArray(themes) && themes.length ? themes[0] : null,
+        iterations: Array.isArray(task.iterations)
+          ? task.iterations.map((it) => ({ intensity: task.intensity, ...it }))
+          : task.iterations,
+      })),
+      dependencies,
+    };
+  }
+
+  /**
    * v1 (freies Board) → v2 (Zeitplan):
    *  - Priorität aus der x-Spalte (480 px je Stufe, links = hoch)
    *  - Dauer aus effortDays (1 PT ≈ 1 Arbeitstag)
-   *  - Gruppen → Themen (Mitglied aller Gruppen, die den Mittelpunkt umschliessen)
+   *  - Gruppen → Themen (alle umschliessenden Gruppen, innerste zuerst; v2→v3 behält die innerste)
    *  - Start: heute; der Zeitplan schiebt danach entlang der Abhängigkeiten
    */
   function migrateV1(v1) {
@@ -263,6 +297,7 @@ PB.format = (() => {
       const c = U.center(layout);
       return groups
         .filter((g) => g.layout && U.area(g.layout) > U.area(layout) && U.containsPoint(g.layout, c))
+        .sort((a, b) => U.area(a.layout) - U.area(b.layout)) // innerste Gruppe zuerst
         .map((g) => g.id);
     };
     const priorityOf = (layout) => (layout

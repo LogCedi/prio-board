@@ -1,10 +1,7 @@
 /**
- * Darstellung der Zeitachse.
- *   x = Arbeitstage ab heute (Kalenderwochen im Kopf), y = Prioritätsbänder (1 oben).
- *   Innerhalb eines Bandes werden Balken automatisch auf Zeilen verteilt (keine Überlappung).
- *
- *  - layout()/markup(): reine Berechnung bzw. HTML/SVG – auch für den statischen Export.
- *  - render() & Co.: Live-Board mit Zoom, Auswahl, Hervorhebungen.
+ * Darstellung der Zeitachse (Geometrie kommt aus PB.layout).
+ *  - markup(): HTML/SVG des Diagramms – auch für den statischen Export.
+ *  - render() & Co.: Live-Ansicht mit Zoom, Auswahl, Hervorhebungen.
  */
 PB.board = (() => {
   const C = PB.config;
@@ -12,6 +9,7 @@ PB.board = (() => {
   const I = PB.icons;
   const CAL = PB.calendar;
   const A = PB.analysis;
+  const L = PB.layout;
   const model = PB.model;
   const ui = PB.ui;
   const esc = U.escapeHtml;
@@ -21,67 +19,30 @@ PB.board = (() => {
   let current = null; // letztes Layout (für Koordinaten-Umrechnung)
 
   /* =====================================================================
-   * Layout (zustandslos)
-   * ===================================================================== */
-
-  const dayX = (day) => C.LABEL_WIDTH + day * C.DAY_WIDTH;
-
-  /** Positionen aller Balken, Bänder und die Gesamtgrösse. */
-  function layout() {
-    const { tasks } = model.getState();
-    const latest = tasks.reduce((max, t) => Math.max(max, model.endOf(t) + t.bufferDays), 0);
-    const horizon = Math.ceil(Math.max(C.MIN_HORIZON_DAYS, latest + C.HORIZON_TAIL_DAYS) / 5) * 5;
-    const width = dayX(horizon);
-    const boxes = new Map();
-    const bands = [];
-    let y = C.HEADER_HEIGHT;
-
-    for (let priority = 1; priority <= C.PRIORITY_LEVELS; priority++) {
-      const list = tasks
-        .filter((t) => t.priority === priority)
-        .sort((a, b) => a.start - b.start || a.title.localeCompare(b.title, 'de'));
-      const rowEnds = [];
-      const placed = [];
-      for (const task of list) {
-        const x = dayX(task.start);
-        const w = model.durationOf(task) * C.DAY_WIDTH;
-        const bufferWidth = task.bufferDays * C.DAY_WIDTH;
-        const narrow = w < C.NARROW_BAR;
-        const occupiedUntil = task.ongoing ? width : x + w + bufferWidth + (narrow ? C.LABEL_RESERVE : 0);
-        let row = rowEnds.findIndex((end) => end + C.DAY_WIDTH / 2 <= x);
-        if (row < 0) row = rowEnds.push(0) - 1;
-        rowEnds[row] = occupiedUntil;
-        placed.push({ id: task.id, x, w, bufferWidth, narrow, row });
-      }
-      const rows = Math.max(1, rowEnds.length);
-      const height = rows * C.BAR_HEIGHT + (rows - 1) * C.ROW_GAP + 2 * C.BAND_PADDING;
-      for (const box of placed) {
-        box.y = y + C.BAND_PADDING + box.row * (C.BAR_HEIGHT + C.ROW_GAP);
-        boxes.set(box.id, box);
-      }
-      bands.push({ priority, y, height });
-      y += height;
-    }
-    return { width, height: y, horizon, bands, boxes };
-  }
-
-  /* =====================================================================
    * Markup (zustandslos)
    * ===================================================================== */
 
-  function gridHtml(L) {
-    const weeks = CAL.weeks(L.horizon);
+  function gridHtml(layout) {
+    const weeks = CAL.weeks(layout.horizon);
     const columns = weeks.map((w, i) => {
-      const x = dayX(w.day);
-      const nextX = i + 1 < weeks.length ? dayX(weeks[i + 1].day) : L.width;
+      const x = L.dayX(w.day);
+      const nextX = i + 1 < weeks.length ? L.dayX(weeks[i + 1].day) : layout.width;
       const label = i === 0 ? `Heute · KW ${w.week}` : `KW ${w.week}`;
-      return `<div class="tl-week${i % 2 ? ' alt' : ''}${i === 0 ? ' today' : ''}" style="left:${x}px;width:${nextX - x}px;height:${L.height}px">
+      return `<div class="tl-week${i % 2 ? ' alt' : ''}${i === 0 ? ' today' : ''}" style="left:${x}px;width:${nextX - x}px;height:${layout.height}px">
         <div class="tl-week-label"><b>${label}</b>${CAL.shortDate(w.date)}</div></div>`;
     }).join('');
-    const bands = L.bands.map((b, i) => `<div class="tl-band${i % 2 ? ' alt' : ''}" style="top:${b.y}px;height:${b.height}px;width:${L.width}px">
+    const bands = layout.bands.map((b, i) => `<div class="tl-band${i % 2 ? ' alt' : ''}" style="top:${b.y}px;height:${b.height}px;width:${layout.width}px">
         <div class="tl-band-label"><b>Prio ${b.priority}</b><span>${C.PRIORITY_LABELS[b.priority - 1]}</span></div></div>`).join('');
     return `<div class="tl-days"></div>${columns}${bands}
       <div class="tl-corner"><b>Prio ↓</b><br>Zeit →</div><div class="tl-today"></div>`;
+  }
+
+  function framesHtml(layout) {
+    return layout.frames.map((f) => {
+      const theme = model.getTheme(f.themeId);
+      return `<div class="tl-frame" data-theme="${esc(theme.id)}" style="left:${f.x}px;top:${f.y}px;width:${f.width}px;height:${f.height}px;--c:${theme.color}">
+        <span class="tl-frame-label"><i></i>${esc(theme.title)}</span></div>`;
+    }).join('');
   }
 
   function statusBadge(task, a) {
@@ -96,12 +57,22 @@ PB.board = (() => {
     return `<span class="badge ${state}">${text}</span>`;
   }
 
-  function barHtml(task, box, a, L, interactive) {
+  /** Iterationen als Phasen über die ganze Balkenhöhe, jede mit eigener Intensität. */
+  function phasesHtml(task) {
+    if (!task.iterations.length) return '';
+    return `<div class="bar-phases">${task.iterations.map((it) => {
+      const tip = `${it.title} · ${CAL.durationLabel(it.durationDays)} · ${C.INTENSITY_LABELS[it.intensity]}${it.done ? ' · erledigt' : ''}`;
+      return `<div class="phase int-${it.intensity}${it.done ? ' done' : ''}" style="width:${it.durationDays * C.DAY_WIDTH}px" title="${esc(tip)}">
+        <span>${esc(it.title)}${it.done ? ' ✓' : ''}</span></div>`;
+    }).join('')}</div>`;
+  }
+
+  function barHtml(task, box, a, layout, interactive) {
     const duration = model.durationOf(task);
-    const themes = task.themes.map(model.getTheme).filter(Boolean);
     const leverage = a.leverage.get(task.id);
-    const classes = ['bar', task.kind, `int-${task.intensity}`, `st-${task.status}`,
-      box.narrow && 'narrow', task.iterations.length && 'has-iterations', task.ongoing && 'ongoing'].filter(Boolean).join(' ');
+    const classes = ['bar', task.kind, `st-${task.status}`,
+      task.iterations.length ? 'has-iterations' : `int-${task.intensity}`,
+      box.narrow && 'narrow', task.ongoing && 'ongoing'].filter(Boolean).join(' ');
     const style = `left:${box.x}px;top:${box.y}px;width:${box.w}px;height:${C.BAR_HEIGHT}px;--buf:${box.bufferWidth}px`;
 
     const durationText = CAL.durationLabel(duration) + (task.bufferDays ? ` (bis ${CAL.durationLabel(duration + task.bufferDays)})` : '');
@@ -110,29 +81,19 @@ PB.board = (() => {
       `<span>${durationText}</span>`,
       leverage ? `<span class="lev" title="Gibt ${leverage} Umsetzung(en) frei">🔓 ${leverage}</span>` : '',
     ].join('');
-
-    const stripe = themes.length
-      ? `<div class="bar-themes">${themes.map((th) => `<span style="background:${th.color}" title="Thema: ${esc(th.title)}"></span>`).join('')}</div>`
-      : '';
-    const iterations = task.iterations.length
-      ? `<div class="bar-iterations">${task.iterations.map((it) =>
-        `<div class="iter-seg${it.done ? ' done' : ''}" style="width:${it.durationDays * C.DAY_WIDTH}px" title="${esc(it.title)} · ${CAL.durationLabel(it.durationDays)}${it.done ? ' · erledigt' : ''}">${esc(it.title)}${it.done ? ' ✓' : ''}</div>`).join('')}</div>`
-      : '';
     const buffer = task.bufferDays
       ? `<div class="bar-buffer" style="width:${box.bufferWidth}px" title="Puffer ${CAL.durationLabel(task.bufferDays)}"></div>`
       : '';
     const ongoing = task.ongoing
-      ? `<div class="bar-ongoing" style="width:${Math.max(0, L.width - box.x - box.w - box.bufferWidth)}px" title="Läuft danach weiter"><span>∞ laufend</span></div>`
+      ? `<div class="bar-ongoing" style="width:${Math.max(0, layout.width - box.x - box.w - box.bufferWidth)}px" title="Läuft danach weiter"><span>∞ laufend</span></div>`
       : '';
-
     const tooltip = [task.title, `${CAL.longDate(CAL.dateOf(task.start))} – ${CAL.longDate(CAL.dateOf(model.endOf(task)))}`,
       ...task.notes.map((n) => `• ${n}`), task.description].filter(Boolean).join('\n');
 
     return `<div class="${classes}" data-id="${esc(task.id)}" style="${style}" title="${esc(tooltip)}">
-      ${stripe}${buffer}${ongoing}
+      ${buffer}${ongoing}${phasesHtml(task)}
       <div class="bar-body"><span class="tico">${I.forKind(task.kind)}</span>
         <div class="bar-text"><div class="title">${esc(task.title)}</div><div class="meta">${meta}</div></div></div>
-      ${iterations}
       ${interactive ? handlesHtml(task, box) : ''}
     </div>`;
   }
@@ -155,6 +116,12 @@ PB.board = (() => {
     return `M${x1},${y1} C${x1 + k},${y1} ${x2 - k},${y2} ${x2 - 2},${y2}`;
   }
 
+  /** Startpunkt eines Pfeils: Ende der Aufgabe (Mitte) oder Ende einer Iteration (unten). */
+  function linkStart(task, box, iteration) {
+    const x = L.dayX(model.iterationEnd(task, iteration));
+    return { x, y: iteration !== null ? box.y + C.BAR_HEIGHT - 8 : box.y + C.BAR_HEIGHT / 2 };
+  }
+
   /**
    * Themen-Abhängigkeiten nur dort zeichnen, wo sie im Thema „ankommen“ bzw. es „verlassen“:
    * Mitglieder mit einem Vorgänger (bzw. Nachfolger) im selben Thema hängen ohnehin indirekt daran.
@@ -162,22 +129,19 @@ PB.board = (() => {
   function isVisibleEdge(e, a) {
     if (!e.viaTheme) return true;
     const dep = model.getDependency(e.depId);
-    const inTheme = (themeId, other) => model.isTheme(themeId) && model.membersOf(themeId).includes(other);
-    const hasPredInTheme = [...a.predecessors.get(e.to)].some((p) => inTheme(dep.to, p));
-    const hasSuccInTheme = [...a.successors.get(e.from)].some((s) => inTheme(dep.from, s));
-    return !(model.isTheme(dep.to) && hasPredInTheme) && !(model.isTheme(dep.from) && hasSuccInTheme);
+    const inTheme = (themeId, taskId) => model.isTheme(themeId) && model.getTask(taskId).theme === themeId;
+    const entersInside = [...a.predecessors.get(e.to)].some((p) => inTheme(dep.to, p));
+    const leavesInside = [...a.successors.get(e.from)].some((s) => inTheme(dep.from, s));
+    return !(model.isTheme(dep.to) && entersInside) && !(model.isTheme(dep.from) && leavesInside);
   }
 
-  function linksHtml(a, L) {
-    const mid = C.BAR_HEIGHT / 2;
+  function linksHtml(a, layout) {
     return a.edges.filter((e) => isVisibleEdge(e, a)).map((e) => {
       const from = model.getTask(e.from);
-      const fromBox = L.boxes.get(e.from);
-      const toBox = L.boxes.get(e.to);
-      if (!fromBox || !toBox) return '';
-      const x1 = dayX(model.iterationEnd(from, e.iteration));
-      const y1 = e.iteration !== null ? fromBox.y + C.BAR_HEIGHT - 8 : fromBox.y + mid;
-      const d = linkPath(x1, y1, toBox.x, toBox.y + mid);
+      const fromBox = layout.boxes.get(e.from);
+      const toBox = layout.boxes.get(e.to);
+      const start = linkStart(from, fromBox, e.iteration);
+      const d = linkPath(start.x, start.y, toBox.x, toBox.y + C.BAR_HEIGHT / 2);
       const classes = ['link',
         e.viaTheme && 'via-theme',
         from.status === 'done' && 'done',
@@ -190,18 +154,18 @@ PB.board = (() => {
 
   /** Vollständiges Diagramm als HTML (für App und Export). */
   function markup(a, { interactive = false } = {}) {
-    const L = layout();
-    const bars = model.getState().tasks.map((t) => barHtml(t, L.boxes.get(t.id), a, L, interactive)).join('');
-    const draft = interactive ? '<path id="draftLink" class="draft" d="" style="display:none"/>' : '';
-    const html = `${gridHtml(L)}
-      <svg class="pb-links" width="${L.width}" height="${L.height}" xmlns="http://www.w3.org/2000/svg">
-        <defs>${PB.diagramStyles.markerDefs()}</defs>${linksHtml(a, L)}${draft}</svg>
-      ${bars}`;
-    return { html, width: L.width, height: L.height, layout: L };
+    const layout = L.compute();
+    const bars = model.getState().tasks.map((t) => barHtml(t, layout.boxes.get(t.id), a, layout, interactive)).join('');
+    const extras = interactive ? '<path id="draftLink" class="draft" d="" style="display:none"/>' : '';
+    const html = `${gridHtml(layout)}${framesHtml(layout)}
+      <svg class="pb-links" width="${layout.width}" height="${layout.height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>${PB.diagramStyles.markerDefs()}</defs>${linksHtml(a, layout)}${extras}</svg>
+      ${bars}${interactive ? '<div id="lasso" class="lasso" hidden></div>' : ''}`;
+    return { html, width: layout.width, height: layout.height, layout };
   }
 
   /* =====================================================================
-   * Live-Board
+   * Live-Ansicht
    * ===================================================================== */
 
   function init(elements) {
@@ -226,12 +190,11 @@ PB.board = (() => {
 
   function showDraftLink(fromId, iteration, point) {
     const draft = dom.world.querySelector('#draftLink');
-    const task = model.getTask(fromId);
     const box = current.boxes.get(fromId);
-    if (!draft || !task || !box) return;
-    const y = iteration !== null ? box.y + C.BAR_HEIGHT - 8 : box.y + C.BAR_HEIGHT / 2;
+    if (!draft || !box) return;
+    const start = linkStart(model.getTask(fromId), box, iteration);
     draft.style.display = '';
-    draft.setAttribute('d', linkPath(dayX(model.iterationEnd(task, iteration)), y, point.x, point.y));
+    draft.setAttribute('d', linkPath(start.x, start.y, point.x, point.y));
   }
 
   function hideDraftLink() {
@@ -239,12 +202,31 @@ PB.board = (() => {
     if (draft) draft.style.display = 'none';
   }
 
+  /** Auswahlrechteck (Weltkoordinaten); null blendet es aus. Liefert die getroffenen Aufgaben. */
+  function showLasso(rect) {
+    const lasso = dom.world.querySelector('#lasso');
+    if (!lasso) return [];
+    lasso.hidden = !rect;
+    if (!rect) return [];
+    Object.assign(lasso.style, { left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.width}px`, height: `${rect.height}px` });
+    const hits = [];
+    current.boxes.forEach((box, id) => {
+      const right = box.x + box.w;
+      const bottom = box.y + C.BAR_HEIGHT;
+      if (box.x < rect.x + rect.width && right > rect.x && box.y < rect.y + rect.height && bottom > rect.y) hits.push(id);
+    });
+    return hits;
+  }
+
   function applySelection() {
-    const { type, id } = ui.selection;
+    const { type, ids } = ui.selection;
+    const selected = new Set(ids);
     dom.world.querySelectorAll('.bar').forEach((el) =>
-      el.classList.toggle('selected', type === 'task' && el.dataset.id === id));
+      el.classList.toggle('selected', type === 'task' && selected.has(el.dataset.id)));
+    dom.world.querySelectorAll('.tl-frame').forEach((el) =>
+      el.classList.toggle('selected', type === 'theme' && selected.has(el.dataset.theme)));
     dom.world.querySelectorAll('.link').forEach((el) =>
-      el.classList.toggle('sel', type === 'dependency' && el.dataset.dep === id));
+      el.classList.toggle('sel', type === 'dependency' && selected.has(el.dataset.dep)));
   }
 
   /** Hover (vorher nötig / blockiert) hat Vorrang vor dem Fokusmodus. */
@@ -296,14 +278,7 @@ PB.board = (() => {
     return { x: (clientX - rect.left) / zoom, y: (clientY - rect.top) / zoom };
   }
 
-  /** Arbeitstag an einer x-Position (≥ 0). */
-  const dayAt = (x) => Math.max(0, Math.floor((x - C.LABEL_WIDTH) / C.DAY_WIDTH));
-
-  /** Prioritätsband an einer y-Position (oberhalb → 1, unterhalb → letztes). */
-  function priorityAt(y) {
-    const band = current.bands.find((b) => y < b.y + b.height);
-    return band ? band.priority : C.PRIORITY_LEVELS;
-  }
+  const priorityAt = (y) => L.priorityAt(current, y);
 
   function viewportCenter() {
     const zoom = model.getState().view.zoom;
@@ -347,8 +322,8 @@ PB.board = (() => {
   }
 
   return {
-    layout, markup,
-    init, render, applyView, showDraftLink, hideDraftLink, applySelection, applyHighlight,
-    toWorld, dayAt, priorityAt, viewportCenter, setZoom, fit, scrollTo,
+    markup,
+    init, render, applyView, showDraftLink, hideDraftLink, showLasso, applySelection, applyHighlight,
+    toWorld, dayAt: L.dayAt, priorityAt, viewportCenter, setZoom, fit, scrollTo,
   };
 })();

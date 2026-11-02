@@ -6,13 +6,14 @@
  *     themes: [{ id, title, color }],
  *     tasks:  [{ id, kind, title, description, notes[], status, priority,
  *                start, durationDays, bufferDays, intensity, ongoing,
- *                iterations: [{ title, durationDays, done }], themes: [themeId] }],
+ *                iterations: [{ title, durationDays, intensity, done }], theme }],
  *     dependencies: [{ id, from, to, fromIteration }] }   // from muss vor to fertig sein
  *
- * from/to einer Abhängigkeit sind Aufgaben oder Themen (Thema = alle Aufgaben mit diesem Thema).
+ * Eine Aufgabe gehört zu höchstens einem Thema (theme = id | null).
+ * from/to einer Abhängigkeit sind Aufgaben oder Themen (Thema = alle Aufgaben darin).
  * fromIteration (Index oder null): Nachfolger braucht nur diese Iteration des Vorgängers.
  *
- * Nach jeder Änderung sorgt schedule() dafür, dass kein Block vor dem Ende seiner
+ * Nach jeder Änderung sorgt schedule() dafür, dass keine Aufgabe vor dem Ende ihrer
  * Vorgänger beginnt (Nachfolger werden nach rechts geschoben, nie nach links).
  */
 PB.model = (() => {
@@ -50,7 +51,7 @@ PB.model = (() => {
   const getNode = (id) => getTask(id) || getTheme(id);
   const isTheme = (id) => state.themes.some((t) => t.id === id);
   const getDependency = (id) => state.dependencies.find((d) => d.id === id) || null;
-  const membersOf = (themeId) => state.tasks.filter((t) => t.themes.includes(themeId)).map((t) => t.id);
+  const membersOf = (themeId) => state.tasks.filter((t) => t.theme === themeId).map((t) => t.id);
 
   /** Aufgaben, für die ein Knoten steht (Aufgabe selbst oder alle Aufgaben eines Themas). */
   const tasksOf = (id) => (isTheme(id) ? membersOf(id) : getTask(id) ? [id] : []);
@@ -68,11 +69,13 @@ PB.model = (() => {
     return task.start + task.iterations.slice(0, index + 1).reduce((sum, it) => sum + it.durationDays, 0);
   }
 
+  const wouldCycle = (dependencies) => PB.analysis.hasCycle(PB.analysis.predecessorMap(api, dependencies));
+
   /* ---------- Zeitplan ---------- */
 
   /**
    * Schiebt Aufgaben, die vor dem Ende eines (nicht erledigten) Vorgängers beginnen, nach rechts.
-   * Zyklen sind ausgeschlossen (validateDependency), daher endet die Schleife.
+   * Zyklen sind ausgeschlossen (siehe validateDependency/assignTheme), daher endet die Schleife.
    */
   function schedule() {
     state.tasks.forEach((t) => { t.start = Math.max(0, Math.round(t.start)); });
@@ -155,7 +158,7 @@ PB.model = (() => {
       intensity: 'focused',
       ongoing: false,
       iterations: [],
-      themes: [],
+      theme: null,
     };
     checkpoint();
     state.tasks.push(task);
@@ -163,8 +166,17 @@ PB.model = (() => {
     return task.id;
   }
 
+  /** Nur Denk-Themen haben Iterationen; Pfeile „ab Iteration“ gelten sonst für die ganze Aufgabe. */
+  function normalizeKind(task) {
+    if (task.kind === 'thinking' || (!task.iterations.length && !task.ongoing)) return;
+    if (task.iterations.length) task.durationDays = durationOf(task);
+    task.iterations = [];
+    task.ongoing = false;
+    state.dependencies.forEach((d) => { if (d.from === task.id) d.fromIteration = null; });
+  }
+
   /**
-   * Ändert Felder einer Aufgabe.
+   * Ändert Felder einer Aufgabe (nicht das Thema – dafür assignTheme).
    * options.record=false: kein Historieneintrag (z. B. beim Tippen, siehe checkpoint()).
    * options.source: wird im Ereignis weitergegeben (z. B. 'sidebar').
    */
@@ -173,22 +185,29 @@ PB.model = (() => {
     if (!task) return;
     if (record) checkpoint();
     Object.assign(task, patch);
-    if (task.kind !== 'thinking' && (task.iterations.length || task.ongoing)) {
-      // Nur Denk-Themen haben Iterationen: Pfeile „ab Iteration“ gelten dann für die ganze Aufgabe
-      if (task.iterations.length) task.durationDays = durationOf(task);
-      task.iterations = [];
-      task.ongoing = false;
-      state.dependencies.forEach((d) => { if (d.from === id) d.fromIteration = null; });
-    }
+    normalizeKind(task);
     commit({ type: 'update', id, source });
   }
 
-  function removeTask(id) {
-    if (!getTask(id)) return;
+  /** Gleiche Änderung für mehrere Aufgaben (ein Historieneintrag). */
+  function updateTasks(ids, patch) {
+    const tasks = ids.map(getTask).filter(Boolean);
+    if (!tasks.length) return;
     checkpoint();
-    state.tasks = state.tasks.filter((t) => t.id !== id);
-    state.dependencies = state.dependencies.filter((d) => d.from !== id && d.to !== id);
-    commit({ type: 'remove', id });
+    tasks.forEach((task) => {
+      Object.assign(task, patch);
+      normalizeKind(task);
+    });
+    commit({ type: 'update' });
+  }
+
+  function removeTasks(ids) {
+    const remove = new Set(ids.filter(getTask));
+    if (!remove.size) return;
+    checkpoint();
+    state.tasks = state.tasks.filter((t) => !remove.has(t.id));
+    state.dependencies = state.dependencies.filter((d) => !remove.has(d.from) && !remove.has(d.to));
+    commit({ type: 'remove' });
   }
 
   function duplicateTask(id) {
@@ -210,7 +229,7 @@ PB.model = (() => {
     checkpoint();
     // Erste Iteration übernimmt die bisherige Dauer, weitere starten mit einer Woche
     const durationDays = task.iterations.length ? 5 : task.durationDays;
-    task.iterations.push({ title: `Iteration ${task.iterations.length + 1}`, durationDays, done: false });
+    task.iterations.push({ title: `Iteration ${task.iterations.length + 1}`, durationDays, intensity: task.intensity, done: false });
     commit({ type: 'update', id: taskId });
   }
 
@@ -261,23 +280,29 @@ PB.model = (() => {
     if (!getTheme(id)) return;
     checkpoint();
     state.themes = state.themes.filter((t) => t.id !== id);
-    state.tasks.forEach((t) => { t.themes = t.themes.filter((th) => th !== id); });
+    state.tasks.forEach((t) => { if (t.theme === id) t.theme = null; });
     state.dependencies = state.dependencies.filter((d) => d.from !== id && d.to !== id);
     commit({ type: 'remove', id });
   }
 
-  function toggleTaskTheme(taskId, themeId) {
-    const task = getTask(taskId);
-    if (!task || !getTheme(themeId)) return { ok: false };
-    const next = task.themes.includes(themeId) ? task.themes.filter((t) => t !== themeId) : [...task.themes, themeId];
-    const before = task.themes;
-    task.themes = next;
-    const cyclic = PB.analysis.hasCycle(PB.analysis.predecessorMap(api));
-    task.themes = before;
+  /**
+   * Ordnet Aufgaben einem Thema zu (themeId = null: aus dem Thema nehmen).
+   * Abgelehnt, wenn dadurch ein Zyklus entstünde oder eine Aufgabe von ihrem eigenen Thema abhinge.
+   */
+  function assignTheme(ids, themeId) {
+    const tasks = ids.map(getTask).filter(Boolean);
+    if (!tasks.length || (themeId !== null && !getTheme(themeId))) return { ok: false, error: 'Ungültiges Thema' };
+    const direct = themeId && state.dependencies.some((d) =>
+      (d.to === themeId && ids.includes(d.from)) || (d.from === themeId && ids.includes(d.to)));
+    if (direct) return { ok: false, error: 'Eine Aufgabe kann nicht von ihrem eigenen Thema abhängen (oder umgekehrt)' };
+    const before = tasks.map((t) => t.theme);
+    tasks.forEach((t) => { t.theme = themeId; });
+    const cyclic = wouldCycle();
+    tasks.forEach((t, i) => { t.theme = before[i]; });
     if (cyclic) return { ok: false, error: 'Nicht möglich – das Thema würde einen Kreis (Zyklus) erzeugen' };
     checkpoint();
-    task.themes = next;
-    commit({ type: 'update', id: taskId });
+    tasks.forEach((t) => { t.theme = themeId; });
+    commit({ type: 'update' });
     return { ok: true };
   }
 
@@ -286,13 +311,11 @@ PB.model = (() => {
   /** Prüft, ob from → to erlaubt ist. Liefert null oder einen Fehlertext. */
   function validateDependency(from, to, dependencies = state.dependencies) {
     if (!getNode(from) || !getNode(to) || from === to) return 'Ungültige Abhängigkeit';
-    if ((isTheme(to) && membersOf(to).includes(from)) || (isTheme(from) && membersOf(from).includes(to))) {
+    if ((isTheme(to) && getTask(from)?.theme === to) || (isTheme(from) && getTask(to)?.theme === from)) {
       return 'Ein Thema und eine Aufgabe darin können nicht voneinander abhängen';
     }
     if (dependencies.some((d) => d.from === from && d.to === to)) return 'Diese Abhängigkeit existiert bereits';
-    if (PB.analysis.hasCycle(PB.analysis.predecessorMap(api, [...dependencies, { from, to }]))) {
-      return 'Nicht möglich – das würde einen Kreis (Zyklus) erzeugen';
-    }
+    if (wouldCycle([...dependencies, { from, to }])) return 'Nicht möglich – das würde einen Kreis (Zyklus) erzeugen';
     return null;
   }
 
@@ -326,8 +349,7 @@ PB.model = (() => {
   function reverseDependency(id) {
     const dep = getDependency(id);
     if (!dep) return { ok: false, error: 'Abhängigkeit nicht gefunden' };
-    const others = state.dependencies.filter((d) => d.id !== id);
-    const error = validateDependency(dep.to, dep.from, others);
+    const error = validateDependency(dep.to, dep.from, state.dependencies.filter((d) => d.id !== id));
     if (error) return { ok: false, error: `Umkehren nicht möglich: ${error}` };
     checkpoint();
     [dep.from, dep.to] = [dep.to, dep.from];
@@ -345,20 +367,28 @@ PB.model = (() => {
     gestureStarts = new Map(state.tasks.map((t) => [t.id, t.start]));
   }
 
-  /** Ändert Zeit/Priorität einer Aufgabe während einer Geste (ohne Ereignis). */
-  function previewTask(id, patch) {
-    const task = getTask(id);
-    if (!task || !gestureStarts) return;
+  function resetToGestureStart() {
     state.tasks.forEach((t) => { t.start = gestureStarts.get(t.id) ?? t.start; });
-    Object.assign(task, patch);
+  }
+
+  /** Vorschau während einer Geste (ohne Ereignis): patches = Map<taskId, Teiländerung>. */
+  function previewTasks(patches) {
+    if (!gestureStarts) return;
+    resetToGestureStart();
+    patches.forEach((patch, id) => {
+      const task = getTask(id);
+      if (task) Object.assign(task, patch);
+    });
     schedule();
   }
+
+  const previewTask = (id, patch) => previewTasks(new Map([[id, patch]]));
 
   /** Iterationsdauer während einer Geste ändern (Grösse der letzten Iteration). */
   function previewIteration(id, index, durationDays) {
     const task = getTask(id);
     if (!task?.iterations[index] || !gestureStarts) return;
-    state.tasks.forEach((t) => { t.start = gestureStarts.get(t.id) ?? t.start; });
+    resetToGestureStart();
     task.iterations[index].durationDays = Math.max(1, durationDays);
     schedule();
   }
@@ -378,13 +408,13 @@ PB.model = (() => {
     // Board
     createEmptyState, load, replace, clear, setBoardTitle, setView,
     // Aufgaben & Iterationen
-    addTask, updateTask, removeTask, duplicateTask, addIteration, updateIteration, removeIteration,
+    addTask, updateTask, updateTasks, removeTasks, duplicateTask, addIteration, updateIteration, removeIteration,
     // Themen
-    addTheme, updateTheme, removeTheme, toggleTaskTheme,
+    addTheme, updateTheme, removeTheme, assignTheme,
     // Abhängigkeiten
     validateDependency, addDependency, removeDependency, setDependencyIteration, reverseDependency,
     // Gesten
-    beginGesture, previewTask, previewIteration, endGesture,
+    beginGesture, previewTasks, previewTask, previewIteration, endGesture,
   };
   return api;
 })();

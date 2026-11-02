@@ -27,10 +27,11 @@ PB.app = (() => {
 
     board.init({ canvas: $('#canvas'), sizer: $('#sizer'), world: $('#world') });
     sidebar.init({ tabs: $('#sideTabs'), body: $('#sideBody') }, {
-      goTo, hover, addDependency, toast, run: runAction,
+      goTo, hover, addDependency, toast, selectTasks, run: runAction,
     });
     PB.interactions.init({ canvas: $('#canvas'), world: $('#world') }, {
-      select, clearSelection, hover, addDependency, focusTitle, createAt, preview, viewChanged: persist,
+      select, selectTasks, toggleTask, clearSelection, hover, addDependency, focusTitle, createAt, preview,
+      viewChanged: persist,
     });
 
     model.subscribe(onModelChange);
@@ -45,7 +46,7 @@ PB.app = (() => {
       board.fit();
       updateHeader();
       persist();
-      if (saved?.migrated) reportMigration();
+      if (saved?.migrated) reportMigration(saved);
       else if (saved?.repairs.length) reportRepairs(saved);
     });
   }
@@ -83,38 +84,49 @@ PB.app = (() => {
       { title: 'Board repariert' });
   }
 
-  function reportMigration() {
+  function reportMigration({ fromVersion }) {
+    const timeline = fromVersion < 2
+      ? '• Neue Zeitachse: Priorität = bisherige Position (links = hoch), Dauer = bisheriger Aufwand (1 PT ≈ 1 Arbeitstag)\n' +
+        '• Alles startet ab heute, Abhängigkeiten schieben automatisch nach hinten\n'
+      : '';
     PB.dialog.alert(
-      'Dein Board wurde auf die neue Zeitachse umgestellt:\n' +
-      '• Priorität = bisherige Position (links = hoch)\n' +
-      '• Dauer = bisheriger Aufwand (1 PT ≈ 1 Arbeitstag)\n' +
-      '• Gruppen sind jetzt Themen (farbiger Streifen)\n' +
-      '• Alles startet ab heute, Abhängigkeiten schieben automatisch nach hinten\n\n' +
+      'Dein Board wurde auf die neue Version umgestellt:\n' + timeline +
+      '• Themen werden als Rahmen gezeigt; jede Aufgabe gehört zu höchstens einem Thema\n' +
+      '  (Abhängigkeiten weiterer Themen wurden direkt auf die Aufgabe übertragen)\n' +
+      '• Intensität (intensiv / mittel / nebenbei) gibt es jetzt auch pro Iteration\n\n' +
       'Das alte Board bleibt im Browser gesichert.',
-      { title: 'Neue Zeitachse' });
+      { title: 'Board umgestellt' });
   }
 
   /* ---------- Auswahl & Navigation ---------- */
 
-  function select(type, id) {
-    ui.selection = { type, id };
-    ui.tab = 'details';
+  function setSelection(type, ids) {
+    ui.selection = { type: ids.length ? type : null, ids };
+    if (ids.length) ui.tab = 'details';
+    else if (ui.tab === 'details') ui.tab = 'plan';
     board.applySelection();
     sidebar.render(analysis);
+  }
+
+  const select = (type, id) => setSelection(type, [id]);
+  const selectTasks = (ids) => setSelection('task', ids);
+  const selectedTasks = () => (ui.selection.type === 'task' ? ui.selection.ids : []);
+
+  /** Strg/Shift-Klick: Aufgabe zur Auswahl hinzufügen oder daraus entfernen. */
+  function toggleTask(id) {
+    const ids = selectedTasks();
+    selectTasks(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]);
   }
 
   function clearSelection() {
-    if (!ui.selection.type) return;
-    ui.selection = { type: null, id: null };
-    if (ui.tab === 'details') ui.tab = 'plan';
-    board.applySelection();
-    sidebar.render(analysis);
+    if (ui.selection.type) setSelection(null, []);
   }
 
   function dropStaleSelection() {
-    const { type, id } = ui.selection;
-    const exists = { task: model.getTask, theme: model.getTheme, dependency: model.getDependency }[type]?.(id);
-    if (type && !exists) ui.selection = { type: null, id: null };
+    const exists = { task: model.getTask, theme: model.getTheme, dependency: model.getDependency }[ui.selection.type];
+    if (!exists) return;
+    const ids = ui.selection.ids.filter((id) => exists(id));
+    ui.selection = { type: ids.length ? ui.selection.type : null, ids };
   }
 
   function hover(id) {
@@ -168,10 +180,14 @@ PB.app = (() => {
     };
   }
 
+  /** Neues Thema; ausgewählte Aufgaben werden ihm direkt zugeordnet. */
   function addTheme() {
+    const tasks = selectedTasks();
     const id = model.addTheme();
-    const task = ui.selection.type === 'task' ? ui.selection.id : null;
-    if (task) model.toggleTaskTheme(task, id);
+    if (tasks.length) {
+      const result = model.assignTheme(tasks, id);
+      if (!result.ok) toast(result.error);
+    }
     select('theme', id);
     focusTitle();
   }
@@ -186,21 +202,22 @@ PB.app = (() => {
   }
 
   function deleteSelection() {
-    const { type, id } = ui.selection;
-    if (type === 'task') model.removeTask(id);
-    if (type === 'theme') model.removeTheme(id);
-    if (type === 'dependency') model.removeDependency(id);
+    const { type, ids } = ui.selection;
+    if (type === 'task') model.removeTasks(ids);
+    if (type === 'theme') ids.forEach(model.removeTheme);
+    if (type === 'dependency') ids.forEach(model.removeDependency);
   }
 
   function duplicateSelection() {
-    if (ui.selection.type !== 'task') return;
-    const copy = model.duplicateTask(ui.selection.id);
+    const ids = selectedTasks();
+    if (ids.length !== 1) return;
+    const copy = model.duplicateTask(ids[0]);
     if (copy) select('task', copy);
   }
 
   function reverseSelectedDependency() {
     if (ui.selection.type !== 'dependency') return;
-    const result = model.reverseDependency(ui.selection.id);
+    const result = model.reverseDependency(ui.selection.ids[0]);
     if (!result.ok) toast(result.error);
   }
 
@@ -210,6 +227,7 @@ PB.app = (() => {
       duplicate: duplicateSelection,
       'reverse-dependency': reverseSelectedDependency,
       'add-theme': addTheme,
+      'clear-selection': clearSelection,
     };
     handlers[name]?.();
   }
@@ -373,6 +391,7 @@ PB.app = (() => {
       if (mod && key === 'z') { event.preventDefault(); event.shiftKey ? model.redo() : model.undo(); }
       else if (mod && key === 'y') { event.preventDefault(); model.redo(); }
       else if (mod && key === 'd') { event.preventDefault(); duplicateSelection(); }
+      else if (mod && key === 'a') { event.preventDefault(); selectTasks(model.getState().tasks.map((t) => t.id)); }
       else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelection(); }
     });
   }

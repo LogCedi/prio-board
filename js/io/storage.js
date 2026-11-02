@@ -22,7 +22,7 @@ PB.storage = (() => {
 
   /**
    * Letzten Stand laden; ältere Speicherstände werden migriert, kleine Schäden repariert.
-   * Liefert { state, repairs[], migrated, backupKey } oder null, wenn nichts Brauchbares gespeichert ist.
+   * Liefert { state, repairs[], migrated, fromVersion, backupKey } oder null, wenn nichts Brauchbares gespeichert ist.
    * Vor jeder Reparatur oder Migration wird das Original unter einem Sicherungs-Key abgelegt.
    */
   function loadLocal() {
@@ -35,7 +35,8 @@ PB.storage = (() => {
       if (!text) continue;
       try {
         const raw = JSON.parse(text);
-        const migrated = key !== C.STORAGE_KEY || raw.version !== C.FORMAT.version;
+        const fromVersion = key === C.STORAGE_KEY ? raw.version : 0; // 0 = erste interne Speicherstände
+        const migrated = fromVersion !== C.FORMAT.version;
         const repairs = [];
         const state = F.parse(convert(raw), { repair: true, onWarning: (m) => repairs.push(m) });
         let backupKey = null;
@@ -43,7 +44,7 @@ PB.storage = (() => {
           backupKey = `${C.STORAGE_KEY}.backup-${new Date().toISOString()}`;
           write(backupKey, text);
         }
-        return { state, repairs, migrated, backupKey };
+        return { state, repairs, migrated, fromVersion, backupKey };
       } catch (e) {
         console.warn(`Gespeicherter Stand ${key} nicht lesbar:`, e);
         write(`${key}.unreadable-${new Date().toISOString()}`, text);

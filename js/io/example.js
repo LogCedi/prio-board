@@ -5,7 +5,7 @@
  */
 PB.example = {
   format: 'prio-board',
-  version: 2,
+  version: 3,
   board: { title: 'IT-Priorisierung' },
   view: { zoom: 1 },
   themes: [
@@ -21,8 +21,8 @@ PB.example = {
       description: 'Fundament: Zielbild der UI-Architektur – wird laufend weiterentwickelt',
       priority: 1, durationDays: 15, intensity: 'background', ongoing: true,
       iterations: [
-        { title: 'Zielbild', durationDays: 10, done: false },
-        { title: 'Leitplanken', durationDays: 5, done: false },
+        { title: 'Zielbild', durationDays: 10, intensity: 'focused', done: false },
+        { title: 'Leitplanken', durationDays: 5, intensity: 'background', done: false },
       ],
     },
     {
@@ -31,29 +31,29 @@ PB.example = {
     },
     {
       id: 't-denken-prozessdaten', kind: 'thinking', title: 'Denken Prozessdaten',
-      priority: 2, intensity: 'background', themes: ['th-skalierung'],
+      priority: 2, intensity: 'background', theme: 'th-skalierung',
       iterations: [
-        { title: 'Level 1', durationDays: 5, done: false },
-        { title: 'Level 2', durationDays: 5, done: false },
-        { title: 'Auswerten', durationDays: 5, done: false },
+        { title: 'Level 1', durationDays: 5, intensity: 'focused', done: false },
+        { title: 'Level 2', durationDays: 5, intensity: 'medium', done: false },
+        { title: 'Auswerten', durationDays: 5, intensity: 'background', done: false },
       ],
     },
     {
       id: 't-umsetzung-level1', kind: 'implementation', title: 'Umsetzung Prozess Level 1',
-      priority: 2, durationDays: 5, themes: ['th-skalierung'],
+      priority: 2, durationDays: 5, theme: 'th-skalierung',
     },
     {
       id: 't-umsetzung-prozess', kind: 'implementation', title: 'Umsetzung Prozess komplett',
-      priority: 3, durationDays: 10, bufferDays: 5, themes: ['th-skalierung'],
+      priority: 3, durationDays: 10, bufferDays: 5, theme: 'th-skalierung',
     },
     {
       id: 't-denken-harness', kind: 'thinking', title: 'Denken Harness',
       description: 'Wie soll der Harness aufgebaut sein?', notes: ['Skills', 'Workflow', 'Sprache'],
-      priority: 3, durationDays: 10, bufferDays: 5, themes: ['th-skalierung'],
+      priority: 3, durationDays: 10, bufferDays: 5, theme: 'th-skalierung',
     },
     {
       id: 't-umsetzung-harness', kind: 'implementation', title: 'Umsetzung Harness',
-      priority: 3, durationDays: 10, themes: ['th-skalierung'],
+      priority: 3, durationDays: 10, theme: 'th-skalierung',
     },
     {
       id: 't-logging', kind: 'implementation', title: 'Logging vereinheitlichen',

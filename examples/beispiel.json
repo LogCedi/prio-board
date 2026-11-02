@@ -1,8 +1,8 @@
 {
   "$schema": "../schema/prio-board.schema.json",
   "format": "prio-board",
-  "version": 2,
-  "exportedAt": "2026-11-02T12:11:54.142Z",
+  "version": 3,
+  "exportedAt": "2026-11-02T12:37:12.321Z",
   "board": {
     "title": "IT-Priorisierung"
   },
@@ -31,7 +31,7 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "themes": []
+      "theme": null
     },
     {
       "id": "t-ui-zielarchitektur",
@@ -50,15 +50,17 @@
         {
           "title": "Zielbild",
           "durationDays": 10,
+          "intensity": "focused",
           "done": false
         },
         {
           "title": "Leitplanken",
           "durationDays": 5,
+          "intensity": "background",
           "done": false
         }
       ],
-      "themes": []
+      "theme": null
     },
     {
       "id": "t-lz",
@@ -74,7 +76,7 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "themes": []
+      "theme": null
     },
     {
       "id": "t-denken-prozessdaten",
@@ -93,22 +95,23 @@
         {
           "title": "Level 1",
           "durationDays": 5,
+          "intensity": "focused",
           "done": false
         },
         {
           "title": "Level 2",
           "durationDays": 5,
+          "intensity": "medium",
           "done": false
         },
         {
           "title": "Auswerten",
           "durationDays": 5,
+          "intensity": "background",
           "done": false
         }
       ],
-      "themes": [
-        "th-skalierung"
-      ]
+      "theme": "th-skalierung"
     },
     {
       "id": "t-umsetzung-level1",
@@ -124,9 +127,7 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "themes": [
-        "th-skalierung"
-      ]
+      "theme": "th-skalierung"
     },
     {
       "id": "t-umsetzung-prozess",
@@ -142,9 +143,7 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "themes": [
-        "th-skalierung"
-      ]
+      "theme": "th-skalierung"
     },
     {
       "id": "t-denken-harness",
@@ -164,9 +163,7 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "themes": [
-        "th-skalierung"
-      ]
+      "theme": "th-skalierung"
     },
     {
       "id": "t-umsetzung-harness",
@@ -182,9 +179,7 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "themes": [
-        "th-skalierung"
-      ]
+      "theme": "th-skalierung"
     },
     {
       "id": "t-logging",
@@ -200,7 +195,7 @@
       "intensity": "focused",
       "ongoing": false,
       "iterations": [],
-      "themes": []
+      "theme": null
     }
   ],
   "dependencies": [

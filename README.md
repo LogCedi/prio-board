@@ -6,7 +6,8 @@ Priorisierungs-Tool für technische IT-Themen als **Zeitachse**:
 - **senkrecht = Priorität**: Bänder Prio 1 (oben, sehr hoch) bis Prio 5
 - **Denken** (🧠, Analyse/Konzept) und **Umsetzung** (🔧, direkt machbar) sind klar unterschieden
 - **Abhängigkeiten** als Pfeile; Nachfolger werden automatisch nach rechts geschoben
-- **Iteratives Denken**: Denk-Themen in Iterationen; eine Umsetzung kann schon nach einer Iteration starten
+- **Iteratives Denken**: Denk-Themen in Iterationen, jede mit eigener Dauer und Intensität; eine Umsetzung kann schon nach einer Iteration starten
+- **Themen als Rahmen** innerhalb eines Prio-Bands; **Mehrfachauswahl** für gemeinsame Änderungen
 - **Wichtigste Denk-Themen**: Hebel (🔓 = wie viele Umsetzungen hängen daran) × Dauer
 
 Reines HTML/CSS/JavaScript ohne Abhängigkeiten.
@@ -26,11 +27,11 @@ node tools/build.mjs
 | Element | Bedeutung |
 |---|---|
 | Balkenlänge | Dauer in Arbeitstagen (Mo–Fr) |
-| Voll / schraffiert | intensiv / läuft nebenbei bzw. reift |
+| Voll / dicht / licht schraffiert | intensiv / mittel / nebenbei bzw. reift |
 | Gestricheltes Ende | Puffer (Unsicherheit), z. B. „2 Wo (bis 3 Wo)“ |
 | ∞ laufend | Denk-Thema läuft nach der Dauer weiter (blockiert danach nichts mehr) |
-| Abschnitte unten im Balken | Iterationen (✓ = erledigt) |
-| Farbiger Streifen oben | Themen |
+| Abschnitte im Balken | Iterationen mit eigener Intensität (✓ = erledigt, aufgehellt) |
+| Rahmen mit Namen | Thema (Aufgaben eines Themas liegen im Band zusammen) |
 | 🔓 n | Hebel: gibt n offene Umsetzungen frei |
 | Pfeil grau / gepunktet | Abhängigkeit / über ein Thema |
 | Pfeil orange | riskant: startet im Puffer des Vorgängers |
@@ -45,16 +46,20 @@ Diagonale von oben links nach unten rechts.
 |---|---|
 | Balken waagrecht ziehen | Start verschieben (nie vor dem Ende eines Vorgängers) |
 | Balken senkrecht ziehen | Priorität ändern |
+| Strg/⌘ oder Shift + Klick | Balken zur Auswahl hinzufügen / entfernen |
+| Shift + Ziehen auf freier Fläche | Auswahlrechteck |
+| Ausgewählten Balken ziehen | Alle ausgewählten gemeinsam verschieben |
+| Klick auf Rahmen-Namen | Thema öffnen (Farbe, Mitglieder, Abhängigkeiten) |
 | Rechte Kante / gestricheltes Ende ziehen | Dauer / Puffer ändern |
 | Punkt am Ende ziehen → auf Aufgabe loslassen | Abhängigkeit anlegen |
 | Punkt an einer Iterationsgrenze ziehen | „braucht nur bis zu dieser Iteration“ |
 | Doppelklick auf freie Fläche | Neue Aufgabe an diesem Tag in diesem Prio-Band |
-| Seitenleiste „Details“ | Titel, Art, Status, Priorität, Start, Dauer/Puffer (mit Schnellwahl), Arbeitsweise, Iterationen, Themen, Notizen, Abhängigkeiten |
+| Seitenleiste „Details“ | Titel, Art, Status, Priorität, Start, Thema, Dauer/Puffer (mit Schnellwahl), Arbeitsweise, Iterationen, Notizen, Abhängigkeiten. Bei mehreren Aufgaben: Thema, Priorität, Status und Arbeitsweise gemeinsam setzen |
 | Seitenleiste „Ablauf“ | Wichtigste Denk-Themen, jetzt startbar, kritischer Pfad, Plan-Ende, Themen |
 | Datei ▸ Als HTML | Statische Seite nur mit dem Diagramm (zum Verschicken/Ablegen, druckbar, wieder importierbar) |
 | Datei ▸ Export / Import | JSON-Format „prio-board“ (siehe unten) |
 
-Tastatur: **Entf** löschen · **Strg+D** duplizieren · **Strg+Z/Y** rückgängig/wiederholen · **Strg+Mausrad** zoomen.
+Tastatur: **Entf** löschen · **Strg+D** duplizieren · **Strg+A** alle auswählen · **Strg+Z/Y** rückgängig/wiederholen · **Strg+Mausrad** zoomen.
 
 Die Zeitachse beginnt immer **heute**. Was vor heute geplant war, rückt auf heute nach.
 
@@ -83,17 +88,18 @@ js/
     model.js                Datenmodell, Zeitplan (Nachfolger schieben), Undo/Redo, Ereignisse
     analysis.js             Kanten, Wellen, Zyklen, startbar, Hebel, kritischer Pfad, Risiken
   io/
-    format.js               JSON-Format v2: serialisieren, validieren/reparieren, Migration v1 + Altstände
+    format.js               JSON-Format v3: serialisieren, validieren/reparieren, Migration v2, v1 + Altstände
     storage.js              localStorage (mit Sicherung) + Download
     example.js              Beispiel-Board
     static-export.js        Statische HTML-Seite nur mit dem Diagramm
   render/
     diagram-styles.js       CSS der Zeitachse (gemeinsam für App und HTML-Export)
-    board.js                Layout (Zeilen je Band) + Markup + Live-Ansicht (Zoom, Auswahl, Hervorhebung)
-    sidebar.js              Seitenleiste: Details, Ablauf, Hilfe
+    layout.js               Geometrie: Bänder, Themen-Abschnitte mit Rahmen, Zeilenverteilung
+    board.js                Markup + Live-Ansicht (Zoom, Auswahl, Auswahlrechteck, Hervorhebung)
+    sidebar.js              Seitenleiste: Details (einzeln/mehrere), Ablauf, Hilfe
   ui/
     dialog.js               Eigene Dialoge (Bestätigen, Hinweis, Export mit Kopieren, Import mit Einfügen)
-    interactions.js         Maus: Ziehen, Dauer/Puffer, Verbinden, Pannen, Doppelklick, Zoom
+    interactions.js         Maus: Ziehen (auch gemeinsam), Mehrfachauswahl, Dauer/Puffer, Verbinden, Pannen, Zoom
   app.js                    Einstieg: verbindet alles, Werkzeugleiste, Tastatur
 schema/prio-board.schema.json   JSON-Schema des Austauschformats
 examples/beispiel.json          Beispiel-Board als Datei
@@ -108,12 +114,12 @@ dist/prio-board.html            Fertige Einzeldatei zum Benutzen und Weitergeben
 Die Module sind klassische Skripte im Namensraum `PB` statt ES-Module, weil Browser ES-Module über
 `file://` blockieren. So funktioniert das Tool ohne Webserver.
 
-## JSON-Format „prio-board“ (Version 2)
+## JSON-Format „prio-board“ (Version 3)
 
 ```json
 {
   "format": "prio-board",
-  "version": 2,
+  "version": 3,
   "exportedAt": "2026-11-02T08:00:00.000Z",
   "board": { "title": "IT-Priorisierung" },
   "view": { "zoom": 1 },
@@ -124,12 +130,12 @@ Die Module sind klassische Skripte im Namensraum `PB` statt ES-Module, weil Brow
     { "id": "t-denken-prozessdaten", "kind": "thinking", "title": "Denken Prozessdaten",
       "description": "", "notes": [], "status": "open",
       "priority": 2, "start": "2026-11-16", "durationDays": 15, "bufferDays": 0,
-      "intensity": "background", "ongoing": false,
+      "intensity": "focused", "ongoing": false,
       "iterations": [
-        { "title": "Level 1", "durationDays": 5, "done": true },
-        { "title": "Level 2", "durationDays": 5, "done": false }
+        { "title": "Level 1", "durationDays": 5, "intensity": "focused", "done": true },
+        { "title": "Level 2", "durationDays": 5, "intensity": "medium", "done": false }
       ],
-      "themes": ["th-skalierung"] }
+      "theme": "th-skalierung" }
   ],
   "dependencies": [
     { "id": "d-1", "from": "t-denken-prozessdaten", "fromIteration": 0, "to": "t-umsetzung-level1" }
@@ -146,18 +152,20 @@ Die Module sind klassische Skripte im Namensraum `PB` statt ES-Module, weil Brow
 | `tasks[].start` | Starttag `JJJJ-MM-TT`; Daten vor heute werden auf heute gesetzt |
 | `tasks[].durationDays` | Dauer in Arbeitstagen (5 = 1 Woche); bei Iterationen ist die Summe der Iterationen massgebend |
 | `tasks[].bufferDays` | Puffer/Unsicherheit in Arbeitstagen |
-| `tasks[].intensity` | `focused` = intensiv · `background` = nebenbei / reift |
+| `tasks[].intensity` | `focused` = intensiv · `medium` = mittel · `background` = nebenbei / reift (gilt ohne Iterationen) |
 | `tasks[].ongoing` | nur Denken: läuft danach weiter (∞) |
-| `tasks[].iterations[]` | nur Denken: Schritte mit Titel, Dauer, erledigt |
-| `tasks[].themes[]` | IDs der Themen |
+| `tasks[].iterations[]` | nur Denken: Schritte mit Titel, Dauer, Intensität, erledigt |
+| `tasks[].theme` | ID des Themas oder `null` (höchstens eines je Aufgabe) |
 | `dependencies[]` | `from` muss fertig sein, bevor `to` startet. Beides darf eine Aufgabe oder ein Thema sein (Thema = alle Aufgaben darin). `fromIteration`: Es genügt diese Iteration von `from` |
 | `analysis` | Beim Export berechnet: Ende, Welle, Zustand, Hebel und Blocker je Aufgabe, wichtigste Denk-Themen, kritischer Pfad, Plan-Ende. Praktisch für Excel, Power BI usw. |
 
 Dauern sind ganze Arbeitstage statt Wochen, damit keine Kommazahlen entstehen; angezeigt wird „2 Wo 3 T“.
 
-**Migration:** Dateien und Speicherstände im alten Format (Version 1, freies Board) werden beim Import bzw.
-Start automatisch umgestellt: Die Priorität kommt aus der x-Position, die Dauer aus den Personentagen
-(1 PT ≈ 1 Arbeitstag), Gruppen werden zu Themen, und alles startet ab heute.
+**Migration:** Ältere Dateien und Speicherstände werden beim Import bzw. Start automatisch umgestellt:
+- **Version 2 → 3:** Jede Aufgabe behält ihr erstes Thema. Abhängigkeiten weiterer Themen werden direkt auf die
+  Aufgabe übertragen, damit nichts verloren geht. Iterationen übernehmen die Intensität der Aufgabe.
+- **Version 1 (freies Board) → 3:** Die Priorität kommt aus der x-Position, die Dauer aus den Personentagen
+  (1 PT ≈ 1 Arbeitstag), die innerste Gruppe wird zum Thema, und alles startet ab heute.
 
 Beim Import wird die Datei vollständig geprüft. Fehler werden gesammelt mit Pfad gemeldet,
 z. B. `tasks[2]: "priority" muss eine Zahl zwischen 1 und 5 sein`.

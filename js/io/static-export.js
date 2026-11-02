@@ -54,7 +54,8 @@ body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Sour
       <span><span class="dot thinking">${I.svg('brain')}</span>Denken – Analyse, braucht Zeit</span>
       <span><span class="dot implementation">${I.svg('wrench')}</span>Umsetzung – direkt machbar</span>
       <span>Länge = Dauer · gestrichelt = Puffer · ∞ = läuft weiter</span>
-      <span>Voll = intensiv · schraffiert = nebenbei / reift</span>
+      <span>Voll = intensiv · dicht schraffiert = mittel · licht = nebenbei</span>
+      <span>Rahmen = Thema</span>
       <span>🔓 n = gibt n Umsetzungen frei</span>
       <span>A → B: A muss vor B fertig sein · orange = riskant</span>
     </footer>`;

@@ -1,5 +1,5 @@
 /**
- * Seitenleiste: Tabs „Details“ (Aufgabe, Thema oder Abhängigkeit bearbeiten),
+ * Seitenleiste: Tabs „Details“ (Aufgabe, mehrere Aufgaben, Thema oder Abhängigkeit bearbeiten),
  * „Ablauf“ (wichtigste Denk-Themen, startbar, kritischer Pfad, Themen) und „Hilfe“.
  * Ändert das Modell direkt; Navigation/Meldungen laufen über die bei init() übergebenen actions.
  */
@@ -11,6 +11,10 @@ PB.sidebar = (() => {
   const model = PB.model;
   const ui = PB.ui;
   const esc = U.escapeHtml;
+
+  /** Sonderwerte in Auswahllisten: „Neues Thema anlegen“ und (Mehrfachauswahl) „unverändert lassen“. */
+  const NEW_THEME = '__new__';
+  const KEEP = '__keep__';
 
   let dom = null;
   let actions = null;
@@ -44,22 +48,23 @@ PB.sidebar = (() => {
 
   function dot(id) {
     const theme = model.getTheme(id);
-    if (theme) return `<span class="dot theme" style="background:${theme.color}"></span>`;
+    if (theme) return `<span class="dot theme" style="--c:${theme.color}"></span>`;
     const task = model.getTask(id);
     return `<span class="dot ${task.kind}">${I.forKind(task.kind)}</span>`;
   }
 
-  function listItem(id, { meta = '', extra = '', removeDep = null } = {}) {
+  function listItem(id, { meta = '', removeDep = null } = {}) {
     const node = model.getNode(id);
     if (!node) return '';
     const remove = removeDep ? `<button class="x" data-remove-dep="${esc(removeDep)}" title="Entfernen">×</button>` : '';
-    return `<li data-goto="${esc(id)}">${dot(id)}<span class="t">${esc(node.title)}</span>${meta}${extra}${remove}</li>`;
+    return `<li data-goto="${esc(id)}">${dot(id)}<span class="t">${esc(node.title)}</span>${meta}${remove}</li>`;
   }
 
   const list = (items, empty = '– nichts –') =>
     `<ul class="list">${items.join('') || `<li class="hint">${empty}</li>`}</ul>`;
 
-  const field = (label, control, extra = '') => `<div class="field"><label>${label}</label>${control}${extra}</div>`;
+  const field = (label, control) => `<div class="field"><label>${label}</label>${control}</div>`;
+  const small = (text) => `<span class="small">${text}</span>`;
 
   function select(attrs, options, current) {
     const opts = Object.entries(options)
@@ -68,7 +73,14 @@ PB.sidebar = (() => {
   }
 
   const priorityOptions = Object.fromEntries(C.PRIORITY_LABELS.map((label, i) => [i + 1, `Prio ${i + 1} – ${label}`]));
-  const small = (text) => `<span class="small">${text}</span>`;
+
+  function themeOptions(withNew = true) {
+    return {
+      '': '– kein Thema –',
+      ...Object.fromEntries(model.getState().themes.map((th) => [th.id, th.title])),
+      ...(withNew ? { [NEW_THEME]: '+ Neues Thema…' } : {}),
+    };
+  }
 
   /** Dauer-Eingabe mit Schnellwahl. */
   function durationField(label, name, value, { presets = C.DURATION_PRESETS, min = 1 } = {}) {
@@ -83,10 +95,12 @@ PB.sidebar = (() => {
     return `<h3>Legende</h3><div class="legend">
       <div><span class="dot thinking">${I.svg('brain')}</span><span><b>Denken</b> – Analyse, Konzept</span></div>
       <div><span class="dot implementation">${I.svg('wrench')}</span><span><b>Umsetzung</b> – direkt machbar</span></div>
-      <div><span class="sw full"></span><span>Voll = intensiv</span></div>
-      <div><span class="sw hatched"></span><span>Schraffiert = nebenbei / reift</span></div>
+      <div><span class="sw int-focused"></span><span>Voll = intensiv</span></div>
+      <div><span class="sw int-medium"></span><span>Dicht schraffiert = mittel</span></div>
+      <div><span class="sw int-background"></span><span>Licht schraffiert = nebenbei / reift</span></div>
       <div><span class="sw buffer"></span><span>Gestrichelt = Puffer / Unsicherheit</span></div>
       <div><span class="sw ongoing"></span><span>∞ = läuft weiter</span></div>
+      <div><span class="sw frame"></span><span>Rahmen = Thema</span></div>
       <div><span class="lev">🔓 3</span><span>Hebel: gibt 3 Umsetzungen frei</span></div>
       <div><span class="sw risky-line"></span><span>Orange Pfeil: Start im Puffer des Vorgängers (riskant)</span></div>
     </div>`;
@@ -97,11 +111,13 @@ PB.sidebar = (() => {
    * ===================================================================== */
 
   function detailsView() {
-    const { type, id } = ui.selection;
-    if (type === 'dependency') return dependencyDetails(model.getDependency(id));
-    if (type === 'theme' && model.getTheme(id)) return themeDetails(model.getTheme(id));
-    if (type === 'task' && model.getTask(id)) return taskDetails(model.getTask(id));
-    return `<p class="hint">Wähle einen Balken auf der Zeitachse aus – oder doppelklicke auf eine freie Stelle, um eine Aufgabe anzulegen.</p>${legend()}`;
+    const { type, ids } = ui.selection;
+    if (type === 'dependency') return dependencyDetails(model.getDependency(ids[0]));
+    if (type === 'theme' && model.getTheme(ids[0])) return themeDetails(model.getTheme(ids[0]));
+    if (type === 'task' && ids.length > 1) return multiDetails(ids);
+    if (type === 'task' && model.getTask(ids[0])) return taskDetails(model.getTask(ids[0]));
+    return `<p class="hint">Wähle einen Balken aus – <b>Strg/Shift + Klick</b> oder <b>Shift + Ziehen</b> wählt mehrere.
+      Doppelklick auf eine freie Stelle legt eine Aufgabe an.</p>${legend()}`;
   }
 
   function iterationLabel(task, index) {
@@ -128,12 +144,33 @@ PB.sidebar = (() => {
       </div>`;
   }
 
+  /** Mehrere Aufgaben: gemeinsame Änderungen. „—“ = unterschiedliche Werte bleiben unverändert. */
+  function multiDetails(ids) {
+    const tasks = ids.map(model.getTask).filter(Boolean);
+    const same = (key) => tasks.every((t) => t[key] === tasks[0][key]);
+    const common = (key) => (same(key) ? (tasks[0][key] ?? '') : KEEP);
+    const keep = { [KEEP]: '— unterschiedlich, unverändert lassen —' };
+    const withKeep = (key, options) => (same(key) ? options : { ...keep, ...options });
+    return `<h3>${tasks.length} Aufgaben ausgewählt</h3>
+      ${list(tasks.map((t) => listItem(t.id, { meta: small(`P${t.priority}`) })))}
+      ${field('Thema', select('data-bulk="theme"', withKeep('theme', themeOptions()), common('theme')))}
+      <div class="row">
+        ${field('Priorität', select('data-bulk="priority"', withKeep('priority', priorityOptions), common('priority')))}
+        ${field('Status', select('data-bulk="status"', withKeep('status', C.STATUS_LABELS), common('status')))}
+      </div>
+      ${field('Arbeitsweise', select('data-bulk="intensity"', withKeep('intensity', C.INTENSITY_LABELS), common('intensity')))}
+      <p class="hint">Gemeinsam verschieben: einen der ausgewählten Balken ziehen.</p>
+      <div class="btnrow">
+        <button class="btn" data-action="clear-selection">Auswahl aufheben</button>
+        <button class="btn danger" data-action="delete">${tasks.length} löschen</button>
+      </div>`;
+  }
+
   function taskDetails(task) {
     const isThinking = task.kind === 'thinking';
-    const duration = model.durationOf(task);
     const end = CAL.dateOf(model.endOf(task));
     const durationBlock = task.iterations.length
-      ? field('Dauer', `<p class="hint">Summe der Iterationen: <b>${CAL.durationLabel(duration)}</b></p>`)
+      ? field('Dauer', `<p class="hint">Summe der Iterationen: <b>${CAL.durationLabel(model.durationOf(task))}</b></p>`)
       : durationField('Dauer', 'durationDays', task.durationDays);
 
     return `
@@ -146,14 +183,14 @@ PB.sidebar = (() => {
         ${field('Priorität', select('data-field="priority"', priorityOptions, task.priority))}
         ${field('Start', `<input type="date" data-field="start" min="${CAL.isoOf(0)}" value="${CAL.isoOf(task.start)}">`)}
       </div>
+      ${field('Thema', select('data-field="theme"', themeOptions(), task.theme ?? ''))}
       ${durationBlock}
       ${durationField('Puffer (Unsicherheit)', 'bufferDays', task.bufferDays, {
         min: 0, presets: [{ label: 'kein', days: 0 }, { label: '1 Wo', days: 5 }, { label: '2 Wo', days: 10 }, { label: '1 Mt', days: 20 }],
       })}
       <p class="hint">Ende: <b>${CAL.longDate(end)}</b> (KW ${CAL.weekNumber(end)})${task.bufferDays ? `, spätestens ${CAL.longDate(CAL.dateOf(model.endOf(task) + task.bufferDays))}` : ''}</p>
-      ${field('Arbeitsweise', select('data-field="intensity"', C.INTENSITY_LABELS, task.intensity))}
+      ${task.iterations.length ? '' : field('Arbeitsweise', select('data-field="intensity"', C.INTENSITY_LABELS, task.intensity))}
       ${isThinking ? iterationsEditor(task) : ''}
-      ${themesEditor(task)}
       ${field('Stichpunkte (eine Zeile = ein Punkt)', `<textarea data-field="notes" rows="3">${esc(task.notes.join('\n'))}</textarea>`)}
       ${field('Beschreibung', `<textarea data-field="description" rows="3">${esc(task.description)}</textarea>`)}
       <p class="hint">${taskStateText(task)}</p>
@@ -170,23 +207,20 @@ PB.sidebar = (() => {
       <div class="iter-row">
         <input type="checkbox" data-iter="${i}" data-iter-field="done" ${it.done ? 'checked' : ''} title="Erledigt">
         <input data-iter="${i}" data-iter-field="title" value="${esc(it.title)}">
-        <input type="number" min="1" step="1" data-iter="${i}" data-iter-field="durationDays" value="${it.durationDays}" title="Arbeitstage">
-        <span class="small">${CAL.durationLabel(it.durationDays)}</span>
+        <input type="number" min="1" step="1" data-iter="${i}" data-iter-field="durationDays" value="${it.durationDays}" title="Dauer in Arbeitstagen">
+        ${select(`data-iter="${i}" data-iter-field="intensity" title="Arbeitsweise"`, C.INTENSITY_LABELS, it.intensity)}
         <button class="x" data-action="remove-iteration" data-index="${i}" title="Entfernen">×</button>
       </div>`).join('');
+    const head = task.iterations.length
+      ? '<div class="iter-row iter-head"><span></span><span>Schritt</span><span>Tage</span><span>Arbeitsweise</span><span></span></div>'
+      : '';
     return `<h3>Iterationen</h3>
-      <p class="hint">Denken in Schritten. Eine Umsetzung kann schon nach einer Iteration starten (Punkt an der Iterationsgrenze ziehen).</p>
-      ${rows}
+      <p class="hint">Denken in Schritten, jeder mit eigener Dauer und Arbeitsweise. Eine Umsetzung kann schon nach einer Iteration starten (Punkt an der Iterationsgrenze ziehen).</p>
+      ${head}${rows}
       <div class="btnrow">
         <button class="btn" data-action="add-iteration">+ Iteration</button>
         <label class="check"><input type="checkbox" data-field="ongoing" ${task.ongoing ? 'checked' : ''}> ∞ läuft danach weiter</label>
       </div>`;
-  }
-
-  function themesEditor(task) {
-    const chips = model.getState().themes.map((th) =>
-      `<button class="chip theme${task.themes.includes(th.id) ? ' on' : ''}" data-toggle-theme="${esc(th.id)}" style="--c:${th.color}">${esc(th.title)}</button>`).join('');
-    return `<h3>Themen</h3><div class="chips">${chips}<button class="chip" data-action="add-theme">+ Neues Thema</button></div>`;
   }
 
   function taskStateText(task) {
@@ -211,10 +245,11 @@ PB.sidebar = (() => {
     const members = model.membersOf(theme.id);
     return `
       ${field('Thema', `<input data-theme-field="title" value="${esc(theme.title)}">`)}
-      ${field('Farbe', `<input type="color" data-theme-field="color" value="${theme.color}">`)}
+      ${field('Farbe des Rahmens', `<input type="color" data-theme-field="color" value="${theme.color}">`)}
       <p class="hint">Eine Abhängigkeit auf ein Thema gilt für alle Aufgaben darin.</p>
       <h3>Aufgaben (${members.length})</h3>
-      ${list(members.map((id) => listItem(id)), 'Aufgaben im Detail-Panel einem Thema zuordnen')}
+      ${list(members.map((id) => listItem(id)), 'Aufgaben auswählen und im Panel diesem Thema zuordnen')}
+      ${members.length ? '<div class="btnrow"><button class="btn" data-action="select-members">Alle auswählen</button></div>' : ''}
       ${dependencySections(theme.id)}
       <div class="btnrow"><button class="btn danger" data-action="delete">Thema löschen</button></div>`;
   }
@@ -258,41 +293,35 @@ PB.sidebar = (() => {
 
   function planView() {
     const { tasks, themes } = model.getState();
+    if (!tasks.length) {
+      return '<p class="hint">Noch keine Aufgaben. Lege oben mit „Denken“ oder „Umsetzung“ los – oder doppelklicke auf die Zeitachse.</p>';
+    }
     const a = analysis;
     const open = tasks.filter((t) => t.status !== 'done');
-    const openWeeks = (kind) => open.filter((t) => t.kind === kind).reduce((s, t) => s + model.durationOf(t), 0);
+    const openDays = (kind) => open.filter((t) => t.kind === kind).reduce((s, t) => s + model.durationOf(t), 0);
     const planEnd = CAL.dateOf(a.planEnd);
-    const byPriority = (x, y) => model.getTask(x).priority - model.getTask(y).priority;
+    const durationOfId = (id) => CAL.durationLabel(model.durationOf(model.getTask(id)));
 
     const stats = `<div class="stats">
       <div class="stat"><b>${a.ready.size}</b><span>jetzt parallel startbar</span></div>
       <div class="stat"><b>KW ${CAL.weekNumber(planEnd)}</b><span>Plan-Ende (${CAL.shortDate(planEnd)})</span></div>
-      <div class="stat thinking"><b>${CAL.durationLabel(openWeeks('thinking'))}</b><span>${I.svg('brain')} Denken offen</span></div>
-      <div class="stat impl"><b>${CAL.durationLabel(openWeeks('implementation'))}</b><span>${I.svg('wrench')} Umsetzung offen</span></div>
+      <div class="stat thinking"><b>${CAL.durationLabel(openDays('thinking'))}</b><span>${I.svg('brain')} Denken offen</span></div>
+      <div class="stat impl"><b>${CAL.durationLabel(openDays('implementation'))}</b><span>${I.svg('wrench')} Umsetzung offen</span></div>
     </div>`;
-
     const warning = a.cycle.size
       ? `<div class="warn">⚠ Zyklische Abhängigkeit zwischen: ${[...a.cycle].map((id) => esc(model.getTask(id).title)).join(', ')}</div>`
       : '';
-
     const important = a.importantThinking.slice(0, 6).map((id) => {
-      const t = model.getTask(id);
       const lever = a.leverage.get(id);
-      return listItem(id, { meta: small(`${lever ? `🔓 ${lever} · ` : ''}${CAL.durationLabel(model.durationOf(t))} · P${t.priority}`) });
+      return listItem(id, { meta: small(`${lever ? `🔓 ${lever} · ` : ''}${durationOfId(id)} · P${model.getTask(id).priority}`) });
     });
-
-    const ready = [...a.ready].sort(byPriority).map((id) =>
-      listItem(id, { meta: small(`P${model.getTask(id).priority} · ${CAL.durationLabel(model.durationOf(model.getTask(id)))}`) }));
-
-    const critical = a.criticalPath.map((id, i) =>
-      listItem(id, { meta: small(`${i ? '↳ ' : ''}${CAL.durationLabel(model.durationOf(model.getTask(id)))}`) }));
-
+    const ready = [...a.ready]
+      .sort((x, y) => model.getTask(x).priority - model.getTask(y).priority)
+      .map((id) => listItem(id, { meta: small(`P${model.getTask(id).priority} · ${durationOfId(id)}`) }));
+    const critical = a.criticalPath.map((id, i) => listItem(id, { meta: small(`${i ? '↳ ' : ''}${durationOfId(id)}`) }));
     const themeItems = themes.map((th) => listItem(th.id, { meta: small(`${model.membersOf(th.id).length} Aufgaben`) }));
     const done = tasks.filter((t) => t.status === 'done').map((t) => listItem(t.id, { meta: small('✓') }));
 
-    if (!tasks.length) {
-      return `<p class="hint">Noch keine Aufgaben. Lege oben mit „Denken“ oder „Umsetzung“ los – oder doppelklicke auf die Zeitachse.</p>`;
-    }
     return `${stats}${warning}
       <h3>Wichtigste Denk-Themen</h3>
       <p class="hint">Viel Hebel (🔓 = freigegebene Umsetzungen) × lange Dauer – hier früh anfangen.</p>
@@ -314,20 +343,22 @@ PB.sidebar = (() => {
     <ul class="help">
       <li><b>Waagrecht = Zeit</b> in Kalenderwochen ab heute. Die <b>Länge</b> eines Balkens ist seine Dauer.</li>
       <li><b>Senkrecht = Priorität</b>: Prio 1 oben. Steht etwas Wichtiges weit rechts, wartet es zu lange.</li>
+      <li><b>Rahmen</b> fassen die Aufgaben eines Themas innerhalb eines Prio-Bands zusammen.</li>
     </ul>
     <h3>Bedienen</h3>
     <ul class="help">
       <li><b>Balken ziehen</b>: waagrecht = Start, senkrecht = Priorität.</li>
+      <li><b>Mehrere auswählen</b>: Strg/⌘ oder Shift + Klick, oder <b>Shift + Ziehen</b> auf freier Fläche. Ein ausgewählter Balken zieht alle anderen mit; im Panel lassen sich Thema, Priorität, Status und Arbeitsweise gemeinsam setzen.</li>
       <li><b>Rechte Kante</b> = Dauer, <b>gestrichelte Kante</b> = Puffer.</li>
       <li><b>Punkt am Ende ziehen</b> und auf einer Aufgabe loslassen = Abhängigkeit. Der Punkt an einer <b>Iterationsgrenze</b> heisst: „braucht nur bis hier“.</li>
       <li>Nachfolger werden automatisch <b>nach rechts geschoben</b>, wenn sie sonst zu früh starten würden.</li>
       <li><b>Doppelklick</b> auf eine freie Stelle = neue Aufgabe an diesem Tag in diesem Prio-Band.</li>
-      <li><b>Themen</b> fassen Aufgaben zusammen. Eine Abhängigkeit auf ein Thema gilt für alle darin.</li>
+      <li><b>Klick auf einen Rahmen-Namen</b> öffnet das Thema. Eine Abhängigkeit auf ein Thema gilt für alle Aufgaben darin.</li>
       <li><b>Hover</b> zeigt, was vorher nötig ist (orange) und was blockiert wird (blau).</li>
     </ul>
     <h3>Tastatur</h3>
     <ul class="help">
-      <li><b>Entf</b> löschen · <b>Strg+D</b> duplizieren · <b>Esc</b> Auswahl aufheben</li>
+      <li><b>Entf</b> löschen · <b>Strg+D</b> duplizieren · <b>Strg+A</b> alle auswählen · <b>Esc</b> Auswahl aufheben</li>
       <li><b>Strg+Z / Strg+Y</b> rückgängig / wiederholen · <b>Strg + Mausrad</b> zoomen</li>
     </ul>
     <h3>Speichern & Teilen</h3>
@@ -343,8 +374,9 @@ PB.sidebar = (() => {
    * Ereignisse
    * ===================================================================== */
 
-  const selectedTask = () => (ui.selection.type === 'task' ? model.getTask(ui.selection.id) : null);
-  const selectedTheme = () => (ui.selection.type === 'theme' ? model.getTheme(ui.selection.id) : null);
+  const selectedIds = () => ui.selection.ids;
+  const selectedTask = () => (ui.selection.type === 'task' && selectedIds().length === 1 ? model.getTask(selectedIds()[0]) : null);
+  const selectedTheme = () => (ui.selection.type === 'theme' ? model.getTheme(selectedIds()[0]) : null);
 
   /** Ein Historieneintrag pro Fokus beim Tippen. */
   function typingOptions() {
@@ -378,7 +410,6 @@ PB.sidebar = (() => {
       const value = t.dataset.iterField === 'durationDays' ? U.parseNumber(t.value) : t.value;
       if (value === null) return;
       model.updateIteration(task.id, Number(t.dataset.iter), { [t.dataset.iterField]: value }, typingOptions());
-      if (t.type === 'number') updateDurationLabel(t, value);
     } else if (theme && t.dataset.themeField) {
       model.updateTheme(theme.id, { [t.dataset.themeField]: t.value }, typingOptions());
     }
@@ -387,7 +418,7 @@ PB.sidebar = (() => {
   /** „= 2 Wo“ neben einer Dauer-Eingabe aktualisieren, ohne die Seitenleiste neu zu zeichnen. */
   function updateDurationLabel(input, days) {
     const label = input.parentElement.querySelector('.small');
-    if (label) label.textContent = input.closest('.duration') ? `Arbeitstage = ${CAL.durationLabel(days)}` : CAL.durationLabel(days);
+    if (label) label.textContent = `Arbeitstage = ${CAL.durationLabel(days)}`;
   }
 
   /** Feldwert umwandeln; undefined = (noch) ungültig, nicht übernehmen. */
@@ -401,16 +432,35 @@ PB.sidebar = (() => {
     return value;
   }
 
+  /** Thema zuordnen; „Neues Thema…“ legt eines an (actions.run → app.addTheme ordnet die Auswahl zu). */
+  function assignTheme(ids, value) {
+    if (value === NEW_THEME) {
+      actions.run('add-theme');
+      return;
+    }
+    const result = model.assignTheme(ids, value || null);
+    if (!result.ok) {
+      actions.toast(result.error);
+      render(analysis);
+    }
+  }
+
   function onChange(event) {
     const t = event.target;
     const task = selectedTask();
 
     if (t.dataset.addDependency && t.value) {
-      const id = ui.selection.id;
+      const id = selectedIds()[0];
       const [from, to] = t.dataset.addDependency === 'incoming' ? [t.value, id] : [id, t.value];
       actions.addDependency(from, to, null);
     } else if (t.dataset.depIteration) {
       model.setDependencyIteration(t.dataset.depIteration, t.value === '' ? null : Number(t.value));
+    } else if (t.dataset.bulk) {
+      if (t.value === KEEP) return;
+      if (t.dataset.bulk === 'theme') assignTheme(selectedIds(), t.value);
+      else model.updateTasks(selectedIds(), { [t.dataset.bulk]: t.dataset.bulk === 'priority' ? Number(t.value) : t.value });
+    } else if (task && t.dataset.field === 'theme') {
+      assignTheme([task.id], t.value);
     } else if (task && t.dataset.field === 'ongoing') {
       model.updateTask(task.id, { ongoing: t.checked });
     } else if (task && t.dataset.field === 'start') {
@@ -421,6 +471,8 @@ PB.sidebar = (() => {
       model.updateTask(task.id, { [t.dataset.field]: value });
     } else if (task && t.dataset.iterField === 'done') {
       model.updateIteration(task.id, Number(t.dataset.iter), { done: t.checked });
+    } else if (task && t.dataset.iterField === 'intensity') {
+      model.updateIteration(task.id, Number(t.dataset.iter), { intensity: t.value });
     }
     // Bewusst kein Neuzeichnen nach Texteingaben: Ein Klick, der den Fokus wechselt,
     // würde sonst auf einem bereits ersetzten Element landen und verloren gehen.
@@ -439,22 +491,21 @@ PB.sidebar = (() => {
       model.updateTask(selectedTask().id, { [preset.dataset.preset]: Number(preset.dataset.days) });
       return;
     }
-    const toggle = t.closest('[data-toggle-theme]');
-    if (toggle && selectedTask()) {
-      const result = model.toggleTaskTheme(selectedTask().id, toggle.dataset.toggleTheme);
-      if (!result.ok && result.error) actions.toast(result.error);
-      return;
-    }
     const action = t.closest('[data-action]');
     if (action) {
-      const index = action.dataset.index === undefined ? null : Number(action.dataset.index);
-      if (action.dataset.action === 'add-iteration') model.addIteration(selectedTask().id);
-      else if (action.dataset.action === 'remove-iteration') model.removeIteration(selectedTask().id, index);
-      else actions.run(action.dataset.action);
+      runAction(action.dataset.action, action.dataset.index === undefined ? null : Number(action.dataset.index));
       return;
     }
     const item = t.closest('[data-goto]');
     if (item) actions.goTo(item.dataset.goto);
+  }
+
+  function runAction(name, index) {
+    const task = selectedTask();
+    if (name === 'add-iteration' && task) model.addIteration(task.id);
+    else if (name === 'remove-iteration' && task) model.removeIteration(task.id, index);
+    else if (name === 'select-members' && selectedTheme()) actions.selectTasks(model.membersOf(selectedTheme().id));
+    else actions.run(name);
   }
 
   function onHover(event) {

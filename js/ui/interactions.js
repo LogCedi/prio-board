@@ -1,8 +1,11 @@
 /**
  * Maus-/Touch-Interaktionen auf der Zeitachse:
- *  - Balken ziehen: waagrecht = Start, senkrecht = Prioritätsband
+ *  - Balken ziehen: waagrecht = Start, senkrecht = Prioritätsband (ausgewählte Balken gemeinsam)
+ *  - Strg/⌘/Shift + Klick: Balken zur Auswahl hinzufügen/entfernen
+ *  - Shift + Ziehen auf leerer Fläche: Auswahlrechteck
  *  - rechte Kante = Dauer, gestrichelte Kante = Puffer
  *  - Punkt am Ende (oder an einer Iterationsgrenze) ziehen = Abhängigkeit
+ *  - Klick auf ein Rahmen-Etikett = Thema auswählen
  *  - leere Fläche ziehen = verschieben, Doppelklick = neue Aufgabe, Strg+Mausrad = Zoom
  */
 PB.interactions = (() => {
@@ -39,10 +42,14 @@ PB.interactions = (() => {
       if (port) return startLink(event, id, port.dataset.iteration === undefined ? null : Number(port.dataset.iteration));
       if (target.closest('.rs.dur')) return startResize(event, id, 'duration');
       if (target.closest('.rs.buf')) return startResize(event, id, 'buffer');
+      if (event.ctrlKey || event.metaKey || event.shiftKey) return actions.toggleTask(id);
       return startMove(event, id);
     }
+    const frameLabel = target.closest('.tl-frame-label');
+    if (frameLabel) return actions.select('theme', frameLabel.parentElement.dataset.theme);
     const link = target.closest('.link');
     if (link) return actions.select('dependency', link.dataset.dep);
+    if (event.shiftKey && event.button === 0) return startLasso(event);
     return startPan(event);
   }
 
@@ -80,25 +87,53 @@ PB.interactions = (() => {
 
   /* ---------- Balken verschieben ---------- */
 
+  /** Verschiebt den gegriffenen Balken – und alle anderen ausgewählten mit (gleicher Versatz). */
   function startMove(event, id) {
     event.preventDefault();
-    actions.select('task', id);
-    const task = model.getTask(id);
+    const { type, ids } = ui.selection;
+    const group = type === 'task' && ids.includes(id) ? ids : [id];
+    if (group.length === 1) actions.select('task', id);
     const origin = board.toWorld(event.clientX, event.clientY);
-    const start = task.start;
+    const leadPriority = model.getTask(id).priority;
+    const initial = group.map((taskId) => {
+      const t = model.getTask(taskId);
+      return { id: taskId, start: t.start, priority: t.priority };
+    });
     const g = gesture();
 
     track((e) => {
       const p = board.toWorld(e.clientX, e.clientY);
       if (!g.started && Math.hypot(p.x - origin.x, p.y - origin.y) * model.getState().view.zoom < DRAG_THRESHOLD) return;
       g.start();
-      model.previewTask(id, {
-        start: Math.max(0, start + daysBetween(origin.x, p.x)),
-        priority: board.priorityAt(p.y),
-      });
+      const days = daysBetween(origin.x, p.x);
+      const priorityShift = board.priorityAt(p.y) - leadPriority;
+      model.previewTasks(new Map(initial.map((t) => [t.id, {
+        start: Math.max(0, t.start + days),
+        priority: Math.min(C.PRIORITY_LEVELS, Math.max(1, t.priority + priorityShift)),
+      }])));
       actions.preview();
     }, () => {
       if (g.started) model.endGesture();
+    });
+  }
+
+  /* ---------- Auswahlrechteck ---------- */
+
+  function startLasso(event) {
+    event.preventDefault();
+    const origin = board.toWorld(event.clientX, event.clientY);
+    let hits = [];
+    ui.dragging = true;
+    track((e) => {
+      const p = board.toWorld(e.clientX, e.clientY);
+      hits = board.showLasso({
+        x: Math.min(origin.x, p.x), y: Math.min(origin.y, p.y),
+        width: Math.abs(p.x - origin.x), height: Math.abs(p.y - origin.y),
+      });
+    }, () => {
+      board.showLasso(null);
+      if (hits.length) actions.selectTasks(hits);
+      else actions.clearSelection();
     });
   }
 

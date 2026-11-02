@@ -53,12 +53,18 @@ PB.diagramStyles = (() => {
 .pb-world .bar{position:absolute;z-index:10;border-radius:10px;border:1.5px solid;box-shadow:var(--shadow)}
 .pb-world .bar.thinking{border-color:var(--thinking-line);background:var(--thinking-fill)}
 .pb-world .bar.implementation{border-color:var(--impl-line);background:var(--impl-fill)}
-.pb-world .bar.thinking.int-background{background:repeating-linear-gradient(-45deg,var(--thinking-bg) 0 7px,var(--thinking-fill) 7px 14px)}
-.pb-world .bar.implementation.int-background{background:repeating-linear-gradient(-45deg,var(--impl-bg) 0 7px,var(--impl-fill) 7px 14px)}
+.pb-world .bar.has-iterations{background:var(--thinking-bg)}
+/* Intensität: voll = intensiv, dicht schraffiert = mittel, licht schraffiert = nebenbei (Balken oder Phase) */
+.pb-world .thinking.int-focused,.pb-world .thinking .int-focused{background:var(--thinking-fill)}
+.pb-world .thinking.int-medium,.pb-world .thinking .int-medium{background:repeating-linear-gradient(-45deg,var(--thinking-fill) 0 6px,var(--thinking-bg) 6px 8px)}
+.pb-world .thinking.int-background,.pb-world .thinking .int-background{background:repeating-linear-gradient(-45deg,var(--thinking-fill) 0 2px,var(--thinking-bg) 2px 10px)}
+.pb-world .implementation.int-focused{background:var(--impl-fill)}
+.pb-world .implementation.int-medium{background:repeating-linear-gradient(-45deg,var(--impl-fill) 0 6px,var(--impl-bg) 6px 8px)}
+.pb-world .implementation.int-background{background:repeating-linear-gradient(-45deg,var(--impl-fill) 0 2px,var(--impl-bg) 2px 10px)}
 .pb-world .bar.st-done{opacity:.5}
 .pb-world .bar.st-done .title{text-decoration:line-through}
-.pb-world .bar-body{position:absolute;inset:0;display:flex;gap:8px;align-items:flex-start;padding:7px 9px;overflow:hidden;border-radius:9px}
-.pb-world .bar.has-iterations .bar-body{bottom:16px}
+.pb-world .bar-body{position:absolute;inset:0;z-index:1;display:flex;gap:8px;align-items:flex-start;padding:7px 9px;overflow:hidden;border-radius:9px}
+.pb-world .bar.has-iterations .bar-body{bottom:15px;padding-bottom:0}
 .pb-world .tico{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;flex:none;font-size:15px}
 .pb-world .thinking .tico{background:var(--thinking);box-shadow:0 0 0 3px rgba(0,159,227,.18)}
 .pb-world .implementation .tico{background:var(--impl);box-shadow:0 0 0 3px rgba(31,154,107,.16)}
@@ -75,17 +81,20 @@ PB.diagramStyles = (() => {
 .pb-world .badge.in_progress{background:var(--run-bg);color:var(--run)}
 .pb-world .badge.done{background:#e3e8ef;color:#4e5d70}
 
-/* Themen-Streifen */
-.pb-world .bar-themes{position:absolute;left:10px;right:10px;top:-5px;height:5px;display:flex;gap:2px;z-index:2}
-.pb-world .bar-themes span{flex:1;border-radius:3px}
+/* Iterationen als Phasen über die ganze Höhe (Titel unten) */
+.pb-world .bar-phases{position:absolute;inset:0;display:flex;overflow:hidden;border-radius:9px}
+.pb-world .phase{flex:none;height:100%;position:relative;border-right:2px solid #fff}
+.pb-world .phase:last-child{border-right:0}
+.pb-world .phase span{position:absolute;left:5px;right:4px;bottom:2px;font-size:10.5px;font-weight:700;line-height:13px;color:var(--thinking);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb-world .phase.done span{color:var(--ink)}
+.pb-world .phase.done::after{content:"";position:absolute;inset:0;background:rgba(255,255,255,.45)}
 
-/* Iterationen */
-.pb-world .bar-iterations{position:absolute;left:0;right:0;bottom:0;height:16px;display:flex;overflow:hidden;border-radius:0 0 9px 9px;
-  border-top:1px solid rgba(11,45,85,.1)}
-.pb-world .iter-seg{flex:none;height:100%;border-right:2px solid #fff;padding:0 6px;font-size:10.5px;font-weight:700;line-height:15px;
-  color:var(--thinking);background:rgba(0,159,227,.12);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pb-world .iter-seg:last-child{border-right:0}
-.pb-world .iter-seg.done{background:var(--thinking);color:#fff}
+/* Themen-Rahmen */
+.pb-world .tl-frame{position:absolute;z-index:4;border:2px solid var(--c);border-radius:14px;background:rgba(255,255,255,.35)}
+.pb-world .tl-frame-label{position:absolute;left:10px;top:3px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
+  color:var(--ink);white-space:nowrap}
+.pb-world .tl-frame-label i{width:9px;height:9px;border-radius:50%;background:var(--c)}
 
 /* Puffer (Unsicherheit) und laufendes Denken */
 .pb-world .bar-buffer{position:absolute;left:100%;top:7px;bottom:7px;border-radius:0 8px 8px 0;border:1.5px dashed;border-left:0}

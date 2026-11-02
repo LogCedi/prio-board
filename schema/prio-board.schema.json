@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "prio-board.schema.json",
   "title": "Prio-Board",
-  "description": "Austauschformat des Prio-Boards (Version 2): Aufgaben (Denken/Umsetzung) auf einer Zeitachse mit Priorität, Dauer, Iterationen, Themen und Abhängigkeiten.",
+  "description": "Austauschformat des Prio-Boards (Version 3): Aufgaben (Denken/Umsetzung) auf einer Zeitachse mit Priorität, Dauer, Iterationen, Themen und Abhängigkeiten.",
   "type": "object",
   "required": ["format", "version", "tasks", "dependencies"],
   "properties": {
     "$schema": { "type": "string" },
     "format": { "const": "prio-board" },
-    "version": { "const": 2 },
+    "version": { "const": 3 },
     "exportedAt": { "type": "string", "format": "date-time" },
     "board": {
       "type": "object",
@@ -21,7 +21,7 @@
       "additionalProperties": false
     },
     "themes": {
-      "description": "Themen fassen Aufgaben zusammen. Eine Abhängigkeit auf/von einem Thema gilt für alle Aufgaben darin.",
+      "description": "Themen fassen Aufgaben zusammen (Rahmen je Prio-Band). Eine Abhängigkeit auf/von einem Thema gilt für alle Aufgaben darin.",
       "type": "array",
       "items": { "$ref": "#/$defs/theme" }
     },
@@ -70,6 +70,11 @@
   "$defs": {
     "id": { "type": "string", "minLength": 1 },
     "days": { "type": "integer", "minimum": 1, "description": "Arbeitstage (Mo–Fr); 5 = eine Woche" },
+    "intensity": {
+      "enum": ["focused", "medium", "background"],
+      "default": "focused",
+      "description": "focused = intensiv · medium = mittel · background = nebenbei / reift"
+    },
     "theme": {
       "type": "object",
       "required": ["id", "title"],
@@ -86,6 +91,7 @@
       "properties": {
         "title": { "type": "string" },
         "durationDays": { "$ref": "#/$defs/days" },
+        "intensity": { "$ref": "#/$defs/intensity" },
         "done": { "type": "boolean" }
       },
       "additionalProperties": false
@@ -107,10 +113,10 @@
         "start": { "type": "string", "format": "date", "description": "Starttag; Daten vor heute werden auf heute gesetzt" },
         "durationDays": { "$ref": "#/$defs/days", "description": "Dauer in Arbeitstagen (bei Iterationen: Summe der Iterationen)" },
         "bufferDays": { "type": "integer", "minimum": 0, "default": 0, "description": "Puffer/Unsicherheit in Arbeitstagen" },
-        "intensity": { "enum": ["focused", "background"], "default": "focused", "description": "focused = intensiv · background = nebenbei / reift" },
+        "intensity": { "$ref": "#/$defs/intensity", "description": "Arbeitsweise ohne Iterationen (mit Iterationen gilt die jeweilige Iteration)" },
         "ongoing": { "type": "boolean", "default": false, "description": "Nur Denken: läuft nach der Dauer weiter (∞)" },
         "iterations": { "type": "array", "items": { "$ref": "#/$defs/iteration" }, "description": "Nur Denken: Schritte nacheinander" },
-        "themes": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }
+        "theme": { "type": ["string", "null"], "minLength": 1, "description": "ID des Themas (höchstens eines)" }
       },
       "additionalProperties": false
     },
