@@ -1,6 +1,6 @@
 /**
  * Beispiel-Board (nach der ursprünglichen Skizze). Startdaten fehlen bewusst:
- * alles beginnt „heute“, der Zeitplan schiebt entlang der Abhängigkeiten.
+ * beim Laden werden sie einmalig aus den Abhängigkeiten vorgeschlagen (danach frei verschiebbar).
  * Gleicher Inhalt wie examples/beispiel.json (dort mit konkreten Daten).
  */
 PB.example = {

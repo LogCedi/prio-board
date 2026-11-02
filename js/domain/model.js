@@ -13,15 +13,15 @@
  * from/to einer Abhängigkeit sind Aufgaben oder Themen (Thema = alle Aufgaben darin).
  * fromIteration (Index oder null): Nachfolger braucht nur diese Iteration des Vorgängers.
  *
- * Nach jeder Änderung sorgt schedule() dafür, dass keine Aufgabe vor dem Ende ihrer
- * Vorgänger beginnt (Nachfolger werden nach rechts geschoben, nie nach links).
+ * Aufgaben liegen frei auf der Zeitachse – Abhängigkeiten verschieben nichts automatisch.
+ * Nur Aufgaben ganz ohne Startdatum (start = null, z. B. Beispiel oder alte Boards) bekommen
+ * beim Laden einmalig einen Vorschlag aus ihren Abhängigkeiten (placeUnscheduled).
  */
 PB.model = (() => {
   const C = PB.config;
   const U = PB.util;
 
   let state = createEmptyState();
-  let gestureStarts = null;
   const past = [];
   const future = [];
   const listeners = new Set();
@@ -37,9 +37,8 @@ PB.model = (() => {
     return () => listeners.delete(fn);
   }
 
-  /** Zeitplan durchsetzen und Änderung melden. */
+  /** Änderung melden. */
   function commit(meta) {
-    schedule();
     listeners.forEach((fn) => fn(meta));
   }
 
@@ -71,22 +70,22 @@ PB.model = (() => {
 
   const wouldCycle = (dependencies) => PB.analysis.hasCycle(PB.analysis.predecessorMap(api, dependencies));
 
-  /* ---------- Zeitplan ---------- */
+  /* ---------- Startvorschlag ---------- */
 
   /**
-   * Schiebt Aufgaben, die vor dem Ende eines (nicht erledigten) Vorgängers beginnen, nach rechts.
-   * Zyklen sind ausgeschlossen (siehe validateDependency/assignTheme), daher endet die Schleife.
+   * Einmaliger Vorschlag für Aufgaben ohne Startdatum: frühestens nach dem Ende ihrer Vorgänger.
+   * Aufgaben mit Startdatum werden nie verändert.
    */
-  function schedule() {
-    state.tasks.forEach((t) => { t.start = Math.max(0, Math.round(t.start)); });
-    const edges = PB.analysis.edges(api);
+  function placeUnscheduled() {
+    const open = new Set(state.tasks.filter((t) => t.start === null || t.start === undefined).map((t) => t.id));
+    if (!open.size) return;
+    open.forEach((id) => { getTask(id).start = 0; });
+    const edges = PB.analysis.edges(api).filter((e) => open.has(e.to));
     for (let pass = 0; pass <= state.tasks.length; pass++) {
       let changed = false;
-      for (const edge of edges) {
-        const from = getTask(edge.from);
-        const to = getTask(edge.to);
-        if (from.status === 'done') continue;
-        const earliest = iterationEnd(from, edge.iteration);
+      for (const e of edges) {
+        const to = getTask(e.to);
+        const earliest = iterationEnd(getTask(e.from), e.iteration);
         if (to.start < earliest) {
           to.start = earliest;
           changed = true;
@@ -119,6 +118,7 @@ PB.model = (() => {
   /** Lädt einen Zustand ohne Historieneintrag (Programmstart). */
   function load(next) {
     state = next;
+    placeUnscheduled();
     commit({ type: 'load' });
   }
   /** Ersetzt den Zustand mit Historieneintrag (Import, Beispiel, Leeren). */
@@ -287,7 +287,8 @@ PB.model = (() => {
 
   /**
    * Ordnet Aufgaben einem Thema zu (themeId = null: aus dem Thema nehmen).
-   * Abgelehnt, wenn dadurch ein Zyklus entstünde oder eine Aufgabe von ihrem eigenen Thema abhinge.
+   * Abgelehnt, wenn dadurch ein Zyklus entstünde oder eine Aufgabe von ihrem eigenen Thema abhinge
+   * (Zyklen ergeben keine sinnvolle Reihenfolge, auch ohne automatisches Schieben).
    */
   function assignTheme(ids, themeId) {
     const tasks = ids.map(getTask).filter(Boolean);
@@ -359,42 +360,27 @@ PB.model = (() => {
   }
 
   /* ---------- Gesten (Ziehen von Balken) ---------- */
-  // Jede Bewegung wird vom Stand zu Gestenbeginn aus neu berechnet: Zieht man zurück,
-  // rutschen dabei geschobene Nachfolger wieder an ihren alten Platz.
+  // Während einer Geste wird direkt geändert (ohne Ereignis); endGesture() meldet die Änderung.
 
-  function beginGesture() {
-    checkpoint();
-    gestureStarts = new Map(state.tasks.map((t) => [t.id, t.start]));
-  }
+  const beginGesture = () => checkpoint();
 
-  function resetToGestureStart() {
-    state.tasks.forEach((t) => { t.start = gestureStarts.get(t.id) ?? t.start; });
-  }
-
-  /** Vorschau während einer Geste (ohne Ereignis): patches = Map<taskId, Teiländerung>. */
+  /** Vorschau während einer Geste: patches = Map<taskId, Teiländerung>. */
   function previewTasks(patches) {
-    if (!gestureStarts) return;
-    resetToGestureStart();
     patches.forEach((patch, id) => {
       const task = getTask(id);
       if (task) Object.assign(task, patch);
     });
-    schedule();
   }
 
   const previewTask = (id, patch) => previewTasks(new Map([[id, patch]]));
 
   /** Iterationsdauer während einer Geste ändern (Grösse der letzten Iteration). */
   function previewIteration(id, index, durationDays) {
-    const task = getTask(id);
-    if (!task?.iterations[index] || !gestureStarts) return;
-    resetToGestureStart();
-    task.iterations[index].durationDays = Math.max(1, durationDays);
-    schedule();
+    const iteration = getTask(id)?.iterations[index];
+    if (iteration) iteration.durationDays = Math.max(1, durationDays);
   }
 
   function endGesture() {
-    gestureStarts = null;
     commit({ type: 'layout' });
   }
 

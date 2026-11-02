@@ -562,15 +562,15 @@ PB.ui = {
  * from/to einer Abhängigkeit sind Aufgaben oder Themen (Thema = alle Aufgaben darin).
  * fromIteration (Index oder null): Nachfolger braucht nur diese Iteration des Vorgängers.
  *
- * Nach jeder Änderung sorgt schedule() dafür, dass keine Aufgabe vor dem Ende ihrer
- * Vorgänger beginnt (Nachfolger werden nach rechts geschoben, nie nach links).
+ * Aufgaben liegen frei auf der Zeitachse – Abhängigkeiten verschieben nichts automatisch.
+ * Nur Aufgaben ganz ohne Startdatum (start = null, z. B. Beispiel oder alte Boards) bekommen
+ * beim Laden einmalig einen Vorschlag aus ihren Abhängigkeiten (placeUnscheduled).
  */
 PB.model = (() => {
   const C = PB.config;
   const U = PB.util;
 
   let state = createEmptyState();
-  let gestureStarts = null;
   const past = [];
   const future = [];
   const listeners = new Set();
@@ -586,9 +586,8 @@ PB.model = (() => {
     return () => listeners.delete(fn);
   }
 
-  /** Zeitplan durchsetzen und Änderung melden. */
+  /** Änderung melden. */
   function commit(meta) {
-    schedule();
     listeners.forEach((fn) => fn(meta));
   }
 
@@ -620,22 +619,22 @@ PB.model = (() => {
 
   const wouldCycle = (dependencies) => PB.analysis.hasCycle(PB.analysis.predecessorMap(api, dependencies));
 
-  /* ---------- Zeitplan ---------- */
+  /* ---------- Startvorschlag ---------- */
 
   /**
-   * Schiebt Aufgaben, die vor dem Ende eines (nicht erledigten) Vorgängers beginnen, nach rechts.
-   * Zyklen sind ausgeschlossen (siehe validateDependency/assignTheme), daher endet die Schleife.
+   * Einmaliger Vorschlag für Aufgaben ohne Startdatum: frühestens nach dem Ende ihrer Vorgänger.
+   * Aufgaben mit Startdatum werden nie verändert.
    */
-  function schedule() {
-    state.tasks.forEach((t) => { t.start = Math.max(0, Math.round(t.start)); });
-    const edges = PB.analysis.edges(api);
+  function placeUnscheduled() {
+    const open = new Set(state.tasks.filter((t) => t.start === null || t.start === undefined).map((t) => t.id));
+    if (!open.size) return;
+    open.forEach((id) => { getTask(id).start = 0; });
+    const edges = PB.analysis.edges(api).filter((e) => open.has(e.to));
     for (let pass = 0; pass <= state.tasks.length; pass++) {
       let changed = false;
-      for (const edge of edges) {
-        const from = getTask(edge.from);
-        const to = getTask(edge.to);
-        if (from.status === 'done') continue;
-        const earliest = iterationEnd(from, edge.iteration);
+      for (const e of edges) {
+        const to = getTask(e.to);
+        const earliest = iterationEnd(getTask(e.from), e.iteration);
         if (to.start < earliest) {
           to.start = earliest;
           changed = true;
@@ -668,6 +667,7 @@ PB.model = (() => {
   /** Lädt einen Zustand ohne Historieneintrag (Programmstart). */
   function load(next) {
     state = next;
+    placeUnscheduled();
     commit({ type: 'load' });
   }
   /** Ersetzt den Zustand mit Historieneintrag (Import, Beispiel, Leeren). */
@@ -836,7 +836,8 @@ PB.model = (() => {
 
   /**
    * Ordnet Aufgaben einem Thema zu (themeId = null: aus dem Thema nehmen).
-   * Abgelehnt, wenn dadurch ein Zyklus entstünde oder eine Aufgabe von ihrem eigenen Thema abhinge.
+   * Abgelehnt, wenn dadurch ein Zyklus entstünde oder eine Aufgabe von ihrem eigenen Thema abhinge
+   * (Zyklen ergeben keine sinnvolle Reihenfolge, auch ohne automatisches Schieben).
    */
   function assignTheme(ids, themeId) {
     const tasks = ids.map(getTask).filter(Boolean);
@@ -908,42 +909,27 @@ PB.model = (() => {
   }
 
   /* ---------- Gesten (Ziehen von Balken) ---------- */
-  // Jede Bewegung wird vom Stand zu Gestenbeginn aus neu berechnet: Zieht man zurück,
-  // rutschen dabei geschobene Nachfolger wieder an ihren alten Platz.
+  // Während einer Geste wird direkt geändert (ohne Ereignis); endGesture() meldet die Änderung.
 
-  function beginGesture() {
-    checkpoint();
-    gestureStarts = new Map(state.tasks.map((t) => [t.id, t.start]));
-  }
+  const beginGesture = () => checkpoint();
 
-  function resetToGestureStart() {
-    state.tasks.forEach((t) => { t.start = gestureStarts.get(t.id) ?? t.start; });
-  }
-
-  /** Vorschau während einer Geste (ohne Ereignis): patches = Map<taskId, Teiländerung>. */
+  /** Vorschau während einer Geste: patches = Map<taskId, Teiländerung>. */
   function previewTasks(patches) {
-    if (!gestureStarts) return;
-    resetToGestureStart();
     patches.forEach((patch, id) => {
       const task = getTask(id);
       if (task) Object.assign(task, patch);
     });
-    schedule();
   }
 
   const previewTask = (id, patch) => previewTasks(new Map([[id, patch]]));
 
   /** Iterationsdauer während einer Geste ändern (Grösse der letzten Iteration). */
   function previewIteration(id, index, durationDays) {
-    const task = getTask(id);
-    if (!task?.iterations[index] || !gestureStarts) return;
-    resetToGestureStart();
-    task.iterations[index].durationDays = Math.max(1, durationDays);
-    schedule();
+    const iteration = getTask(id)?.iterations[index];
+    if (iteration) iteration.durationDays = Math.max(1, durationDays);
   }
 
   function endGesture() {
-    gestureStarts = null;
     commit({ type: 'layout' });
   }
 
@@ -1037,7 +1023,7 @@ PB.analysis = (() => {
    *  - ready: alle Vorgänger erledigt
    *  - leverage („Hebel“): Anzahl offener Umsetzungen, die eine Aufgabe (indirekt) freigibt
    *  - kritischer Pfad: längste Kette nach Dauer über offene Aufgaben
-   *  - riskante Kanten: Nachfolger startet innerhalb des Puffers des Vorgängers
+   *  - riskante Kanten: Nachfolger startet, bevor der Vorgänger (inkl. Puffer) fertig ist
    */
   function analyze(model) {
     const { tasks } = model.getState();
@@ -1101,12 +1087,13 @@ PB.analysis = (() => {
     const criticalPath = [];
     for (let id = end; id; id = via.get(id)) criticalPath.unshift(id);
 
-    // Riskante Kanten (Start im Puffer des Vorgängers)
+    // Riskante Kanten: Nachfolger startet vor dem (spätesten) Ende des Vorgängers – inkl. Puffer
     const riskyDeps = new Set();
     for (const e of allEdges) {
       const from = byId.get(e.from);
-      if (from.status === 'done' || e.iteration !== null || !from.bufferDays) continue;
-      if (byId.get(e.to).start < model.endOf(from) + from.bufferDays) riskyDeps.add(`${e.from}→${e.to}`);
+      if (from.status === 'done') continue;
+      const end = e.iteration !== null ? model.iterationEnd(from, e.iteration) : model.endOf(from) + from.bufferDays;
+      if (byId.get(e.to).start < end) riskyDeps.add(`${e.from}→${e.to}`);
     }
 
     // Wichtigste Denk-Themen: viel Hebel × lange Dauer
@@ -1317,10 +1304,10 @@ PB.format = (() => {
     const tasks = raw.tasks.map((t, i) => {
       const where = `tasks[${i}]`;
       const kind = readEnum(t?.kind, KINDS, where, 'kind', 'thinking');
-      let start = t?.start === undefined ? 0 : CAL.dayOf(t.start);
-      if (start === null) {
+      // Fehlt der Start, ist die Aufgabe ungeplant (null) – das Modell schlägt beim Laden einen vor.
+      const start = t?.start === undefined || t?.start === null ? null : CAL.dayOf(t.start);
+      if (start === null && t?.start !== undefined && t?.start !== null) {
         report(`${where}: "start" muss ein Datum im Format JJJJ-MM-TT sein`);
-        start = 0;
       }
       const intensity = readEnum(t?.intensity, INTENSITIES, where, 'intensity', 'focused');
       const iterations = kind === 'thinking' && Array.isArray(t?.iterations)
@@ -1432,7 +1419,7 @@ PB.format = (() => {
    *  - Priorität aus der x-Spalte (480 px je Stufe, links = hoch)
    *  - Dauer aus effortDays (1 PT ≈ 1 Arbeitstag)
    *  - Gruppen → Themen (alle umschliessenden Gruppen, innerste zuerst; v2→v3 behält die innerste)
-   *  - Start: heute; der Zeitplan schiebt danach entlang der Abhängigkeiten
+   *  - ohne Start: das Modell schlägt beim Laden einmalig Startdaten aus den Abhängigkeiten vor
    */
   function migrateV1(v1) {
     const groups = Array.isArray(v1.groups) ? v1.groups : [];
@@ -1581,7 +1568,7 @@ PB.storage = (() => {
 /* js/io/example.js */
 /**
  * Beispiel-Board (nach der ursprünglichen Skizze). Startdaten fehlen bewusst:
- * alles beginnt „heute“, der Zeitplan schiebt entlang der Abhängigkeiten.
+ * beim Laden werden sie einmalig aus den Abhängigkeiten vorgeschlagen (danach frei verschiebbar).
  * Gleicher Inhalt wie examples/beispiel.json (dort mit konkreten Daten).
  */
 PB.example = {
@@ -2072,7 +2059,7 @@ PB.board = (() => {
       const viaTheme = model.isTheme(dep.from) || model.isTheme(dep.to);
       const done = fromTasks.length > 0 && fromTasks.every((id) => model.getTask(id).status === 'done');
       const bad = fromTasks.some((f) => a.cycle.has(f)) && toTasks.some((t) => a.cycle.has(t));
-      const risky = !viaTheme && a.isRisky(dep.from, dep.to);
+      const risky = a.edges.some((e) => e.depId === dep.id && a.isRisky(e.from, e.to));
       const classes = ['link', viaTheme && 'via-theme', done && 'done', bad && 'bad', risky && 'risky'].filter(Boolean).join(' ');
       const d = linkPath(start.x, start.y, end.x, end.y);
       return `<g class="${classes}" data-dep="${esc(dep.id)}" data-from="${esc(fromTasks.join(' '))}" data-to="${esc(toTasks.join(' '))}">
@@ -2374,7 +2361,7 @@ PB.sidebar = (() => {
       <div><span class="sw ongoing"></span><span>∞ = läuft weiter</span></div>
       <div><span class="sw frame"></span><span>Rahmen = Thema</span></div>
       <div><span class="lev">🔓 3</span><span>Hebel: gibt 3 Umsetzungen frei</span></div>
-      <div><span class="sw risky-line"></span><span>Orange Pfeil: Start im Puffer des Vorgängers (riskant)</span></div>
+      <div><span class="sw risky-line"></span><span>Orange Pfeil: startet, bevor der Vorgänger (inkl. Puffer) fertig ist</span></div>
     </div>`;
   }
 
@@ -2619,11 +2606,10 @@ PB.sidebar = (() => {
     </ul>
     <h3>Bedienen</h3>
     <ul class="help">
-      <li><b>Balken ziehen</b>: waagrecht = Start, senkrecht = Priorität.</li>
+      <li><b>Balken frei ziehen</b>: waagrecht = Start, senkrecht = Priorität. Abhängigkeiten verschieben nichts automatisch; ein <b>oranger Pfeil</b> zeigt, wenn etwas vor dem Ende seines Vorgängers startet.</li>
       <li><b>Mehrere auswählen</b>: Strg/⌘ oder Shift + Klick, oder <b>Shift + Ziehen</b> auf freier Fläche. Ein ausgewählter Balken zieht alle anderen mit; im Panel lassen sich Thema, Priorität, Status und Arbeitsweise gemeinsam setzen.</li>
       <li><b>Rechte Kante</b> = Dauer, <b>gestrichelte Kante</b> = Puffer.</li>
       <li><b>Punkt am Ende ziehen</b> und auf einer Aufgabe loslassen = Abhängigkeit. Der Punkt an einer <b>Iterationsgrenze</b> heisst: „braucht nur bis hier“.</li>
-      <li>Nachfolger werden automatisch <b>nach rechts geschoben</b>, wenn sie sonst zu früh starten würden.</li>
       <li><b>Doppelklick</b> auf eine freie Stelle = neue Aufgabe an diesem Tag in diesem Prio-Band.</li>
       <li><b>Klick auf einen Rahmen-Namen</b> öffnet das Thema. Eine Abhängigkeit auf ein Thema gilt für alle Aufgaben darin.</li>
       <li><b>Thema → Thema</b>: Punkt rechts am Rahmen ziehen und in einem anderen Rahmen loslassen – ein Pfeil statt vieler. Loslassen auf einem Balken verbindet Thema → Aufgabe, ein Balken-Punkt in einen Rahmen gezogen verbindet Aufgabe → Thema.</li>
@@ -3380,7 +3366,7 @@ PB.app = (() => {
   function reportMigration({ fromVersion }) {
     const timeline = fromVersion < 2
       ? '• Neue Zeitachse: Priorität = bisherige Position (links = hoch), Dauer = bisheriger Aufwand (1 PT ≈ 1 Arbeitstag)\n' +
-        '• Alles startet ab heute, Abhängigkeiten schieben automatisch nach hinten\n'
+        '• Startdaten wurden einmalig aus den Abhängigkeiten vorgeschlagen – danach frei verschiebbar\n'
       : '';
     PB.dialog.alert(
       'Dein Board wurde auf die neue Version umgestellt:\n' + timeline +

@@ -110,7 +110,7 @@
         "notes": { "type": "array", "items": { "type": "string" }, "description": "Stichpunkte" },
         "status": { "enum": ["open", "in_progress", "done"], "default": "open" },
         "priority": { "type": "integer", "minimum": 1, "maximum": 5, "default": 3, "description": "1 = sehr hoch (oben) … 5 = sehr tief" },
-        "start": { "type": "string", "format": "date", "description": "Starttag; Daten vor heute werden auf heute gesetzt" },
+        "start": { "type": "string", "format": "date", "description": "Starttag; Daten vor heute werden auf heute gesetzt. Fehlt er, wird beim Laden einmalig ein Start aus den Abhängigkeiten vorgeschlagen" },
         "durationDays": { "$ref": "#/$defs/days", "description": "Dauer in Arbeitstagen (bei Iterationen: Summe der Iterationen)" },
         "bufferDays": { "type": "integer", "minimum": 0, "default": 0, "description": "Puffer/Unsicherheit in Arbeitstagen" },
         "intensity": { "$ref": "#/$defs/intensity", "description": "Arbeitsweise ohne Iterationen (mit Iterationen gilt die jeweilige Iteration)" },

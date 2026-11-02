@@ -65,7 +65,7 @@ PB.analysis = (() => {
    *  - ready: alle Vorgänger erledigt
    *  - leverage („Hebel“): Anzahl offener Umsetzungen, die eine Aufgabe (indirekt) freigibt
    *  - kritischer Pfad: längste Kette nach Dauer über offene Aufgaben
-   *  - riskante Kanten: Nachfolger startet innerhalb des Puffers des Vorgängers
+   *  - riskante Kanten: Nachfolger startet, bevor der Vorgänger (inkl. Puffer) fertig ist
    */
   function analyze(model) {
     const { tasks } = model.getState();
@@ -129,12 +129,13 @@ PB.analysis = (() => {
     const criticalPath = [];
     for (let id = end; id; id = via.get(id)) criticalPath.unshift(id);
 
-    // Riskante Kanten (Start im Puffer des Vorgängers)
+    // Riskante Kanten: Nachfolger startet vor dem (spätesten) Ende des Vorgängers – inkl. Puffer
     const riskyDeps = new Set();
     for (const e of allEdges) {
       const from = byId.get(e.from);
-      if (from.status === 'done' || e.iteration !== null || !from.bufferDays) continue;
-      if (byId.get(e.to).start < model.endOf(from) + from.bufferDays) riskyDeps.add(`${e.from}→${e.to}`);
+      if (from.status === 'done') continue;
+      const end = e.iteration !== null ? model.iterationEnd(from, e.iteration) : model.endOf(from) + from.bufferDays;
+      if (byId.get(e.to).start < end) riskyDeps.add(`${e.from}→${e.to}`);
     }
 
     // Wichtigste Denk-Themen: viel Hebel × lange Dauer

@@ -87,7 +87,7 @@ PB.app = (() => {
   function reportMigration({ fromVersion }) {
     const timeline = fromVersion < 2
       ? '• Neue Zeitachse: Priorität = bisherige Position (links = hoch), Dauer = bisheriger Aufwand (1 PT ≈ 1 Arbeitstag)\n' +
-        '• Alles startet ab heute, Abhängigkeiten schieben automatisch nach hinten\n'
+        '• Startdaten wurden einmalig aus den Abhängigkeiten vorgeschlagen – danach frei verschiebbar\n'
       : '';
     PB.dialog.alert(
       'Dein Board wurde auf die neue Version umgestellt:\n' + timeline +

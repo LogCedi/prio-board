@@ -2,7 +2,7 @@
   "$schema": "../schema/prio-board.schema.json",
   "format": "prio-board",
   "version": 3,
-  "exportedAt": "2026-11-02T12:53:08.548Z",
+  "exportedAt": "2026-11-02T12:55:08.382Z",
   "board": {
     "title": "IT-Priorisierung"
   },

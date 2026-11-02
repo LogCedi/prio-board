@@ -172,10 +172,10 @@ PB.format = (() => {
     const tasks = raw.tasks.map((t, i) => {
       const where = `tasks[${i}]`;
       const kind = readEnum(t?.kind, KINDS, where, 'kind', 'thinking');
-      let start = t?.start === undefined ? 0 : CAL.dayOf(t.start);
-      if (start === null) {
+      // Fehlt der Start, ist die Aufgabe ungeplant (null) – das Modell schlägt beim Laden einen vor.
+      const start = t?.start === undefined || t?.start === null ? null : CAL.dayOf(t.start);
+      if (start === null && t?.start !== undefined && t?.start !== null) {
         report(`${where}: "start" muss ein Datum im Format JJJJ-MM-TT sein`);
-        start = 0;
       }
       const intensity = readEnum(t?.intensity, INTENSITIES, where, 'intensity', 'focused');
       const iterations = kind === 'thinking' && Array.isArray(t?.iterations)
@@ -287,7 +287,7 @@ PB.format = (() => {
    *  - Priorität aus der x-Spalte (480 px je Stufe, links = hoch)
    *  - Dauer aus effortDays (1 PT ≈ 1 Arbeitstag)
    *  - Gruppen → Themen (alle umschliessenden Gruppen, innerste zuerst; v2→v3 behält die innerste)
-   *  - Start: heute; der Zeitplan schiebt danach entlang der Abhängigkeiten
+   *  - ohne Start: das Modell schlägt beim Laden einmalig Startdaten aus den Abhängigkeiten vor
    */
   function migrateV1(v1) {
     const groups = Array.isArray(v1.groups) ? v1.groups : [];

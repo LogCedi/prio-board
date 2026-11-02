@@ -162,7 +162,7 @@ PB.board = (() => {
       const viaTheme = model.isTheme(dep.from) || model.isTheme(dep.to);
       const done = fromTasks.length > 0 && fromTasks.every((id) => model.getTask(id).status === 'done');
       const bad = fromTasks.some((f) => a.cycle.has(f)) && toTasks.some((t) => a.cycle.has(t));
-      const risky = !viaTheme && a.isRisky(dep.from, dep.to);
+      const risky = a.edges.some((e) => e.depId === dep.id && a.isRisky(e.from, e.to));
       const classes = ['link', viaTheme && 'via-theme', done && 'done', bad && 'bad', risky && 'risky'].filter(Boolean).join(' ');
       const d = linkPath(start.x, start.y, end.x, end.y);
       return `<g class="${classes}" data-dep="${esc(dep.id)}" data-from="${esc(fromTasks.join(' '))}" data-to="${esc(toTasks.join(' '))}">

@@ -5,7 +5,7 @@ Priorisierungs-Tool für technische IT-Themen als **Zeitachse**:
 - **waagrecht = Zeit** in Kalenderwochen ab heute: Die **Länge** eines Balkens ist seine Dauer
 - **senkrecht = Priorität**: Bänder Prio 1 (oben, sehr hoch) bis Prio 5
 - **Denken** (🧠, Analyse/Konzept) und **Umsetzung** (🔧, direkt machbar) sind klar unterschieden
-- **Abhängigkeiten** als Pfeile; Nachfolger werden automatisch nach rechts geschoben
+- **Abhängigkeiten** als Pfeile; Balken liegen frei – ein oranger Pfeil zeigt, wenn etwas vor seinem Vorgänger startet
 - **Iteratives Denken**: Denk-Themen in Iterationen, jede mit eigener Dauer und Intensität; eine Umsetzung kann schon nach einer Iteration starten
 - **Themen als Rahmen** innerhalb eines Prio-Bands; **Mehrfachauswahl** für gemeinsame Änderungen
 - **Wichtigste Denk-Themen**: Hebel (🔓 = wie viele Umsetzungen hängen daran) × Dauer
@@ -34,7 +34,7 @@ node tools/build.mjs
 | Rahmen mit Namen | Thema (Aufgaben eines Themas liegen im Band zusammen) |
 | 🔓 n | Hebel: gibt n offene Umsetzungen frei |
 | Pfeil grau / gestrichelt | Abhängigkeit zwischen Aufgaben / mit einem Thema (ein Pfeil von Rahmen zu Rahmen) |
-| Pfeil orange | riskant: startet im Puffer des Vorgängers |
+| Pfeil orange | Hinweis: startet, bevor der Vorgänger (inkl. Puffer) fertig ist |
 | Hover | Orange = wird vorher benötigt, Blau = wird dadurch blockiert |
 
 Steht ein Prio-1-Balken weit rechts, wartet etwas Wichtiges zu lange. Idealerweise ergibt sich eine
@@ -44,7 +44,7 @@ Diagonale von oben links nach unten rechts.
 
 | Aktion | Wirkung |
 |---|---|
-| Balken waagrecht ziehen | Start verschieben (nie vor dem Ende eines Vorgängers) |
+| Balken waagrecht ziehen | Start frei verschieben (Abhängigkeiten schieben nichts automatisch) |
 | Balken senkrecht ziehen | Priorität ändern |
 | Strg/⌘ oder Shift + Klick | Balken zur Auswahl hinzufügen / entfernen |
 | Shift + Ziehen auf freier Fläche | Auswahlrechteck |
@@ -87,7 +87,7 @@ js/
     icons.js                SVG-Icons (Hirn, Schraubenschlüssel)
     ui-state.js             Flüchtiger UI-Zustand (Auswahl, Hover, Tab, Fokus)
   domain/
-    model.js                Datenmodell, Zeitplan (Nachfolger schieben), Undo/Redo, Ereignisse
+    model.js                Datenmodell, Startvorschlag für ungeplante Aufgaben, Undo/Redo, Ereignisse
     analysis.js             Kanten, Wellen, Zyklen, startbar, Hebel, kritischer Pfad, Risiken
   io/
     format.js               JSON-Format v3: serialisieren, validieren/reparieren, Migration v2, v1 + Altstände
@@ -110,7 +110,7 @@ tools/build.mjs                 Baut dist/prio-board.html (alles inline)
 dist/prio-board.html            Fertige Einzeldatei zum Benutzen und Weitergeben
 ```
 
-**Datenfluss:** Benutzeraktion → `PB.model` ändert den Zustand und setzt den Zeitplan durch → Ereignis →
+**Datenfluss:** Benutzeraktion → `PB.model` ändert den Zustand → Ereignis →
 `app.onModelChange()` → `PB.analysis.analyze()` → `board.render()` + `sidebar.render()` → Speichern.
 
 Die Module sind klassische Skripte im Namensraum `PB` statt ES-Module, weil Browser ES-Module über
@@ -151,7 +151,7 @@ Die Module sind klassische Skripte im Namensraum `PB` statt ES-Module, weil Brow
 | `tasks[].kind` | `thinking` = Denken · `implementation` = Umsetzung |
 | `tasks[].status` | `open` · `in_progress` · `done` |
 | `tasks[].priority` | 1 (sehr hoch, oben) … 5 (sehr tief) |
-| `tasks[].start` | Starttag `JJJJ-MM-TT`; Daten vor heute werden auf heute gesetzt |
+| `tasks[].start` | Starttag `JJJJ-MM-TT`; Daten vor heute werden auf heute gesetzt. Fehlt er, wird beim Laden einmalig ein Start aus den Abhängigkeiten vorgeschlagen |
 | `tasks[].durationDays` | Dauer in Arbeitstagen (5 = 1 Woche); bei Iterationen ist die Summe der Iterationen massgebend |
 | `tasks[].bufferDays` | Puffer/Unsicherheit in Arbeitstagen |
 | `tasks[].intensity` | `focused` = intensiv · `medium` = mittel · `background` = nebenbei / reift (gilt ohne Iterationen) |
@@ -167,7 +167,7 @@ Dauern sind ganze Arbeitstage statt Wochen, damit keine Kommazahlen entstehen; a
 - **Version 2 → 3:** Jede Aufgabe behält ihr erstes Thema. Abhängigkeiten weiterer Themen werden direkt auf die
   Aufgabe übertragen, damit nichts verloren geht. Iterationen übernehmen die Intensität der Aufgabe.
 - **Version 1 (freies Board) → 3:** Die Priorität kommt aus der x-Position, die Dauer aus den Personentagen
-  (1 PT ≈ 1 Arbeitstag), die innerste Gruppe wird zum Thema, und alles startet ab heute.
+  (1 PT ≈ 1 Arbeitstag), die innerste Gruppe wird zum Thema, und Startdaten werden einmalig aus den Abhängigkeiten vorgeschlagen.
 
 Beim Import wird die Datei vollständig geprüft. Fehler werden gesammelt mit Pfad gemeldet,
 z. B. `tasks[2]: "priority" muss eine Zahl zwischen 1 und 5 sein`.

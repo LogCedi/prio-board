@@ -102,7 +102,7 @@ PB.sidebar = (() => {
       <div><span class="sw ongoing"></span><span>∞ = läuft weiter</span></div>
       <div><span class="sw frame"></span><span>Rahmen = Thema</span></div>
       <div><span class="lev">🔓 3</span><span>Hebel: gibt 3 Umsetzungen frei</span></div>
-      <div><span class="sw risky-line"></span><span>Orange Pfeil: Start im Puffer des Vorgängers (riskant)</span></div>
+      <div><span class="sw risky-line"></span><span>Orange Pfeil: startet, bevor der Vorgänger (inkl. Puffer) fertig ist</span></div>
     </div>`;
   }
 
@@ -347,11 +347,10 @@ PB.sidebar = (() => {
     </ul>
     <h3>Bedienen</h3>
     <ul class="help">
-      <li><b>Balken ziehen</b>: waagrecht = Start, senkrecht = Priorität.</li>
+      <li><b>Balken frei ziehen</b>: waagrecht = Start, senkrecht = Priorität. Abhängigkeiten verschieben nichts automatisch; ein <b>oranger Pfeil</b> zeigt, wenn etwas vor dem Ende seines Vorgängers startet.</li>
       <li><b>Mehrere auswählen</b>: Strg/⌘ oder Shift + Klick, oder <b>Shift + Ziehen</b> auf freier Fläche. Ein ausgewählter Balken zieht alle anderen mit; im Panel lassen sich Thema, Priorität, Status und Arbeitsweise gemeinsam setzen.</li>
       <li><b>Rechte Kante</b> = Dauer, <b>gestrichelte Kante</b> = Puffer.</li>
       <li><b>Punkt am Ende ziehen</b> und auf einer Aufgabe loslassen = Abhängigkeit. Der Punkt an einer <b>Iterationsgrenze</b> heisst: „braucht nur bis hier“.</li>
-      <li>Nachfolger werden automatisch <b>nach rechts geschoben</b>, wenn sie sonst zu früh starten würden.</li>
       <li><b>Doppelklick</b> auf eine freie Stelle = neue Aufgabe an diesem Tag in diesem Prio-Band.</li>
       <li><b>Klick auf einen Rahmen-Namen</b> öffnet das Thema. Eine Abhängigkeit auf ein Thema gilt für alle Aufgaben darin.</li>
       <li><b>Thema → Thema</b>: Punkt rechts am Rahmen ziehen und in einem anderen Rahmen loslassen – ein Pfeil statt vieler. Loslassen auf einem Balken verbindet Thema → Aufgabe, ein Balken-Punkt in einen Rahmen gezogen verbindet Aufgabe → Thema.</li>
