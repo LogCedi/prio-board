@@ -90,7 +90,12 @@ PB.interactions = (() => {
 
   /* ---------- Balken verschieben ---------- */
 
-  /** Verschiebt den gegriffenen Balken – und alle anderen ausgewählten mit (gleicher Versatz). */
+  /**
+   * Verschiebt den gegriffenen Balken – und alle anderen ausgewählten mit (gleicher Versatz).
+   * Während des Ziehens bleibt das Board unverändert: Die Balken folgen als Vorschau der Maus
+   * (waagrecht tageweise, senkrecht frei), das Ziel-Band wird markiert. Erst beim Loslassen
+   * wird übernommen – so springt nichts, wenn sich Bandhöhen durch das Verschieben ändern.
+   */
   function startMove(event, id) {
     event.preventDefault();
     const { type, ids } = ui.selection;
@@ -102,21 +107,38 @@ PB.interactions = (() => {
       const t = model.getTask(taskId);
       return { id: taskId, start: t.start, priority: t.priority };
     });
-    const g = gesture();
+    let started = false;
+    let target = null;
 
     track((e) => {
       const p = board.toWorld(e.clientX, e.clientY);
-      if (!g.started && Math.hypot(p.x - origin.x, p.y - origin.y) * model.getState().view.zoom < DRAG_THRESHOLD) return;
-      g.start();
+      if (!started && Math.hypot(p.x - origin.x, p.y - origin.y) * model.getState().view.zoom < DRAG_THRESHOLD) return;
+      if (!started) {
+        started = true;
+        ui.dragging = true;
+        board.applyHighlight();
+      }
       const days = daysBetween(origin.x, p.x);
       const priorityShift = board.priorityAt(p.y) - leadPriority;
-      model.previewTasks(new Map(initial.map((t) => [t.id, {
+      target = initial.map((t) => ({
+        id: t.id,
         start: Math.max(0, t.start + days),
         priority: Math.min(C.PRIORITY_LEVELS, Math.max(1, t.priority + priorityShift)),
-      }])));
-      actions.preview();
+      }));
+      const lead = target.find((t) => t.id === id);
+      board.showMovePreview([id, ...group.filter((x) => x !== id)], (lead.start - model.getTask(id).start) * C.DAY_WIDTH, p.y - origin.y,
+        { priority: lead.priority, start: lead.start, point: p });
     }, () => {
-      if (g.started) model.endGesture();
+      board.hideMovePreview();
+      if (!started || !target) return;
+      const changed = target.some((t, i) => t.start !== initial[i].start || t.priority !== initial[i].priority);
+      if (!changed) {
+        board.applyHighlight();
+        return;
+      }
+      model.beginGesture();
+      model.previewTasks(new Map(target.map((t) => [t.id, { start: t.start, priority: t.priority }])));
+      model.endGesture();
     });
   }
 

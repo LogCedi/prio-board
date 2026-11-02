@@ -93,6 +93,12 @@ aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
 #world .tl-frame.drop{box-shadow:0 0 0 3px var(--sel);background:rgba(0,159,227,.08)}
 #world .theme-port{pointer-events:auto;left:auto;right:-9px;top:12px;border-color:var(--c);opacity:.7}
 #world .theme-port:hover{background:var(--c);border-color:var(--c);opacity:1}
+/* Verschieben: Vorschau folgt der Maus, Ziel-Band markiert, übrige Elemente treten zurück */
+#world .bar.drag-preview{z-index:200;opacity:.92;box-shadow:0 10px 28px rgba(11,45,85,.28);transition:none;cursor:grabbing}
+#world .tl-band.drop{background:rgba(0,159,227,.09);box-shadow:inset 4px 0 0 var(--accent)}
+#world.moving .pb-links,#world.moving .tl-frame{opacity:.35}
+#world .drag-hint{position:absolute;z-index:300;padding:4px 10px;border-radius:999px;background:var(--navy);color:#fff;
+  font-size:13px;font-weight:600;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
 #world .lasso{position:absolute;z-index:50;border:1.5px dashed var(--sel);background:rgba(0,159,227,.08);border-radius:4px;pointer-events:none}
 
 /* Griffe an Balken: Dauer (rechte Kante), Puffer (Ende gestrichelt), Abhängigkeit (Punkte) */
@@ -1928,7 +1934,7 @@ PB.board = (() => {
       return `<div class="tl-week${i % 2 ? ' alt' : ''}${i === 0 ? ' today' : ''}" style="left:${x}px;width:${nextX - x}px;height:${layout.height}px">
         <div class="tl-week-label"><b>${label}</b>${CAL.shortDate(w.date)}</div></div>`;
     }).join('');
-    const bands = layout.bands.map((b, i) => `<div class="tl-band${i % 2 ? ' alt' : ''}" style="top:${b.y}px;height:${b.height}px;width:${layout.width}px">
+    const bands = layout.bands.map((b, i) => `<div class="tl-band${i % 2 ? ' alt' : ''}" data-priority="${b.priority}" style="top:${b.y}px;height:${b.height}px;width:${layout.width}px">
         <div class="tl-band-label"><b>Prio ${b.priority}</b><span>${C.PRIORITY_LABELS[b.priority - 1]}</span></div></div>`).join('');
     return `<div class="tl-days"></div>${columns}${bands}
       <div class="tl-corner"><b>Prio ↓</b><br>Zeit →</div><div class="tl-today"></div>`;
@@ -2194,6 +2200,44 @@ PB.board = (() => {
     if (draft) draft.style.display = 'none';
   }
 
+  /**
+   * Vorschau beim Verschieben: Balken folgen der Maus per CSS-Transform (ohne neu zu zeichnen),
+   * Ziel-Band wird markiert, ein Etikett zeigt Priorität und Start.
+   */
+  function showMovePreview(ids, dx, dy, { priority, start, point }) { // ids[0] = gegriffener Balken
+    const moving = new Set(ids);
+    dom.world.classList.add('moving');
+    dom.world.querySelectorAll('.bar').forEach((el) => {
+      const active = moving.has(el.dataset.id);
+      el.classList.toggle('drag-preview', active);
+      el.style.transform = active ? `translate(${dx}px, ${dy}px)` : '';
+    });
+    dom.world.querySelectorAll('.tl-band').forEach((el) => el.classList.toggle('drop', Number(el.dataset.priority) === priority));
+    let hint = dom.world.querySelector('.drag-hint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.className = 'drag-hint';
+      dom.world.appendChild(hint);
+    }
+    const date = CAL.dateOf(start);
+    hint.textContent = `Prio ${priority} · ab ${CAL.shortDate(date)} (KW ${CAL.weekNumber(date)})`;
+    // Über dem gegriffenen Balken (lead = erster in ids), damit der Titel sichtbar bleibt
+    const lead = dom.world.querySelector(`.bar[data-id="${CSS.escape(ids[0])}"]`);
+    const x = lead ? parseFloat(lead.style.left) + dx : point.x;
+    const y = lead ? parseFloat(lead.style.top) + dy - 34 : point.y - 34;
+    Object.assign(hint.style, { left: `${x}px`, top: `${y}px` });
+  }
+
+  function hideMovePreview() {
+    dom.world.classList.remove('moving');
+    dom.world.querySelectorAll('.bar.drag-preview').forEach((el) => {
+      el.classList.remove('drag-preview');
+      el.style.transform = '';
+    });
+    dom.world.querySelectorAll('.tl-band.drop').forEach((el) => el.classList.remove('drop'));
+    dom.world.querySelector('.drag-hint')?.remove();
+  }
+
   /** Auswahlrechteck (Weltkoordinaten); null blendet es aus. Liefert die getroffenen Aufgaben. */
   function showLasso(rect) {
     const lasso = dom.world.querySelector('#lasso');
@@ -2317,7 +2361,7 @@ PB.board = (() => {
 
   return {
     markup,
-    init, render, applyView, showDraftLink, hideDraftLink, themeAt, markDropTheme, showLasso, applySelection, applyHighlight,
+    init, render, applyView, showDraftLink, hideDraftLink, themeAt, markDropTheme, showMovePreview, hideMovePreview, showLasso, applySelection, applyHighlight,
     toWorld, dayAt: L.dayAt, priorityAt, viewportCenter, setZoom, fit, scrollTo,
   };
 })();
@@ -2673,7 +2717,7 @@ PB.sidebar = (() => {
     </ul>
     <h3>Bedienen</h3>
     <ul class="help">
-      <li><b>Balken frei ziehen</b>: waagrecht = Start, senkrecht = Priorität. Abhängigkeiten verschieben nichts automatisch; ein <b>oranger Pfeil</b> zeigt, wenn etwas vor dem Ende seines Vorgängers startet.</li>
+      <li><b>Balken frei ziehen</b>: waagrecht = Start, senkrecht = Priorität – das Ziel-Band wird markiert, übernommen wird beim Loslassen. Abhängigkeiten verschieben nichts automatisch; ein <b>oranger Pfeil</b> zeigt, wenn etwas vor dem Ende seines Vorgängers startet.</li>
       <li><b>Mehrere auswählen</b>: Strg/⌘ oder Shift + Klick, oder <b>Shift + Ziehen</b> auf freier Fläche. Ein ausgewählter Balken zieht alle anderen mit; im Panel lassen sich Thema, Priorität, Status und Arbeitsweise gemeinsam setzen.</li>
       <li><b>Rechte Kante</b> = Dauer, <b>gestrichelte Kante</b> = Puffer.</li>
       <li><b>Punkt am Ende ziehen</b> und auf einer Aufgabe loslassen = Abhängigkeit. Der Punkt an einer <b>Iterationsgrenze</b> heisst: „braucht nur bis hier“.</li>
@@ -3184,7 +3228,12 @@ PB.interactions = (() => {
 
   /* ---------- Balken verschieben ---------- */
 
-  /** Verschiebt den gegriffenen Balken – und alle anderen ausgewählten mit (gleicher Versatz). */
+  /**
+   * Verschiebt den gegriffenen Balken – und alle anderen ausgewählten mit (gleicher Versatz).
+   * Während des Ziehens bleibt das Board unverändert: Die Balken folgen als Vorschau der Maus
+   * (waagrecht tageweise, senkrecht frei), das Ziel-Band wird markiert. Erst beim Loslassen
+   * wird übernommen – so springt nichts, wenn sich Bandhöhen durch das Verschieben ändern.
+   */
   function startMove(event, id) {
     event.preventDefault();
     const { type, ids } = ui.selection;
@@ -3196,21 +3245,38 @@ PB.interactions = (() => {
       const t = model.getTask(taskId);
       return { id: taskId, start: t.start, priority: t.priority };
     });
-    const g = gesture();
+    let started = false;
+    let target = null;
 
     track((e) => {
       const p = board.toWorld(e.clientX, e.clientY);
-      if (!g.started && Math.hypot(p.x - origin.x, p.y - origin.y) * model.getState().view.zoom < DRAG_THRESHOLD) return;
-      g.start();
+      if (!started && Math.hypot(p.x - origin.x, p.y - origin.y) * model.getState().view.zoom < DRAG_THRESHOLD) return;
+      if (!started) {
+        started = true;
+        ui.dragging = true;
+        board.applyHighlight();
+      }
       const days = daysBetween(origin.x, p.x);
       const priorityShift = board.priorityAt(p.y) - leadPriority;
-      model.previewTasks(new Map(initial.map((t) => [t.id, {
+      target = initial.map((t) => ({
+        id: t.id,
         start: Math.max(0, t.start + days),
         priority: Math.min(C.PRIORITY_LEVELS, Math.max(1, t.priority + priorityShift)),
-      }])));
-      actions.preview();
+      }));
+      const lead = target.find((t) => t.id === id);
+      board.showMovePreview([id, ...group.filter((x) => x !== id)], (lead.start - model.getTask(id).start) * C.DAY_WIDTH, p.y - origin.y,
+        { priority: lead.priority, start: lead.start, point: p });
     }, () => {
-      if (g.started) model.endGesture();
+      board.hideMovePreview();
+      if (!started || !target) return;
+      const changed = target.some((t, i) => t.start !== initial[i].start || t.priority !== initial[i].priority);
+      if (!changed) {
+        board.applyHighlight();
+        return;
+      }
+      model.beginGesture();
+      model.previewTasks(new Map(target.map((t) => [t.id, { start: t.start, priority: t.priority }])));
+      model.endGesture();
     });
   }
 

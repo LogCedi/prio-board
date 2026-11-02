@@ -31,7 +31,7 @@ PB.board = (() => {
       return `<div class="tl-week${i % 2 ? ' alt' : ''}${i === 0 ? ' today' : ''}" style="left:${x}px;width:${nextX - x}px;height:${layout.height}px">
         <div class="tl-week-label"><b>${label}</b>${CAL.shortDate(w.date)}</div></div>`;
     }).join('');
-    const bands = layout.bands.map((b, i) => `<div class="tl-band${i % 2 ? ' alt' : ''}" style="top:${b.y}px;height:${b.height}px;width:${layout.width}px">
+    const bands = layout.bands.map((b, i) => `<div class="tl-band${i % 2 ? ' alt' : ''}" data-priority="${b.priority}" style="top:${b.y}px;height:${b.height}px;width:${layout.width}px">
         <div class="tl-band-label"><b>Prio ${b.priority}</b><span>${C.PRIORITY_LABELS[b.priority - 1]}</span></div></div>`).join('');
     return `<div class="tl-days"></div>${columns}${bands}
       <div class="tl-corner"><b>Prio ↓</b><br>Zeit →</div><div class="tl-today"></div>`;
@@ -297,6 +297,44 @@ PB.board = (() => {
     if (draft) draft.style.display = 'none';
   }
 
+  /**
+   * Vorschau beim Verschieben: Balken folgen der Maus per CSS-Transform (ohne neu zu zeichnen),
+   * Ziel-Band wird markiert, ein Etikett zeigt Priorität und Start.
+   */
+  function showMovePreview(ids, dx, dy, { priority, start, point }) { // ids[0] = gegriffener Balken
+    const moving = new Set(ids);
+    dom.world.classList.add('moving');
+    dom.world.querySelectorAll('.bar').forEach((el) => {
+      const active = moving.has(el.dataset.id);
+      el.classList.toggle('drag-preview', active);
+      el.style.transform = active ? `translate(${dx}px, ${dy}px)` : '';
+    });
+    dom.world.querySelectorAll('.tl-band').forEach((el) => el.classList.toggle('drop', Number(el.dataset.priority) === priority));
+    let hint = dom.world.querySelector('.drag-hint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.className = 'drag-hint';
+      dom.world.appendChild(hint);
+    }
+    const date = CAL.dateOf(start);
+    hint.textContent = `Prio ${priority} · ab ${CAL.shortDate(date)} (KW ${CAL.weekNumber(date)})`;
+    // Über dem gegriffenen Balken (lead = erster in ids), damit der Titel sichtbar bleibt
+    const lead = dom.world.querySelector(`.bar[data-id="${CSS.escape(ids[0])}"]`);
+    const x = lead ? parseFloat(lead.style.left) + dx : point.x;
+    const y = lead ? parseFloat(lead.style.top) + dy - 34 : point.y - 34;
+    Object.assign(hint.style, { left: `${x}px`, top: `${y}px` });
+  }
+
+  function hideMovePreview() {
+    dom.world.classList.remove('moving');
+    dom.world.querySelectorAll('.bar.drag-preview').forEach((el) => {
+      el.classList.remove('drag-preview');
+      el.style.transform = '';
+    });
+    dom.world.querySelectorAll('.tl-band.drop').forEach((el) => el.classList.remove('drop'));
+    dom.world.querySelector('.drag-hint')?.remove();
+  }
+
   /** Auswahlrechteck (Weltkoordinaten); null blendet es aus. Liefert die getroffenen Aufgaben. */
   function showLasso(rect) {
     const lasso = dom.world.querySelector('#lasso');
@@ -420,7 +458,7 @@ PB.board = (() => {
 
   return {
     markup,
-    init, render, applyView, showDraftLink, hideDraftLink, themeAt, markDropTheme, showLasso, applySelection, applyHighlight,
+    init, render, applyView, showDraftLink, hideDraftLink, themeAt, markDropTheme, showMovePreview, hideMovePreview, showLasso, applySelection, applyHighlight,
     toWorld, dayAt: L.dayAt, priorityAt, viewportCenter, setZoom, fit, scrollTo,
   };
 })();
