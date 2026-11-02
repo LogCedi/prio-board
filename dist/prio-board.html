@@ -16,12 +16,12 @@
   --navy:#0b2d55; --navy-2:#173f72; --navy-soft:#e9eff7;
   --accent:#009fe3;
   --bg:#f3f6fa; --panel:#ffffff; --ink:#0b2d55; --text:#24364f; --muted:#62738a; --line:#dbe3ee; --soft:#eef3f9;
-  --thinking:#009fe3; --thinking-bg:#eaf7fd; --thinking-line:#9bd8f3;
-  --impl:#1f9a6b; --impl-bg:#eaf7f1; --impl-line:#a6dcc6;
+  --thinking:#009fe3; --thinking-bg:#eef8fd; --thinking-fill:#d3eefb; --thinking-line:#7fcdf0;
+  --impl:#1f9a6b; --impl-bg:#eef8f3; --impl-fill:#d2efe2; --impl-line:#8fd2b4;
   --group:#8a9ab0;
   --ok:#1a7f4e; --ok-bg:#dcf3e7; --wait:#9a5b00; --wait-bg:#fff1d6; --bad:#c62828; --bad-bg:#fde4e4;
   --run:#0b5cad; --run-bg:#dcecfb;
-  --link:#7f90a8; --link-done:#9ccfb6;
+  --link:#7f90a8; --link-done:#9ccfb6; --risky:#e8590c;
   --up:#f29200; --down:#0b5cad; --crit:#d6336c; --sel:#009fe3;
   --radius:14px;
   --shadow:0 1px 2px rgba(11,45,85,.06),0 4px 14px rgba(11,45,85,.06);
@@ -83,36 +83,46 @@ aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
 #canvas{position:relative;overflow:auto;cursor:grab}
 #canvas.panning{cursor:grabbing}
 #sizer{position:relative}
-#world .block{user-select:none;cursor:move;transition:opacity .15s,box-shadow .15s}
-#world .block.selected{outline:3px solid var(--sel);outline-offset:3px}
-.port{position:absolute;right:-9px;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:#fff;
-  border:2.5px solid var(--navy);cursor:crosshair;opacity:0;z-index:5;transition:opacity .12s}
-.group>.port{top:24px}
-.block:hover>.port,.linking .port{opacity:1}
+#world .bar{user-select:none;cursor:grab;transition:opacity .15s,box-shadow .15s}
+#world .bar:active{cursor:grabbing}
+#world .bar.selected{outline:3px solid var(--sel);outline-offset:3px}
+
+/* Griffe an Balken: Dauer (rechte Kante), Puffer (Ende gestrichelt), Abhängigkeit (Punkte) */
+.rs{position:absolute;top:6px;bottom:6px;width:10px;cursor:ew-resize;z-index:4;border-radius:4px}
+.rs.dur{right:-5px}
+.rs:hover{background:rgba(11,45,85,.18)}
+.port{position:absolute;left:calc(100% - 8px);top:50%;width:16px;height:16px;margin-top:-8px;border-radius:50%;background:#fff;
+  border:2.5px solid var(--navy);cursor:crosshair;opacity:0;z-index:6;transition:opacity .12s}
+.port.it{top:auto;bottom:-6px;margin-top:0;width:14px;height:14px;border-color:var(--thinking)}
+.bar:hover>.port,.linking .port{opacity:1}
 .port:hover{background:var(--accent);border-color:var(--accent)}
-.rs{position:absolute;right:3px;bottom:3px;width:14px;height:14px;cursor:nwse-resize;z-index:5;opacity:.35;
-  background:linear-gradient(135deg,transparent 0 55%,var(--navy) 55% 62%,transparent 62% 75%,var(--navy) 75% 82%,transparent 82%)}
-.block:hover>.rs{opacity:.8}
-.linking .block.task:hover,.linking .block.group:hover{outline:3px dashed var(--sel);outline-offset:3px}
+.linking #world .bar:hover{outline:3px dashed var(--sel);outline-offset:3px}
 
 /* Hervorhebungen (#world-Präfix, damit sie die Diagramm-Stile überschreiben) */
-#world .block.dim{opacity:.2}
-#world .block.hl{box-shadow:0 0 0 4px rgba(11,45,85,.3),var(--shadow)}
-#world .block.up{box-shadow:0 0 0 4px var(--up)}
-#world .block.down{box-shadow:0 0 0 4px var(--down)}
-#world .block.crit{box-shadow:0 0 0 4px var(--crit)}
-#world .block.ready-hl{box-shadow:0 0 0 4px var(--ok)}
+#world .bar.dim{opacity:.2}
+#world .bar.hl{box-shadow:0 0 0 4px rgba(11,45,85,.3),var(--shadow)}
+#world .bar.up{box-shadow:0 0 0 4px var(--up)}
+#world .bar.down{box-shadow:0 0 0 4px var(--down)}
+#world .bar.crit{box-shadow:0 0 0 4px var(--crit)}
+#world .bar.ready-hl{box-shadow:0 0 0 4px var(--ok)}
 
+/* Doppelklick-Menü */
+.create-menu{position:fixed;z-index:3000;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(11,45,85,.22);padding:8px;
+  display:flex;flex-direction:column;gap:2px;min-width:190px}
+.create-menu>span{font-size:12px;color:var(--muted);padding:2px 8px 4px}
+.create-menu button{display:flex;align-items:center;gap:8px;border:0;background:none;padding:7px 8px;border-radius:8px;cursor:pointer;
+  font-weight:600;color:var(--ink);text-align:left}
+.create-menu button:hover{background:var(--soft)}
 
 /* ---------- Pfeile (interaktiv) ---------- */
-#links .hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer}
-#links .link.up .vis{stroke:var(--up);stroke-width:3.2;marker-end:url(#m-up)}
-#links .link.down .vis{stroke:var(--down);stroke-width:3.2;marker-end:url(#m-down)}
-#links .link.crit .vis{stroke:var(--crit);stroke-width:3.2;marker-end:url(#m-crit)}
-#links .link.sel .vis{stroke:var(--sel);stroke-width:3.6;marker-end:url(#m-sel)}
-#links .link.dim .vis{opacity:.15}
-#links .link:hover .vis{stroke-width:3.6}
-#links .draft{fill:none;stroke:var(--sel);stroke-width:2.5;stroke-dasharray:6 5;marker-end:url(#m-sel)}
+#world .pb-links .hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer}
+#world .link.up .vis{stroke:var(--up);stroke-width:3.2;marker-end:url(#m-up)}
+#world .link.down .vis{stroke:var(--down);stroke-width:3.2;marker-end:url(#m-down)}
+#world .link.crit .vis{stroke:var(--crit);stroke-width:3.2;marker-end:url(#m-crit)}
+#world .link.sel .vis{stroke:var(--sel);stroke-width:3.6;marker-end:url(#m-sel)}
+#world .link.dim .vis{opacity:.15}
+#world .link:hover .vis{stroke-width:3.6}
+#world .pb-links .draft{fill:none;stroke:var(--sel);stroke-width:2.5;stroke-dasharray:6 5;marker-end:url(#m-sel)}
 
 /* ---------- Seitenleiste ---------- */
 aside{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
@@ -142,7 +152,6 @@ ul.list li .x:hover{color:var(--bad)}
 .dot{width:20px;height:20px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-size:12px}
 .dot.thinking{background:var(--thinking)}
 .dot.implementation{background:var(--impl)}
-.dot.group{border:2px dashed var(--group)}
 .small{font-size:12px;color:var(--muted);white-space:nowrap}
 .wavebox{border:1.5px solid var(--line);border-radius:var(--radius);padding:10px 8px 4px;margin-bottom:12px}
 .wavebox .wh{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;color:var(--navy);margin:0 6px 4px}
@@ -205,6 +214,32 @@ header .btn.warn{background:#fff1d6;color:#7a4700;border-color:#fff1d6;line-heig
   #addThinking .ib,#addImplementation .ib,#addGroup .ib{font-size:13px}
   #fit,#zoomLabel,.sep{display:none}
 }
+
+/* ---------- Eingaben in der Seitenleiste ---------- */
+.duration{display:flex;align-items:center;gap:10px}
+.duration input{width:90px !important;flex:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+#sideBody .chips{margin-bottom:14px}
+.field .chips{margin-bottom:0}
+.chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:2px 10px;font-size:13px;font-weight:600;color:var(--navy);cursor:pointer}
+.chip:hover{border-color:var(--navy)}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.chip.theme{border-color:var(--c)}
+.chip.theme::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--c);margin-right:6px}
+.chip.theme.on{background:var(--c);border-color:var(--c)}
+.chip.theme.on::before{background:#fff}
+.iter-row{display:grid;grid-template-columns:auto 1fr 64px auto auto;gap:6px;align-items:center;margin-bottom:6px}
+.iter-row input:not([type=checkbox]){border:1.5px solid var(--line);border-radius:8px;padding:5px 8px;width:100%;min-width:0}
+.iter-row .small{min-width:44px}
+.check{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--text);cursor:pointer}
+.field input[type=color]{height:36px;padding:2px}
+.dot.theme{border-radius:50%}
+.sw.full{background:var(--thinking-fill);border:1.5px solid var(--thinking-line)}
+.sw.hatched{border:1.5px solid var(--thinking-line);background:repeating-linear-gradient(-45deg,var(--thinking-bg) 0 4px,var(--thinking-fill) 4px 8px)}
+.sw.buffer{border:1.5px dashed var(--thinking-line);background:linear-gradient(90deg,rgba(0,159,227,.22),rgba(0,159,227,.04))}
+.sw.ongoing{background:linear-gradient(90deg,rgba(0,159,227,.35),rgba(0,159,227,0))}
+.sw.risky-line{height:3px;border-radius:2px;background:var(--risky)}
+.legend .lev{min-width:32px;font-weight:700;color:var(--ink)}
 </style>
 </head>
 <body>
@@ -213,7 +248,7 @@ header .btn.warn{background:#fff1d6;color:#7a4700;border-color:#fff1d6;line-heig
 
     <button class="btn primary thinking" id="addThinking" title="Analyse/Konzept – braucht Denkzeit"><span class="ib" data-icon="brain"></span>Denken</button>
     <button class="btn primary impl" id="addImplementation" title="Direkt umsetzbar"><span class="ib" data-icon="wrench"></span>Umsetzung</button>
-    <button class="btn primary grp" id="addGroup" title="Rahmen für zusammengehörige Themen (Abhängigkeitsblock)"><span class="ib" data-icon="group"></span>Gruppe</button>
+    <button class="btn primary grp" id="addTheme" title="Thema anlegen (fasst Aufgaben zusammen)"><span class="ib" data-icon="group"></span>Thema</button>
     <span class="sep"></span>
 
     <button class="btn icon" id="undo" title="Rückgängig (Strg+Z)">↶</button>
@@ -226,12 +261,11 @@ header .btn.warn{background:#fff1d6;color:#7a4700;border-color:#fff1d6;line-heig
     <button class="btn" id="fit">Einpassen</button>
     <span class="sep"></span>
 
-    <div class="seg" id="focusMode" title="Fokus: hebt Blöcke auf dem Board hervor">
+    <div class="seg" id="focusMode" title="Fokus: hebt Balken hervor">
       <button data-focus="none" class="on">Aus</button>
       <button data-focus="ready">Jetzt startbar</button>
       <button data-focus="critical">Kritischer Pfad</button>
     </div>
-    <button class="btn on" id="priorityAxis" title="Prioritätsachse ein/aus">Prio-Achse</button>
 
     <span class="spacer"></span>
     <button class="btn warn" id="saveWarning" hidden title="Wird nicht im Browser gespeichert – Details">⚠<span class="long"> Nicht gespeichert</span></button>
@@ -250,15 +284,14 @@ header .btn.warn{background:#fff1d6;color:#7a4700;border-color:#fff1d6;line-heig
 
   <div id="canvas">
     <div id="sizer">
-      <div id="world" class="pb-world">
-        <div id="zones" class="pb-zones"></div>
-        <svg id="links" class="pb-links" xmlns="http://www.w3.org/2000/svg">
-          <defs></defs>
-          <g id="linkLayer"></g>
-          <path id="draftLink" class="draft" d="" style="display:none"/>
-        </svg>
-      </div>
+      <div id="world" class="pb-world"></div>
     </div>
+  </div>
+
+  <div id="createMenu" class="create-menu" hidden>
+    <span>Neu an dieser Stelle:</span>
+    <button data-kind="thinking"><span class="dot thinking" data-icon="brain"></span>Denken</button>
+    <button data-kind="implementation"><span class="dot implementation" data-icon="wrench"></span>Umsetzung</button>
   </div>
 
   <aside>
@@ -283,36 +316,47 @@ header .btn.warn{background:#fff1d6;color:#7a4700;border-color:#fff1d6;line-heig
 window.PB = window.PB || {};
 
 PB.config = Object.freeze({
-  /** Rasterweite in Pixeln; Positionen und Grössen rasten darauf ein. */
-  GRID: 20,
+  /* ---------- Zeitachse (x) ---------- */
+  /** Breite eines Arbeitstags in Pixeln (1 Woche = 5 Tage). */
+  DAY_WIDTH: 28,
+  /** Mindestens so viele Arbeitstage werden angezeigt (12 Wochen). */
+  MIN_HORIZON_DAYS: 60,
+  /** Freier Platz nach dem spätesten Ende (4 Wochen). */
+  HORIZON_TAIL_DAYS: 20,
 
-  /** Breite einer Prioritätsspalte. Spalte 1 (links) = höchste Priorität. */
-  ZONE_WIDTH: 480,
+  /* ---------- Prioritätsbänder (y) ---------- */
   PRIORITY_LEVELS: 5,
   PRIORITY_LABELS: ['sehr hoch', 'hoch', 'mittel', 'tief', 'sehr tief'],
+  LABEL_WIDTH: 132,
+  HEADER_HEIGHT: 50,
+  BAR_HEIGHT: 58,
+  ROW_GAP: 12,
+  BAND_PADDING: 14,
+  /** Schmaler als das → Titel steht rechts neben dem Balken. */
+  NARROW_BAR: 150,
+  /** Platz, der für einen Titel neben einem schmalen Balken reserviert wird. */
+  LABEL_RESERVE: 190,
 
+  /* ---------- Inhalte ---------- */
   KIND_LABELS: { thinking: 'Denken', implementation: 'Umsetzung' },
-  KIND_SUBTITLES: { thinking: 'Denken · Analyse', implementation: 'Umsetzung' },
   STATUS_LABELS: { open: 'Offen', in_progress: 'Läuft', done: 'Fertig' },
+  INTENSITY_LABELS: { focused: 'Intensiv', background: 'Nebenbei / reift' },
+  DEFAULT_TITLES: { thinking: 'Neues Denk-Thema', implementation: 'Neue Umsetzung', theme: 'Neues Thema' },
+  DEFAULT_DURATION: { thinking: 10, implementation: 5 },
+  DURATION_PRESETS: [
+    { label: '1 T', days: 1 },
+    { label: '1 Wo', days: 5 },
+    { label: '2 Wo', days: 10 },
+    { label: '1 Mt', days: 20 },
+    { label: '1 Qu', days: 60 },
+  ],
+  THEME_COLORS: ['#7b5ea7', '#e07a1f', '#2a9d8f', '#c2417a', '#4a6fd1', '#8a9a2b', '#b5651d', '#5c7080'],
 
-  DEFAULT_TITLES: { thinking: 'Neues Denk-Thema', implementation: 'Neue Umsetzung', group: 'Neue Gruppe' },
-  DEFAULT_SIZE: {
-    thinking: { width: 340, height: 150 },
-    implementation: { width: 240, height: 130 },
-    group: { width: 560, height: 340 },
-  },
-  DEFAULT_EFFORT: { thinking: 3, implementation: 1 },
-  MIN_SIZE: {
-    task: { width: 120, height: 80 },
-    group: { width: 200, height: 120 },
-  },
-
-  /** fitMin: „Einpassen“ zoomt nie kleiner, damit Text lesbar bleibt (Rest per Scrollen). */
-  ZOOM: { min: 0.25, max: 2, step: 1.2, fitMin: 0.7 },
+  ZOOM: { min: 0.3, max: 2, step: 1.2, fitMin: 0.75 },
   HISTORY_LIMIT: 100,
 
   /** Dateiformat für Import/Export (siehe schema/prio-board.schema.json). */
-  FORMAT: { name: 'prio-board', version: 1 },
+  FORMAT: { name: 'prio-board', version: 2 },
 
   STORAGE_KEY: 'prioBoard.document',
   /** Ältere Speicherstände: v1 hatte „hohe Prio rechts“ und wird gespiegelt. */
@@ -327,31 +371,15 @@ PB.config = Object.freeze({
 /** Kleine, zustandslose Hilfsfunktionen. */
 PB.util = (() => {
   const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-  const NUMBER = new Intl.NumberFormat('de-CH', { maximumFractionDigits: 1 });
 
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ESCAPES[c]);
   const uid = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
-  const snap = (value) => Math.round(value / PB.config.GRID) * PB.config.GRID;
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-  const formatNumber = (n) => NUMBER.format(n);
 
-  /** Geometrie auf Layout-Objekten { x, y, width, height }. */
+  /** Geometrie auf Layout-Objekten { x, y, width, height } (für die Migration alter Boards). */
   const center = (l) => ({ x: l.x + l.width / 2, y: l.y + l.height / 2 });
   const area = (l) => l.width * l.height;
   const containsPoint = (l, p) => p.x > l.x && p.x < l.x + l.width && p.y > l.y && p.y < l.y + l.height;
-
-  /** Bounding-Box über mehrere Layouts. */
-  function bounds(layouts) {
-    if (!layouts.length) return null;
-    const box = { x: Infinity, y: Infinity, right: -Infinity, bottom: -Infinity };
-    for (const l of layouts) {
-      box.x = Math.min(box.x, l.x);
-      box.y = Math.min(box.y, l.y);
-      box.right = Math.max(box.right, l.x + l.width);
-      box.bottom = Math.max(box.bottom, l.y + l.height);
-    }
-    return { x: box.x, y: box.y, width: box.right - box.x, height: box.bottom - box.y };
-  }
 
   /** "2,5" → 2.5; leer/ungültig → null */
   function parseNumber(value) {
@@ -363,13 +391,104 @@ PB.util = (() => {
   function slugify(text) {
     return String(text || 'prio-board')
       .toLowerCase()
-      .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+      .replace(/ß/g, 'ss')
+      .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'prio-board';
   }
 
   const today = () => new Date().toISOString().slice(0, 10);
 
-  return { escapeHtml, uid, snap, clamp, formatNumber, center, area, containsPoint, bounds, parseNumber, slugify, today };
+  return { escapeHtml, uid, clamp, center, area, containsPoint, parseNumber, slugify, today };
+})();
+</script>
+  <script>
+/* js/core/calendar.js */
+/**
+ * Arbeitstag-Kalender. Interne Zeiteinheit ist der Arbeitstag ab heute:
+ *   Tag 0 = heute (am Wochenende: nächster Montag), Tag 5 = eine Woche später.
+ * Wochenenden werden übersprungen. Daten vor heute werden auf heute gesetzt.
+ */
+PB.calendar = (() => {
+  const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
+
+  function startOfDay(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function nextBusinessDay(date) {
+    const d = startOfDay(date);
+    while (isWeekend(d)) d.setDate(d.getDate() + 1);
+    return d;
+  }
+
+  /** Tag 0 – einmal beim Laden festgelegt, damit sich während der Sitzung nichts verschiebt. */
+  const origin = nextBusinessDay(new Date());
+
+  /** Arbeitstag-Index → Datum */
+  function dateOf(day) {
+    const d = new Date(origin);
+    let left = Math.max(0, Math.round(day));
+    while (left > 0) {
+      d.setDate(d.getDate() + 1);
+      if (!isWeekend(d)) left--;
+    }
+    return d;
+  }
+
+  /** "YYYY-MM-DD" → Arbeitstag-Index (Vergangenheit → 0, ungültig → null). */
+  function dayOf(iso) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    if (!match) return null;
+    const target = nextBusinessDay(new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    if (Number.isNaN(target.getTime())) return null;
+    if (target <= origin) return 0;
+    let day = 0;
+    const d = new Date(origin);
+    while (d < target) {
+      d.setDate(d.getDate() + 1);
+      if (!isWeekend(d)) day++;
+    }
+    return day;
+  }
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const isoOf = (day) => isoDate(dateOf(day));
+
+  /** ISO-Kalenderwoche */
+  function weekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const weekday = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - weekday);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  }
+
+  const shortDate = (date) => `${date.getDate()}.${date.getMonth() + 1}.`;
+  const longDate = (date) => `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
+
+  /** Wochenanfänge (Montage) im Bereich [0, totalDays) – Tag 0 immer dabei. */
+  function weeks(totalDays) {
+    const result = [];
+    for (let day = 0; day < totalDays; day++) {
+      const date = dateOf(day);
+      if (day === 0 || date.getDay() === 1) result.push({ day, date, week: weekNumber(date) });
+    }
+    return result;
+  }
+
+  /** 12 → "2 Wo 2 T" */
+  function durationLabel(days) {
+    const n = Math.max(0, Math.round(days));
+    const w = Math.floor(n / 5);
+    const d = n % 5;
+    if (!w) return `${d} T`;
+    return d ? `${w} Wo ${d} T` : `${w} Wo`;
+  }
+
+  return { origin, dateOf, dayOf, isoOf, weekNumber, shortDate, longDate, weeks, durationLabel };
 })();
 </script>
   <script>
@@ -409,7 +528,7 @@ PB.icons = (() => {
  * Wird von Renderern gelesen und von app.js geändert.
  */
 PB.ui = {
-  /** { type: 'node' | 'dependency' | null, id } */
+  /** { type: 'task' | 'theme' | 'dependency' | null, id } */
   selection: { type: null, id: null },
   hoverId: null,
   tab: 'plan',            // 'details' | 'plan' | 'help'
@@ -420,32 +539,34 @@ PB.ui = {
   <script>
 /* js/domain/model.js */
 /**
- * Datenmodell des Boards: Zustand, Abfragen, Änderungen und Undo/Redo.
+ * Datenmodell: Zustand, Abfragen, Änderungen, Undo/Redo.
  *
- * Zustand (identisch mit dem Datenteil des JSON-Formats):
- *   { board: { title }, view: { zoom, showPriorityAxis },
- *     groups: [{ id, title, description, layout }],
- *     tasks:  [{ id, kind, title, description, notes[], status, effortDays, layout }],
- *     dependencies: [{ id, from, to }] }      // from muss vor to fertig sein
+ * Zustand (intern; Zeiten in Arbeitstagen ab heute, siehe calendar.js):
+ *   { board: { title }, view: { zoom },
+ *     themes: [{ id, title, color }],
+ *     tasks:  [{ id, kind, title, description, notes[], status, priority,
+ *                start, durationDays, bufferDays, intensity, ongoing,
+ *                iterations: [{ title, durationDays, done }], themes: [themeId] }],
+ *     dependencies: [{ id, from, to, fromIteration }] }   // from muss vor to fertig sein
  *
- * Gruppenzugehörigkeit wird NICHT gespeichert, sondern aus der Geometrie
- * abgeleitet: ein Element gehört zur kleinsten (grösseren) Gruppe, die seinen
- * Mittelpunkt enthält.
+ * from/to einer Abhängigkeit sind Aufgaben oder Themen (Thema = alle Aufgaben mit diesem Thema).
+ * fromIteration (Index oder null): Nachfolger braucht nur diese Iteration des Vorgängers.
  *
- * Änderungen melden sich über subscribe(fn) mit einem meta-Objekt { type, source }.
+ * Nach jeder Änderung sorgt schedule() dafür, dass kein Block vor dem Ende seiner
+ * Vorgänger beginnt (Nachfolger werden nach rechts geschoben, nie nach links).
  */
 PB.model = (() => {
   const C = PB.config;
   const U = PB.util;
 
   let state = createEmptyState();
-  let parents = new Map();
+  let gestureStarts = null;
   const past = [];
   const future = [];
   const listeners = new Set();
 
-  function createEmptyState(title = 'Prio-Board', view = { zoom: 1, showPriorityAxis: true }) {
-    return { board: { title }, view: { ...view }, groups: [], tasks: [], dependencies: [] };
+  function createEmptyState(title = 'Prio-Board', view = { zoom: 1 }) {
+    return { board: { title }, view: { ...view }, themes: [], tasks: [], dependencies: [] };
   }
 
   /* ---------- Ereignisse ---------- */
@@ -454,63 +575,61 @@ PB.model = (() => {
     listeners.add(fn);
     return () => listeners.delete(fn);
   }
-  function emit(meta) {
+
+  /** Zeitplan durchsetzen und Änderung melden. */
+  function commit(meta) {
+    schedule();
     listeners.forEach((fn) => fn(meta));
   }
 
   /* ---------- Abfragen ---------- */
 
   const getState = () => state;
-  const allNodes = () => [...state.groups, ...state.tasks];
-  const getNode = (id) => state.tasks.find((n) => n.id === id) || state.groups.find((n) => n.id === id) || null;
-  const isGroup = (id) => state.groups.some((g) => g.id === id);
+  const getTask = (id) => state.tasks.find((t) => t.id === id) || null;
+  const getTheme = (id) => state.themes.find((t) => t.id === id) || null;
+  const getNode = (id) => getTask(id) || getTheme(id);
+  const isTheme = (id) => state.themes.some((t) => t.id === id);
   const getDependency = (id) => state.dependencies.find((d) => d.id === id) || null;
+  const membersOf = (themeId) => state.tasks.filter((t) => t.themes.includes(themeId)).map((t) => t.id);
 
-  const parentOf = (id) => parents.get(id) ?? null;
-  const childrenOf = (id) => allNodes().filter((n) => parents.get(n.id) === id);
+  /** Aufgaben, für die ein Knoten steht (Aufgabe selbst oder alle Aufgaben eines Themas). */
+  const tasksOf = (id) => (isTheme(id) ? membersOf(id) : getTask(id) ? [id] : []);
 
-  function descendantsOf(id) {
-    const result = [];
-    const walk = (parentId) => childrenOf(parentId).forEach((child) => {
-      result.push(child.id);
-      walk(child.id);
-    });
-    walk(id);
-    return result;
+  /** Dauer: Summe der Iterationen, falls vorhanden, sonst durationDays. */
+  function durationOf(task) {
+    if (task.iterations.length) return task.iterations.reduce((sum, it) => sum + it.durationDays, 0);
+    return task.durationDays;
+  }
+  const endOf = (task) => task.start + durationOf(task);
+
+  /** Ende der Iteration index (inkl.); ohne gültige Iteration: Ende der Aufgabe. */
+  function iterationEnd(task, index) {
+    if (index === null || index === undefined || !task.iterations[index]) return endOf(task);
+    return task.start + task.iterations.slice(0, index + 1).reduce((sum, it) => sum + it.durationDays, 0);
   }
 
-  function ancestorsOf(id) {
-    const result = [];
-    for (let p = parentOf(id); p && !result.includes(p); p = parentOf(p)) result.push(p);
-    return result;
-  }
+  /* ---------- Zeitplan ---------- */
 
-  /** Alle Aufgaben-IDs, die ein Knoten repräsentiert (Aufgabe selbst oder Inhalt einer Gruppe). */
-  function tasksWithin(id) {
-    if (!isGroup(id)) return getNode(id) ? [id] : [];
-    return descendantsOf(id).filter((d) => !isGroup(d));
-  }
-
-  const areNested = (a, b) => ancestorsOf(a).includes(b) || ancestorsOf(b).includes(a);
-
-  /* ---------- Hierarchie ---------- */
-
-  function rebuildHierarchy() {
-    parents = new Map();
-    for (const node of allNodes()) {
-      const c = U.center(node.layout);
-      const ownArea = U.area(node.layout);
-      let best = null;
-      let bestArea = Infinity;
-      for (const group of state.groups) {
-        if (group.id === node.id) continue;
-        const a = U.area(group.layout);
-        if (a > ownArea && a < bestArea && U.containsPoint(group.layout, c)) {
-          best = group.id;
-          bestArea = a;
+  /**
+   * Schiebt Aufgaben, die vor dem Ende eines (nicht erledigten) Vorgängers beginnen, nach rechts.
+   * Zyklen sind ausgeschlossen (validateDependency), daher endet die Schleife.
+   */
+  function schedule() {
+    state.tasks.forEach((t) => { t.start = Math.max(0, Math.round(t.start)); });
+    const edges = PB.analysis.edges(api);
+    for (let pass = 0; pass <= state.tasks.length; pass++) {
+      let changed = false;
+      for (const edge of edges) {
+        const from = getTask(edge.from);
+        const to = getTask(edge.to);
+        if (from.status === 'done') continue;
+        const earliest = iterationEnd(from, edge.iteration);
+        if (to.start < earliest) {
+          to.start = earliest;
+          changed = true;
         }
       }
-      if (best) parents.set(node.id, best);
+      if (!changed) break;
     }
   }
 
@@ -525,8 +644,7 @@ PB.model = (() => {
     if (!from.length) return;
     to.push(JSON.stringify(state));
     state = JSON.parse(from.pop());
-    rebuildHierarchy();
-    emit({ type: 'history' });
+    commit({ type: 'history' });
   }
   const undo = () => restore(past, future);
   const redo = () => restore(future, past);
@@ -538,8 +656,7 @@ PB.model = (() => {
   /** Lädt einen Zustand ohne Historieneintrag (Programmstart). */
   function load(next) {
     state = next;
-    rebuildHierarchy();
-    emit({ type: 'load' });
+    commit({ type: 'load' });
   }
   /** Ersetzt den Zustand mit Historieneintrag (Import, Beispiel, Leeren). */
   function replace(next) {
@@ -553,42 +670,17 @@ PB.model = (() => {
     if (clean === state.board.title) return;
     checkpoint();
     state.board.title = clean;
-    emit({ type: 'board' });
+    commit({ type: 'board' });
   }
 
-  /** Ansichtseinstellungen (Zoom, Achse) – ohne Historie und ohne Ereignis. */
+  /** Ansichtseinstellungen (Zoom) – ohne Historie und ohne Ereignis. */
   function setView(patch) {
     Object.assign(state.view, patch);
   }
 
-  /* ---------- Knoten ---------- */
+  /* ---------- Aufgaben ---------- */
 
-  /** Nächster freier Platz (keine Überlappung mit Aufgaben) möglichst nahe an position. */
-  function placeAt(position, size) {
-    const STEP = C.GRID * 2;
-    const MAX_RADIUS = 30;
-    const origin = {
-      x: Math.max(0, U.snap(position.x - size.width / 2)),
-      y: Math.max(0, U.snap(position.y - size.height / 2)),
-    };
-    const margin = C.GRID;
-    const overlaps = (l) => state.tasks.some((t) =>
-      l.x < t.layout.x + t.layout.width + margin && l.x + l.width + margin > t.layout.x &&
-      l.y < t.layout.y + t.layout.height + margin && l.y + l.height + margin > t.layout.y);
-
-    for (let r = 0; r <= MAX_RADIUS; r++) {
-      for (let dy = -r; dy <= r; dy++) {
-        for (let dx = -r; dx <= r; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // nur der Ring mit Abstand r
-          const candidate = { x: origin.x + dx * STEP, y: origin.y + dy * STEP, ...size };
-          if (candidate.x >= 0 && candidate.y >= 0 && !overlaps(candidate)) return candidate;
-        }
-      }
-    }
-    return { ...origin, ...size };
-  }
-
-  function addTask(kind, position) {
+  function addTask(kind, { priority = 3, start = 0 } = {}) {
     const task = {
       id: U.uid('t'),
       kind,
@@ -596,92 +688,162 @@ PB.model = (() => {
       description: '',
       notes: [],
       status: 'open',
-      effortDays: C.DEFAULT_EFFORT[kind],
-      layout: placeAt(position, C.DEFAULT_SIZE[kind]),
+      priority: U.clamp(priority, 1, C.PRIORITY_LEVELS),
+      start: Math.max(0, Math.round(start)),
+      durationDays: C.DEFAULT_DURATION[kind],
+      bufferDays: 0,
+      intensity: 'focused',
+      ongoing: false,
+      iterations: [],
+      themes: [],
     };
     checkpoint();
     state.tasks.push(task);
-    rebuildHierarchy();
-    emit({ type: 'add', id: task.id });
+    commit({ type: 'add', id: task.id });
     return task.id;
   }
 
-  function addGroup(position) {
-    const group = {
-      id: U.uid('g'),
-      title: C.DEFAULT_TITLES.group,
-      description: '',
-      layout: placeAt(position, C.DEFAULT_SIZE.group),
-    };
-    checkpoint();
-    state.groups.push(group);
-    rebuildHierarchy();
-    emit({ type: 'add', id: group.id });
-    return group.id;
-  }
-
   /**
-   * Ändert Felder eines Knotens.
+   * Ändert Felder einer Aufgabe.
    * options.record=false: kein Historieneintrag (z. B. beim Tippen, siehe checkpoint()).
    * options.source: wird im Ereignis weitergegeben (z. B. 'sidebar').
    */
-  function updateNode(id, patch, { record = true, source } = {}) {
-    const node = getNode(id);
-    if (!node) return;
+  function updateTask(id, patch, { record = true, source } = {}) {
+    const task = getTask(id);
+    if (!task) return;
     if (record) checkpoint();
-    Object.assign(node, patch);
-    emit({ type: 'update', id, source });
+    Object.assign(task, patch);
+    if (task.kind !== 'thinking' && (task.iterations.length || task.ongoing)) {
+      // Nur Denk-Themen haben Iterationen: Pfeile „ab Iteration“ gelten dann für die ganze Aufgabe
+      if (task.iterations.length) task.durationDays = durationOf(task);
+      task.iterations = [];
+      task.ongoing = false;
+      state.dependencies.forEach((d) => { if (d.from === id) d.fromIteration = null; });
+    }
+    commit({ type: 'update', id, source });
   }
 
-  function removeNode(id) {
-    if (!getNode(id)) return;
+  function removeTask(id) {
+    if (!getTask(id)) return;
     checkpoint();
     state.tasks = state.tasks.filter((t) => t.id !== id);
-    state.groups = state.groups.filter((g) => g.id !== id);
     state.dependencies = state.dependencies.filter((d) => d.from !== id && d.to !== id);
-    rebuildHierarchy();
-    emit({ type: 'remove', id });
+    commit({ type: 'remove', id });
   }
 
   function duplicateTask(id) {
-    const task = state.tasks.find((t) => t.id === id);
+    const task = getTask(id);
     if (!task) return null;
-    const copy = {
-      ...JSON.parse(JSON.stringify(task)),
-      id: U.uid('t'),
-      title: `${task.title} (Kopie)`,
-      status: 'open',
-    };
-    copy.layout.x += C.GRID * 2;
-    copy.layout.y += C.GRID * 2;
+    const copy = { ...JSON.parse(JSON.stringify(task)), id: U.uid('t'), title: `${task.title} (Kopie)`, status: 'open' };
+    copy.iterations.forEach((it) => { it.done = false; });
     checkpoint();
     state.tasks.push(copy);
-    rebuildHierarchy();
-    emit({ type: 'add', id: copy.id });
+    commit({ type: 'add', id: copy.id });
     return copy.id;
+  }
+
+  /* ---------- Iterationen (nur Denken) ---------- */
+
+  function addIteration(taskId) {
+    const task = getTask(taskId);
+    if (!task || task.kind !== 'thinking') return;
+    checkpoint();
+    // Erste Iteration übernimmt die bisherige Dauer, weitere starten mit einer Woche
+    const durationDays = task.iterations.length ? 5 : task.durationDays;
+    task.iterations.push({ title: `Iteration ${task.iterations.length + 1}`, durationDays, done: false });
+    commit({ type: 'update', id: taskId });
+  }
+
+  function updateIteration(taskId, index, patch, { record = true, source } = {}) {
+    const iteration = getTask(taskId)?.iterations[index];
+    if (!iteration) return;
+    if (record) checkpoint();
+    Object.assign(iteration, patch);
+    iteration.durationDays = Math.max(1, Math.round(iteration.durationDays) || 1);
+    commit({ type: 'update', id: taskId, source });
+  }
+
+  function removeIteration(taskId, index) {
+    const task = getTask(taskId);
+    if (!task?.iterations[index]) return;
+    checkpoint();
+    if (task.iterations.length === 1) task.durationDays = task.iterations[0].durationDays;
+    task.iterations.splice(index, 1);
+    for (const dep of state.dependencies) {
+      if (dep.from !== taskId || dep.fromIteration === null) continue;
+      if (dep.fromIteration === index) dep.fromIteration = null;
+      else if (dep.fromIteration > index) dep.fromIteration -= 1;
+    }
+    commit({ type: 'update', id: taskId });
+  }
+
+  /* ---------- Themen ---------- */
+
+  function addTheme() {
+    const used = new Set(state.themes.map((t) => t.color));
+    const color = C.THEME_COLORS.find((c) => !used.has(c)) || C.THEME_COLORS[state.themes.length % C.THEME_COLORS.length];
+    const theme = { id: U.uid('th'), title: C.DEFAULT_TITLES.theme, color };
+    checkpoint();
+    state.themes.push(theme);
+    commit({ type: 'add', id: theme.id });
+    return theme.id;
+  }
+
+  function updateTheme(id, patch, { record = true, source } = {}) {
+    const theme = getTheme(id);
+    if (!theme) return;
+    if (record) checkpoint();
+    Object.assign(theme, patch);
+    commit({ type: 'update', id, source });
+  }
+
+  function removeTheme(id) {
+    if (!getTheme(id)) return;
+    checkpoint();
+    state.themes = state.themes.filter((t) => t.id !== id);
+    state.tasks.forEach((t) => { t.themes = t.themes.filter((th) => th !== id); });
+    state.dependencies = state.dependencies.filter((d) => d.from !== id && d.to !== id);
+    commit({ type: 'remove', id });
+  }
+
+  function toggleTaskTheme(taskId, themeId) {
+    const task = getTask(taskId);
+    if (!task || !getTheme(themeId)) return { ok: false };
+    const next = task.themes.includes(themeId) ? task.themes.filter((t) => t !== themeId) : [...task.themes, themeId];
+    const before = task.themes;
+    task.themes = next;
+    const cyclic = PB.analysis.hasCycle(PB.analysis.predecessorMap(api));
+    task.themes = before;
+    if (cyclic) return { ok: false, error: 'Nicht möglich – das Thema würde einen Kreis (Zyklus) erzeugen' };
+    checkpoint();
+    task.themes = next;
+    commit({ type: 'update', id: taskId });
+    return { ok: true };
   }
 
   /* ---------- Abhängigkeiten ---------- */
 
   /** Prüft, ob from → to erlaubt ist. Liefert null oder einen Fehlertext. */
-  function validateDependency(from, to) {
+  function validateDependency(from, to, dependencies = state.dependencies) {
     if (!getNode(from) || !getNode(to) || from === to) return 'Ungültige Abhängigkeit';
-    if (areNested(from, to)) return 'Eine Gruppe und ihr eigenes Element können nicht voneinander abhängen';
-    if (state.dependencies.some((d) => d.from === from && d.to === to)) return 'Diese Abhängigkeit existiert bereits';
-    const candidate = [...state.dependencies, { from, to }];
-    if (PB.analysis.hasCycle(PB.analysis.predecessorMap(api, candidate))) {
+    if ((isTheme(to) && membersOf(to).includes(from)) || (isTheme(from) && membersOf(from).includes(to))) {
+      return 'Ein Thema und eine Aufgabe darin können nicht voneinander abhängen';
+    }
+    if (dependencies.some((d) => d.from === from && d.to === to)) return 'Diese Abhängigkeit existiert bereits';
+    if (PB.analysis.hasCycle(PB.analysis.predecessorMap(api, [...dependencies, { from, to }]))) {
       return 'Nicht möglich – das würde einen Kreis (Zyklus) erzeugen';
     }
     return null;
   }
 
-  /** Legt from → to an. Liefert { ok, error? }. */
-  function addDependency(from, to) {
+  /** Legt from → to an (optional nur ab einer Iteration). Liefert { ok, error? }. */
+  function addDependency(from, to, fromIteration = null) {
     const error = validateDependency(from, to);
     if (error) return { ok: false, error };
+    const iteration = getTask(from)?.iterations[fromIteration] ? fromIteration : null;
     checkpoint();
-    state.dependencies.push({ id: U.uid('d'), from, to });
-    emit({ type: 'dependency' });
+    state.dependencies.push({ id: U.uid('d'), from, to, fromIteration: iteration });
+    commit({ type: 'dependency' });
     return { ok: true };
   }
 
@@ -689,52 +851,80 @@ PB.model = (() => {
     if (!getDependency(id)) return;
     checkpoint();
     state.dependencies = state.dependencies.filter((d) => d.id !== id);
-    emit({ type: 'dependency' });
+    commit({ type: 'dependency' });
+  }
+
+  function setDependencyIteration(id, fromIteration) {
+    const dep = getDependency(id);
+    const task = dep && getTask(dep.from);
+    if (!task) return;
+    checkpoint();
+    dep.fromIteration = task.iterations[fromIteration] ? fromIteration : null;
+    commit({ type: 'dependency' });
   }
 
   function reverseDependency(id) {
     const dep = getDependency(id);
     if (!dep) return { ok: false, error: 'Abhängigkeit nicht gefunden' };
     const others = state.dependencies.filter((d) => d.id !== id);
-    const reversed = [...others, { from: dep.to, to: dep.from }];
-    if (PB.analysis.hasCycle(PB.analysis.predecessorMap(api, reversed))) {
-      return { ok: false, error: 'Umkehren würde einen Zyklus erzeugen' };
-    }
+    const error = validateDependency(dep.to, dep.from, others);
+    if (error) return { ok: false, error: `Umkehren nicht möglich: ${error}` };
     checkpoint();
     [dep.from, dep.to] = [dep.to, dep.from];
-    emit({ type: 'dependency' });
+    dep.fromIteration = null;
+    commit({ type: 'dependency' });
     return { ok: true };
   }
 
-  /* ---------- Gesten (Verschieben / Grösse ändern) ---------- */
-  // Während einer Geste wird das Layout direkt geändert (ohne Ereignis),
-  // damit nur Positionen aktualisiert werden müssen. endGesture() meldet die Änderung.
+  /* ---------- Gesten (Ziehen von Balken) ---------- */
+  // Jede Bewegung wird vom Stand zu Gestenbeginn aus neu berechnet: Zieht man zurück,
+  // rutschen dabei geschobene Nachfolger wieder an ihren alten Platz.
 
-  const beginGesture = () => checkpoint();
-  function setLayout(id, patch) {
-    const node = getNode(id);
-    if (node) Object.assign(node.layout, patch);
+  function beginGesture() {
+    checkpoint();
+    gestureStarts = new Map(state.tasks.map((t) => [t.id, t.start]));
   }
+
+  /** Ändert Zeit/Priorität einer Aufgabe während einer Geste (ohne Ereignis). */
+  function previewTask(id, patch) {
+    const task = getTask(id);
+    if (!task || !gestureStarts) return;
+    state.tasks.forEach((t) => { t.start = gestureStarts.get(t.id) ?? t.start; });
+    Object.assign(task, patch);
+    schedule();
+  }
+
+  /** Iterationsdauer während einer Geste ändern (Grösse der letzten Iteration). */
+  function previewIteration(id, index, durationDays) {
+    const task = getTask(id);
+    if (!task?.iterations[index] || !gestureStarts) return;
+    state.tasks.forEach((t) => { t.start = gestureStarts.get(t.id) ?? t.start; });
+    task.iterations[index].durationDays = Math.max(1, durationDays);
+    schedule();
+  }
+
   function endGesture() {
-    rebuildHierarchy();
-    emit({ type: 'layout' });
+    gestureStarts = null;
+    commit({ type: 'layout' });
   }
 
   const api = {
     subscribe,
     // Abfragen
-    getState, allNodes, getNode, isGroup, getDependency,
-    parentOf, childrenOf, descendantsOf, ancestorsOf, tasksWithin, areNested,
+    getState, getTask, getTheme, getNode, isTheme, getDependency, membersOf, tasksOf,
+    durationOf, endOf, iterationEnd,
     // Historie
     checkpoint, undo, redo, canUndo, canRedo,
     // Board
     createEmptyState, load, replace, clear, setBoardTitle, setView,
-    // Knoten
-    addTask, addGroup, updateNode, removeNode, duplicateTask,
+    // Aufgaben & Iterationen
+    addTask, updateTask, removeTask, duplicateTask, addIteration, updateIteration, removeIteration,
+    // Themen
+    addTheme, updateTheme, removeTheme, toggleTaskTheme,
     // Abhängigkeiten
-    validateDependency, addDependency, removeDependency, reverseDependency,
+    validateDependency, addDependency, removeDependency, setDependencyIteration, reverseDependency,
     // Gesten
-    beginGesture, setLayout, endGesture,
+    beginGesture, previewTask, previewIteration, endGesture,
   };
   return api;
 })();
@@ -744,41 +934,29 @@ PB.model = (() => {
 /**
  * Abhängigkeitsanalyse (reine Funktionen über dem Modell).
  *
- * Effektive Vorgänger einer Aufgabe T:
- *   - alle Abhängigkeiten, die direkt auf T zeigen,
- *   - plus alle, die auf eine Gruppe zeigen, in der T liegt.
- *   Zeigt eine Abhängigkeit VON einer Gruppe weg, zählen alle Aufgaben darin.
+ * Kanten (edges) verbinden immer Aufgaben: Eine Abhängigkeit auf/von einem Thema
+ * wird zu Kanten auf/von allen Aufgaben dieses Themas aufgelöst.
  */
 PB.analysis = (() => {
-  const C = PB.config;
-  const U = PB.util;
-
-  /** Priorität aus der horizontalen Position: 1 (links, hoch) … PRIORITY_LEVELS (rechts, tief). */
-  function priorityOf(layout) {
-    const cx = layout.x + layout.width / 2;
-    return U.clamp(Math.floor(cx / C.ZONE_WIDTH) + 1, 1, C.PRIORITY_LEVELS);
-  }
-  const priorityLabel = (p) => C.PRIORITY_LABELS[p - 1];
-
-  /** Aufwand in Personentagen; fehlende Angaben zählen als 1. */
-  function effortOf(task) {
-    const n = Number(task.effortDays);
-    return Number.isFinite(n) && n > 0 ? n : 1;
-  }
-
-  /** Map<taskId, Set<taskId>> der effektiven Vorgänger. */
-  function predecessorMap(model, dependencies = model.getState().dependencies) {
-    const preds = new Map();
-    const tasks = model.getState().tasks;
-    tasks.forEach((t) => preds.set(t.id, new Set()));
-    for (const task of tasks) {
-      for (const scope of [task.id, ...model.ancestorsOf(task.id)]) {
-        for (const dep of dependencies) {
-          if (dep.to !== scope) continue;
-          for (const p of model.tasksWithin(dep.from)) if (p !== task.id) preds.get(task.id).add(p);
+  /** Alle Aufgaben-Kanten: { depId, from, to, iteration, viaTheme } */
+  function edges(model, dependencies = model.getState().dependencies) {
+    const result = [];
+    for (const dep of dependencies) {
+      const viaTheme = model.isTheme(dep.from) || model.isTheme(dep.to);
+      const iteration = model.isTheme(dep.from) ? null : dep.fromIteration ?? null;
+      for (const from of model.tasksOf(dep.from)) {
+        for (const to of model.tasksOf(dep.to)) {
+          if (from !== to) result.push({ depId: dep.id, from, to, iteration, viaTheme });
         }
       }
     }
+    return result;
+  }
+
+  /** Map<taskId, Set<taskId>> der Vorgänger. */
+  function predecessorMap(model, dependencies) {
+    const preds = new Map(model.getState().tasks.map((t) => [t.id, new Set()]));
+    for (const e of edges(model, dependencies)) preds.get(e.to)?.add(e.from);
     return preds;
   }
 
@@ -815,18 +993,25 @@ PB.analysis = (() => {
   }
 
   /**
-   * Vollständige Auswertung des Boards.
-   * Wellen: offene Aufgaben in topologischen Stufen – innerhalb einer Welle
-   * bestehen keine Abhängigkeiten, sie können parallel bearbeitet werden.
+   * Vollständige Auswertung:
+   *  - Wellen: offene Aufgaben in topologischen Stufen (gleiche Welle = parallel möglich)
+   *  - ready: alle Vorgänger erledigt
+   *  - leverage („Hebel“): Anzahl offener Umsetzungen, die eine Aufgabe (indirekt) freigibt
+   *  - kritischer Pfad: längste Kette nach Dauer über offene Aufgaben
+   *  - riskante Kanten: Nachfolger startet innerhalb des Puffers des Vorgängers
    */
   function analyze(model) {
-    const tasks = model.getState().tasks;
+    const { tasks } = model.getState();
     const byId = new Map(tasks.map((t) => [t.id, t]));
     const isDone = (id) => byId.get(id)?.status === 'done';
+    const allEdges = edges(model);
 
-    const predecessors = predecessorMap(model);
+    const predecessors = new Map(tasks.map((t) => [t.id, new Set()]));
     const successors = new Map(tasks.map((t) => [t.id, new Set()]));
-    predecessors.forEach((preds, id) => preds.forEach((p) => successors.get(p).add(id)));
+    for (const e of allEdges) {
+      predecessors.get(e.to).add(e.from);
+      successors.get(e.from).add(e.to);
+    }
 
     // Kahn-Algorithmus über offene Aufgaben
     const open = tasks.filter((t) => !isDone(t.id));
@@ -835,30 +1020,29 @@ PB.analysis = (() => {
     const order = open.filter((t) => remaining.get(t.id) === 0).map((t) => t.id);
     order.forEach((id) => wave.set(id, 1));
     for (let i = 0; i < order.length; i++) {
-      const id = order[i];
-      for (const next of successors.get(id)) {
+      for (const next of successors.get(order[i])) {
         if (!remaining.has(next)) continue;
-        wave.set(next, Math.max(wave.get(next) || 1, wave.get(id) + 1));
+        wave.set(next, Math.max(wave.get(next) || 1, wave.get(order[i]) + 1));
         remaining.set(next, remaining.get(next) - 1);
         if (remaining.get(next) === 0) order.push(next);
       }
     }
     const inOrder = new Set(order);
     const cycle = new Set(open.filter((t) => !inOrder.has(t.id)).map((t) => t.id));
-    cycle.forEach((id) => wave.delete(id));
 
     const openPredecessors = (id) => [...(predecessors.get(id) || [])].filter((p) => !isDone(p));
     const ready = new Set(open.filter((t) => !cycle.has(t.id) && openPredecessors(t.id).length === 0).map((t) => t.id));
 
-    // Wellen als sortierte Listen (Priorität, dann Umsetzung vor Denken)
-    const priority = new Map(tasks.map((t) => [t.id, priorityOf(t.layout)]));
     const waves = [];
     wave.forEach((n, id) => (waves[n - 1] ||= []).push(id));
-    waves.forEach((list) => list.sort((a, b) =>
-      priority.get(a) - priority.get(b) ||
-      (byId.get(a).kind === 'implementation' ? -1 : 1) - (byId.get(b).kind === 'implementation' ? -1 : 1)));
+    const byPriorityThenStart = (a, b) => byId.get(a).priority - byId.get(b).priority || byId.get(a).start - byId.get(b).start;
+    waves.forEach((list) => list.sort(byPriorityThenStart));
 
-    // Kritischer Pfad: längste Kette nach Aufwand über offene Aufgaben
+    // Hebel
+    const leverage = new Map(tasks.map((t) => [t.id,
+      [...closure([t.id], successors)].filter((id) => byId.get(id).kind === 'implementation' && !isDone(id)).length]));
+
+    // Kritischer Pfad
     const finish = new Map();
     const via = new Map();
     for (const id of order) {
@@ -870,13 +1054,30 @@ PB.analysis = (() => {
           bestPred = p;
         }
       }
-      finish.set(id, best + effortOf(byId.get(id)));
+      finish.set(id, best + model.durationOf(byId.get(id)));
       via.set(id, bestPred);
     }
     let end = null;
     finish.forEach((f, id) => { if (end === null || f > finish.get(end)) end = id; });
     const criticalPath = [];
     for (let id = end; id; id = via.get(id)) criticalPath.unshift(id);
+
+    // Riskante Kanten (Start im Puffer des Vorgängers)
+    const riskyDeps = new Set();
+    for (const e of allEdges) {
+      const from = byId.get(e.from);
+      if (from.status === 'done' || e.iteration !== null || !from.bufferDays) continue;
+      if (byId.get(e.to).start < model.endOf(from) + from.bufferDays) riskyDeps.add(`${e.from}→${e.to}`);
+    }
+
+    // Wichtigste Denk-Themen: viel Hebel × lange Dauer
+    const importantThinking = open
+      .filter((t) => t.kind === 'thinking')
+      .map((t) => ({ id: t.id, score: (leverage.get(t.id) + 1) * model.durationOf(t) }))
+      .sort((a, b) => b.score - a.score)
+      .map((x) => x.id);
+
+    const planEnd = open.reduce((max, t) => Math.max(max, model.endOf(t)), 0);
 
     /** 'done' | 'cycle' | 'in_progress' | 'ready' | 'waiting' */
     function stateOf(id) {
@@ -889,39 +1090,46 @@ PB.analysis = (() => {
     }
 
     return {
-      predecessors, successors,
-      wave, waves, cycle, ready,
-      criticalPath, criticalEffort: end ? finish.get(end) : 0,
+      edges: allEdges, predecessors, successors,
+      wave, waves, cycle, ready, leverage,
+      criticalPath, criticalDays: end ? finish.get(end) : 0,
+      isRisky: (from, to) => riskyDeps.has(`${from}→${to}`),
+      importantThinking, planEnd,
       openPredecessors, stateOf,
-      priorityOf: (id) => priority.get(id) ?? priorityOf(model.getNode(id).layout),
     };
   }
 
-  return { priorityOf, priorityLabel, effortOf, predecessorMap, hasCycle, closure, analyze };
+  return { edges, predecessorMap, hasCycle, closure, analyze };
 })();
 </script>
   <script>
 /* js/io/format.js */
 /**
- * JSON-Dateiformat „prio-board“ (Version 1) – Export, Import, Validierung, Migration.
+ * JSON-Dateiformat „prio-board“ (Version 2) – Export, Import, Validierung, Migration.
  * Beschreibung: schema/prio-board.schema.json und README.md.
  *
  *   {
- *     "format": "prio-board", "version": 1, "exportedAt": "…",
- *     "board": { "title": "…" },
- *     "view": { "zoom": 1, "showPriorityAxis": true },
- *     "groups": [ { "id", "title", "description", "layout": { "x", "y", "width", "height" } } ],
- *     "tasks": [ { "id", "kind": "thinking|implementation", "title", "description",
- *                  "notes": ["…"], "status": "open|in_progress|done", "effortDays": 3, "layout": {…} } ],
- *     "dependencies": [ { "id", "from", "to" } ],      // from muss vor to fertig sein
- *     "analysis": { … }                                 // nur Export, wird beim Import ignoriert
+ *     "format": "prio-board", "version": 2, "exportedAt": "…",
+ *     "board": { "title": "…" }, "view": { "zoom": 1 },
+ *     "themes": [ { "id", "title", "color": "#rrggbb" } ],
+ *     "tasks": [ { "id", "kind": "thinking|implementation", "title", "description", "notes": [],
+ *                  "status": "open|in_progress|done", "priority": 1-5, "start": "YYYY-MM-DD",
+ *                  "durationDays", "bufferDays", "intensity": "focused|background", "ongoing",
+ *                  "iterations": [ { "title", "durationDays", "done" } ], "themes": [themeId] } ],
+ *     "dependencies": [ { "id", "from", "to", "fromIteration": null | index } ],
+ *     "analysis": { … }   // nur Export, wird beim Import ignoriert
  *   }
+ *
+ * Ältere Stände werden migriert: v1 (freies Board mit Gruppen) und die ersten internen
+ * Speicherstände ({ blocks, deps }).
  */
 PB.format = (() => {
   const C = PB.config;
   const U = PB.util;
+  const CAL = PB.calendar;
   const KINDS = ['thinking', 'implementation'];
   const STATUSES = ['open', 'in_progress', 'done'];
+  const INTENSITIES = ['focused', 'background'];
 
   class FormatError extends Error {
     constructor(problems) {
@@ -931,13 +1139,13 @@ PB.format = (() => {
     }
   }
 
-  /* ---------- Export ---------- */
-
-  const layoutOut = (l) => ({ x: l.x, y: l.y, width: l.width, height: l.height });
+  /* =====================================================================
+   * Export
+   * ===================================================================== */
 
   /**
-   * Zustand → Dokument. Mit { model, analysis } wird zusätzlich ein
-   * berechneter "analysis"-Block angehängt (für Auswertungen ausserhalb des Tools).
+   * Zustand → Dokument. Mit { model, analysis } wird zusätzlich ein berechneter
+   * "analysis"-Block angehängt (für Auswertungen ausserhalb des Tools).
    */
   function serialize(state, { model, analysis, exportedAt = new Date().toISOString() } = {}) {
     const doc = {
@@ -945,13 +1153,8 @@ PB.format = (() => {
       version: C.FORMAT.version,
       exportedAt,
       board: { title: state.board.title },
-      view: { zoom: state.view.zoom, showPriorityAxis: state.view.showPriorityAxis },
-      groups: state.groups.map((g) => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        layout: layoutOut(g.layout),
-      })),
+      view: { zoom: state.view.zoom },
+      themes: state.themes.map((t) => ({ id: t.id, title: t.title, color: t.color })),
       tasks: state.tasks.map((t) => ({
         id: t.id,
         kind: t.kind,
@@ -959,10 +1162,16 @@ PB.format = (() => {
         description: t.description,
         notes: [...t.notes],
         status: t.status,
-        effortDays: t.effortDays ?? null,
-        layout: layoutOut(t.layout),
+        priority: t.priority,
+        start: CAL.isoOf(t.start),
+        durationDays: t.durationDays,
+        bufferDays: t.bufferDays,
+        intensity: t.intensity,
+        ongoing: t.ongoing,
+        iterations: t.iterations.map((it) => ({ title: it.title, durationDays: it.durationDays, done: it.done })),
+        themes: [...t.themes],
       })),
-      dependencies: state.dependencies.map((d) => ({ id: d.id, from: d.from, to: d.to })),
+      dependencies: state.dependencies.map((d) => ({ id: d.id, from: d.from, to: d.to, fromIteration: d.fromIteration })),
     };
     if (model && analysis) doc.analysis = buildAnalysis(state, model, analysis);
     return doc;
@@ -971,24 +1180,29 @@ PB.format = (() => {
   function buildAnalysis(state, model, a) {
     return {
       note: 'Beim Export berechnet – wird beim Import ignoriert.',
+      planEnd: CAL.isoOf(a.planEnd),
       tasks: Object.fromEntries(state.tasks.map((t) => [t.id, {
-        priority: a.priorityOf(t.id),
-        group: model.parentOf(t.id),
+        end: CAL.isoOf(model.endOf(t)),
+        durationDays: model.durationOf(t),
         wave: a.wave.get(t.id) ?? null,
         state: a.stateOf(t.id),
+        leverage: a.leverage.get(t.id),
         blockedBy: a.openPredecessors(t.id),
       }])),
       waves: a.waves,
-      criticalPath: { tasks: a.criticalPath, effortDays: a.criticalEffort },
+      importantThinking: a.importantThinking,
+      criticalPath: { tasks: a.criticalPath, durationDays: a.criticalDays },
     };
   }
 
-  /* ---------- Import ---------- */
+  /* =====================================================================
+   * Import
+   * ===================================================================== */
 
   /**
    * String oder Objekt → normalisierter Zustand.
    * Standard (Import): streng – wirft FormatError mit allen Problemen.
-   * { repair: true } (eigener gespeicherter Stand): repariert stattdessen, was geht
+   * { repair: true } (eigener gespeicherter Stand): repariert, was geht
    *   (ungültige Werte → Standardwerte, kaputte Pfeile entfernt, doppelte IDs umbenannt)
    *   und meldet jede Reparatur über onWarning(message).
    */
@@ -1002,6 +1216,7 @@ PB.format = (() => {
       }
     }
     if (isLegacy(raw)) raw = migrateLegacy(raw);
+    if (raw?.format === C.FORMAT.name && raw.version === 1) raw = migrateV1(raw);
     return normalize(raw, { repair, onWarning });
   }
 
@@ -1011,12 +1226,11 @@ PB.format = (() => {
     // Grundstruktur ist nie reparierbar
     const fatal = [];
     if (raw.format !== C.FORMAT.name) fatal.push(`"format" muss "${C.FORMAT.name}" sein`);
-    if (!Number.isInteger(raw.version) || raw.version < 1 || raw.version > C.FORMAT.version) {
-      fatal.push(`"version" ${JSON.stringify(raw.version)} wird nicht unterstützt (1–${C.FORMAT.version})`);
-    }
-    for (const key of ['groups', 'tasks', 'dependencies']) {
+    if (raw.version !== C.FORMAT.version) fatal.push(`"version" ${JSON.stringify(raw.version)} wird nicht unterstützt (1–${C.FORMAT.version})`);
+    for (const key of ['tasks', 'dependencies']) {
       if (!Array.isArray(raw[key])) fatal.push(`"${key}" muss eine Liste sein`);
     }
+    if (raw.themes !== undefined && !Array.isArray(raw.themes)) fatal.push('"themes" muss eine Liste sein');
     if (fatal.length) throw new FormatError(fatal);
 
     // Alles Weitere: im Reparaturmodus Hinweis + Standardwert, sonst Fehler
@@ -1024,71 +1238,80 @@ PB.format = (() => {
     const report = (message) => (repair ? onWarning(message) : problems.push(message));
     const text = (v) => (typeof v === 'string' ? v : '');
 
-    const nodeIds = new Set();
+    const ids = new Set();
     const readId = (id, where) => {
       if (typeof id !== 'string' || !id.trim()) {
         report(`${where}: "id" fehlt`);
         id = U.uid('n');
-      } else if (nodeIds.has(id)) {
+      } else if (ids.has(id)) {
         report(`${where}: doppelte id "${id}"`);
         id = U.uid('n');
       }
-      nodeIds.add(id);
+      ids.add(id);
       return id;
     };
-    const DEFAULT_LAYOUT = { x: 0, y: 0, width: 240, height: 130 };
-    const readLayout = (l, where) => {
-      const out = {};
-      for (const k of ['x', 'y', 'width', 'height']) {
-        let v = Number(l?.[k]);
-        const invalid = !Number.isFinite(v) || ((k === 'width' || k === 'height') && v <= 0);
-        if (invalid) {
-          report(`${where}: "layout.${k}" fehlt oder ist ungültig`);
-          v = DEFAULT_LAYOUT[k];
-        }
-        out[k] = v;
+    /** Ganze Zahl in [min, max]; fehlend → fallback, ungültig → Problem + fallback. */
+    const readInt = (value, where, field, { min, max = Infinity, fallback }) => {
+      if (value === undefined || value === null || value === '') return fallback;
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < min || n > max) {
+        report(`${where}: "${field}" muss eine Zahl zwischen ${min} und ${max === Infinity ? '∞' : max} sein`);
+        return fallback;
       }
-      return out;
+      return Math.round(n);
+    };
+    const readEnum = (value, allowed, where, field, fallback) => {
+      if (value === undefined) return fallback;
+      if (allowed.includes(value)) return value;
+      report(`${where}: "${field}" muss ${allowed.map((a) => `"${a}"`).join(' oder ')} sein`);
+      return fallback;
     };
 
-    const groups = raw.groups.map((g, i) => {
-      const where = `groups[${i}]`;
-      return {
-        id: readId(g?.id, where),
-        title: text(g?.title) || 'Gruppe',
-        description: text(g?.description),
-        layout: readLayout(g?.layout, where),
-      };
+    const themes = (raw.themes || []).map((th, i) => {
+      const where = `themes[${i}]`;
+      const color = /^#[0-9a-f]{6}$/i.test(th?.color) ? th.color : C.THEME_COLORS[i % C.THEME_COLORS.length];
+      return { id: readId(th?.id, where), title: text(th?.title) || 'Thema', color };
     });
+    const themeIds = new Set(themes.map((t) => t.id));
 
     const tasks = raw.tasks.map((t, i) => {
       const where = `tasks[${i}]`;
-      let kind = t?.kind;
-      if (!KINDS.includes(kind)) {
-        report(`${where}: "kind" muss "thinking" oder "implementation" sein`);
-        kind = 'thinking';
+      const kind = readEnum(t?.kind, KINDS, where, 'kind', 'thinking');
+      let start = t?.start === undefined ? 0 : CAL.dayOf(t.start);
+      if (start === null) {
+        report(`${where}: "start" muss ein Datum im Format JJJJ-MM-TT sein`);
+        start = 0;
       }
-      let status = t?.status ?? 'open';
-      if (!STATUSES.includes(status)) {
-        report(`${where}: unbekannter "status" "${status}"`);
-        status = 'open';
-      }
-      let effort = t?.effortDays === null || t?.effortDays === undefined || t?.effortDays === '' ? null : Number(t.effortDays);
-      if (effort !== null && !(effort >= 0)) {
-        report(`${where}: "effortDays" muss eine Zahl ≥ 0 oder null sein`);
-        effort = null;
-      }
+      const iterations = kind === 'thinking' && Array.isArray(t?.iterations)
+        ? t.iterations.map((it, j) => ({
+          title: text(it?.title) || `Iteration ${j + 1}`,
+          durationDays: readInt(it?.durationDays, `${where}.iterations[${j}]`, 'durationDays', { min: 1, fallback: 5 }),
+          done: it?.done === true,
+        }))
+        : [];
+      const taskThemes = Array.isArray(t?.themes) ? t.themes.filter((id) => {
+        if (themeIds.has(id)) return true;
+        report(`${where}: unbekanntes Thema "${id}"${repair ? ' – entfernt' : ''}`);
+        return false;
+      }) : [];
       return {
         id: readId(t?.id, where),
         kind,
         title: text(t?.title) || 'Ohne Titel',
         description: text(t?.description),
         notes: Array.isArray(t?.notes) ? t.notes.filter((n) => typeof n === 'string' && n.trim()) : [],
-        status,
-        effortDays: effort,
-        layout: readLayout(t?.layout, where),
+        status: readEnum(t?.status, STATUSES, where, 'status', 'open'),
+        priority: readInt(t?.priority, where, 'priority', { min: 1, max: C.PRIORITY_LEVELS, fallback: 3 }),
+        start,
+        durationDays: readInt(t?.durationDays, where, 'durationDays', { min: 1, fallback: C.DEFAULT_DURATION[kind] }),
+        bufferDays: readInt(t?.bufferDays, where, 'bufferDays', { min: 0, fallback: 0 }),
+        intensity: readEnum(t?.intensity, INTENSITIES, where, 'intensity', 'focused'),
+        ongoing: kind === 'thinking' && t?.ongoing === true,
+        iterations,
+        themes: [...new Set(taskThemes)],
       };
     });
+    const taskById = new Map(tasks.map((t) => [t.id, t]));
 
     const dependencies = [];
     const depIds = new Set();
@@ -1096,8 +1319,8 @@ PB.format = (() => {
     raw.dependencies.forEach((d, i) => {
       const where = `dependencies[${i}]`;
       const broken = [];
-      if (!nodeIds.has(d?.from)) broken.push(`"from" verweist auf unbekannte id "${d?.from}"`);
-      if (!nodeIds.has(d?.to)) broken.push(`"to" verweist auf unbekannte id "${d?.to}"`);
+      if (!ids.has(d?.from)) broken.push(`"from" verweist auf unbekannte id "${d?.from}"`);
+      if (!ids.has(d?.to)) broken.push(`"to" verweist auf unbekannte id "${d?.to}"`);
       if (d?.from === d?.to) broken.push('"from" und "to" sind identisch');
       if (broken.length) {
         broken.forEach((b) => report(`${where}: ${b}${repair ? ' – entfernt' : ''}`));
@@ -1108,48 +1331,87 @@ PB.format = (() => {
       pairs.add(pair);
       const id = typeof d.id === 'string' && d.id && !depIds.has(d.id) ? d.id : U.uid('d');
       depIds.add(id);
-      dependencies.push({ id, from: d.from, to: d.to });
+      const index = Number.isInteger(d.fromIteration) ? d.fromIteration : null;
+      const fromIteration = index !== null && taskById.get(d.from)?.iterations[index] ? index : null;
+      if (index !== null && fromIteration === null) report(`${where}: "fromIteration" ${index} existiert nicht`);
+      dependencies.push({ id, from: d.from, to: d.to, fromIteration });
     });
 
     if (problems.length) throw new FormatError(problems);
 
     return {
       board: { title: text(raw.board?.title).trim() || 'Prio-Board' },
-      view: {
-        zoom: U.clamp(Number(raw.view?.zoom) || 1, C.ZOOM.min, C.ZOOM.max),
-        showPriorityAxis: raw.view?.showPriorityAxis !== false,
-      },
-      groups,
+      view: { zoom: U.clamp(Number(raw.view?.zoom) || 1, C.ZOOM.min, C.ZOOM.max) },
+      themes,
       tasks,
       dependencies,
     };
   }
 
-  /* ---------- Migration älterer Stände ---------- */
+  /* =====================================================================
+   * Migration älterer Stände
+   * ===================================================================== */
+
+  const V1_ZONE_WIDTH = 480;
+
+  /**
+   * v1 (freies Board) → v2 (Zeitplan):
+   *  - Priorität aus der x-Spalte (480 px je Stufe, links = hoch)
+   *  - Dauer aus effortDays (1 PT ≈ 1 Arbeitstag)
+   *  - Gruppen → Themen (Mitglied aller Gruppen, die den Mittelpunkt umschliessen)
+   *  - Start: heute; der Zeitplan schiebt danach entlang der Abhängigkeiten
+   */
+  function migrateV1(v1) {
+    const groups = Array.isArray(v1.groups) ? v1.groups : [];
+    const tasks = Array.isArray(v1.tasks) ? v1.tasks : [];
+    const groupsAround = (layout) => {
+      if (!layout) return [];
+      const c = U.center(layout);
+      return groups
+        .filter((g) => g.layout && U.area(g.layout) > U.area(layout) && U.containsPoint(g.layout, c))
+        .map((g) => g.id);
+    };
+    const priorityOf = (layout) => (layout
+      ? U.clamp(Math.floor((layout.x + layout.width / 2) / V1_ZONE_WIDTH) + 1, 1, C.PRIORITY_LEVELS)
+      : 3);
+    return {
+      format: C.FORMAT.name,
+      version: 2,
+      board: v1.board,
+      view: { zoom: v1.view?.zoom ?? 1 },
+      themes: groups.map((g, i) => ({ id: g.id, title: g.title, color: C.THEME_COLORS[i % C.THEME_COLORS.length] })),
+      tasks: tasks.map((t) => ({
+        id: t.id,
+        kind: t.kind,
+        title: t.title,
+        description: t.description,
+        notes: t.notes,
+        status: t.status,
+        priority: priorityOf(t.layout),
+        durationDays: Math.max(1, Math.round(Number(t.effortDays) || C.DEFAULT_DURATION[t.kind] || 5)),
+        bufferDays: 0,
+        themes: groupsAround(t.layout),
+      })),
+      dependencies: Array.isArray(v1.dependencies) ? v1.dependencies.map((d) => ({ id: d.id, from: d.from, to: d.to })) : [],
+    };
+  }
 
   /** Interner Speicherstand der ersten Versionen: { blocks: [...], deps: [...] } */
   const isLegacy = (o) => o && !o.format && Array.isArray(o.blocks) && Array.isArray(o.deps);
 
-  /** mirror=true: Version mit „hohe Priorität rechts“ → horizontal spiegeln. */
+  /** Erste Versionen → v1. mirror=true: Version mit „hohe Priorität rechts“ → horizontal spiegeln. */
   function migrateLegacy(old, { mirror = false } = {}) {
     const KIND = { denken: 'thinking', umsetzung: 'implementation' };
     const STATUS = { offen: 'open', laeuft: 'in_progress', fertig: 'done' };
-    const axisWidth = C.ZONE_WIDTH * C.PRIORITY_LEVELS;
-    const layoutOf = (b) => ({
-      x: mirror ? Math.max(0, axisWidth - b.x - b.w) : b.x,
-      y: b.y,
-      width: b.w,
-      height: b.h,
-    });
+    const axisWidth = V1_ZONE_WIDTH * C.PRIORITY_LEVELS;
+    const layoutOf = (b) => ({ x: mirror ? Math.max(0, axisWidth - b.x - b.w) : b.x, y: b.y, width: b.w, height: b.h });
     const isGroupBlock = (b) => b.type === 'gruppe';
     return {
       format: C.FORMAT.name,
-      version: C.FORMAT.version,
+      version: 1,
       board: { title: 'Prio-Board' },
-      view: { zoom: old.view?.scale ?? 1, showPriorityAxis: old.view?.prio !== false },
-      groups: old.blocks.filter(isGroupBlock).map((b) => ({
-        id: b.id, title: b.title, description: b.desc || '', layout: layoutOf(b),
-      })),
+      view: { zoom: old.view?.scale ?? 1 },
+      groups: old.blocks.filter(isGroupBlock).map((b) => ({ id: b.id, title: b.title, description: b.desc || '', layout: layoutOf(b) })),
       tasks: old.blocks.filter((b) => !isGroupBlock(b)).map((b) => ({
         id: b.id,
         kind: KIND[b.type] || 'thinking',
@@ -1193,8 +1455,8 @@ PB.storage = (() => {
 
   /**
    * Letzten Stand laden; ältere Speicherstände werden migriert, kleine Schäden repariert.
-   * Liefert { state, repairs[], backupKey } oder null, wenn nichts Brauchbares gespeichert ist.
-   * Vor jeder Reparatur wird das Original unter einem Sicherungs-Key abgelegt.
+   * Liefert { state, repairs[], migrated, backupKey } oder null, wenn nichts Brauchbares gespeichert ist.
+   * Vor jeder Reparatur oder Migration wird das Original unter einem Sicherungs-Key abgelegt.
    */
   function loadLocal() {
     const candidates = [
@@ -1205,14 +1467,16 @@ PB.storage = (() => {
       const text = read(key);
       if (!text) continue;
       try {
+        const raw = JSON.parse(text);
+        const migrated = key !== C.STORAGE_KEY || raw.version !== C.FORMAT.version;
         const repairs = [];
-        const state = F.parse(convert(JSON.parse(text)), { repair: true, onWarning: (m) => repairs.push(m) });
+        const state = F.parse(convert(raw), { repair: true, onWarning: (m) => repairs.push(m) });
         let backupKey = null;
-        if (repairs.length) {
+        if (repairs.length || migrated) {
           backupKey = `${C.STORAGE_KEY}.backup-${new Date().toISOString()}`;
           write(backupKey, text);
         }
-        return { state, repairs, backupKey };
+        return { state, repairs, migrated, backupKey };
       } catch (e) {
         console.warn(`Gespeicherter Stand ${key} nicht lesbar:`, e);
         write(`${key}.unreadable-${new Date().toISOString()}`, text);
@@ -1241,157 +1505,184 @@ PB.storage = (() => {
   <script>
 /* js/io/example.js */
 /**
- * Beispiel-Board (nach der Skizze). Gleicher Inhalt wie examples/beispiel.json –
- * hier als Skript eingebettet, weil Browser über file:// keine JSON-Dateien nachladen dürfen.
+ * Beispiel-Board (nach der ursprünglichen Skizze). Startdaten fehlen bewusst:
+ * alles beginnt „heute“, der Zeitplan schiebt entlang der Abhängigkeiten.
+ * Gleicher Inhalt wie examples/beispiel.json (dort mit konkreten Daten).
  */
 PB.example = {
   format: 'prio-board',
-  version: 1,
+  version: 2,
   board: { title: 'IT-Priorisierung' },
-  view: { zoom: 1, showPriorityAxis: true },
-  groups: [
-    {
-      id: 'g-skalierung',
-      title: 'Skalierung – Abhängigkeitsblock',
-      description: 'Harness und Prozessdaten können parallel laufen',
-      layout: { x: 920, y: 120, width: 920, height: 520 },
-    },
+  view: { zoom: 1 },
+  themes: [
+    { id: 'th-skalierung', title: 'Skalierung', color: '#7b5ea7' },
   ],
   tasks: [
     {
       id: 't-quickwin-monitoring', kind: 'implementation', title: 'Quick Win: Monitoring-Alerts anpassen',
-      description: 'Keine Abhängigkeit – sofort machbar', notes: [], status: 'open', effortDays: 1,
-      layout: { x: 100, y: 180, width: 300, height: 140 },
+      description: 'Keine Abhängigkeit – sofort machbar', priority: 1, durationDays: 2,
     },
     {
-      id: 't-logging', kind: 'implementation', title: 'Logging vereinheitlichen',
-      description: '', notes: [], status: 'open', effortDays: 2,
-      layout: { x: 120, y: 400, width: 260, height: 140 },
+      id: 't-ui-zielarchitektur', kind: 'thinking', title: 'UI-Zielarchitektur',
+      description: 'Fundament: Zielbild der UI-Architektur – wird laufend weiterentwickelt',
+      priority: 1, durationDays: 15, intensity: 'background', ongoing: true,
+      iterations: [
+        { title: 'Zielbild', durationDays: 10, done: false },
+        { title: 'Leitplanken', durationDays: 5, done: false },
+      ],
+    },
+    {
+      id: 't-lz', kind: 'thinking', title: 'LZ', description: 'Grundlage für den Skalierungsblock',
+      priority: 2, durationDays: 10, bufferDays: 5,
+    },
+    {
+      id: 't-denken-prozessdaten', kind: 'thinking', title: 'Denken Prozessdaten',
+      priority: 2, intensity: 'background', themes: ['th-skalierung'],
+      iterations: [
+        { title: 'Level 1', durationDays: 5, done: false },
+        { title: 'Level 2', durationDays: 5, done: false },
+        { title: 'Auswerten', durationDays: 5, done: false },
+      ],
+    },
+    {
+      id: 't-umsetzung-level1', kind: 'implementation', title: 'Umsetzung Prozess Level 1',
+      priority: 2, durationDays: 5, themes: ['th-skalierung'],
+    },
+    {
+      id: 't-umsetzung-prozess', kind: 'implementation', title: 'Umsetzung Prozess komplett',
+      priority: 3, durationDays: 10, bufferDays: 5, themes: ['th-skalierung'],
     },
     {
       id: 't-denken-harness', kind: 'thinking', title: 'Denken Harness',
       description: 'Wie soll der Harness aufgebaut sein?', notes: ['Skills', 'Workflow', 'Sprache'],
-      status: 'open', effortDays: 5,
-      layout: { x: 980, y: 180, width: 540, height: 180 },
+      priority: 3, durationDays: 10, bufferDays: 5, themes: ['th-skalierung'],
     },
     {
       id: 't-umsetzung-harness', kind: 'implementation', title: 'Umsetzung Harness',
-      description: '', notes: [], status: 'open', effortDays: 3,
-      layout: { x: 1560, y: 180, width: 240, height: 180 },
+      priority: 3, durationDays: 10, themes: ['th-skalierung'],
     },
     {
-      id: 't-denken-prozessdaten', kind: 'thinking', title: 'Denken Prozessdaten',
-      description: '', notes: ['Level 1', 'Level 2', 'Auswerten'], status: 'open', effortDays: 5,
-      layout: { x: 980, y: 420, width: 540, height: 180 },
-    },
-    {
-      id: 't-umsetzung-prozess', kind: 'implementation', title: 'Umsetzung Prozess',
-      description: '', notes: [], status: 'open', effortDays: 3,
-      layout: { x: 1560, y: 420, width: 240, height: 180 },
-    },
-    {
-      id: 't-lz', kind: 'thinking', title: 'LZ',
-      description: 'Grundlage für den Skalierungsblock', notes: [], status: 'open', effortDays: 4,
-      layout: { x: 920, y: 740, width: 500, height: 160 },
-    },
-    {
-      id: 't-ui-zielarchitektur', kind: 'thinking', title: 'UI-Zielarchitektur',
-      description: 'Fundament: Zielbild der UI-Architektur', notes: [], status: 'open', effortDays: 8,
-      layout: { x: 1480, y: 740, width: 760, height: 160 },
+      id: 't-logging', kind: 'implementation', title: 'Logging vereinheitlichen',
+      priority: 4, durationDays: 5,
     },
   ],
   dependencies: [
+    { id: 'd-ui-skalierung', from: 't-ui-zielarchitektur', fromIteration: 0, to: 'th-skalierung' },
+    { id: 'd-lz-skalierung', from: 't-lz', to: 'th-skalierung' },
+    { id: 'd-prozess-level1', from: 't-denken-prozessdaten', fromIteration: 0, to: 't-umsetzung-level1' },
+    { id: 'd-prozess-komplett', from: 't-denken-prozessdaten', to: 't-umsetzung-prozess' },
     { id: 'd-harness', from: 't-denken-harness', to: 't-umsetzung-harness' },
-    { id: 'd-prozess', from: 't-denken-prozessdaten', to: 't-umsetzung-prozess' },
-    { id: 'd-ui-skalierung', from: 't-ui-zielarchitektur', to: 'g-skalierung' },
-    { id: 'd-lz-skalierung', from: 't-lz', to: 'g-skalierung' },
+    { id: 'd-quickwin-logging', from: 't-quickwin-monitoring', to: 't-logging' },
   ],
 };
 </script>
   <script>
 /* js/render/diagram-styles.js */
 /**
- * Darstellung des Diagramms (Blöcke, Gruppen, Pfeile, Prioritätsachse).
+ * Darstellung des Diagramms (Zeitachse, Prioritätsbänder, Balken, Pfeile).
  *
  * Bewusst als JS-Modul statt .css-Datei: Dieselben Regeln werden
  *   1) beim Start in die App eingefügt und
  *   2) in die exportierte statische HTML-Seite geschrieben.
  * Browser verbieten unter file:// das Auslesen von Stylesheets, daher eine gemeinsame Quelle hier.
- * Farben kommen als CSS-Variablen aus css/theme.css.
+ * Farben kommen als CSS-Variablen aus css/theme.css; Masse aus PB.config.
  */
 PB.diagramStyles = (() => {
+  const C = PB.config;
+
   /** Tokens aus theme.css, die das Diagramm benötigt (werden beim Export mitkopiert). */
   const TOKENS = [
     '--navy', '--accent', '--bg', '--ink', '--text', '--muted', '--line',
-    '--thinking', '--thinking-bg', '--thinking-line', '--impl', '--impl-bg', '--impl-line', '--group',
+    '--thinking', '--thinking-bg', '--thinking-fill', '--thinking-line',
+    '--impl', '--impl-bg', '--impl-fill', '--impl-line',
     '--ok', '--ok-bg', '--wait', '--wait-bg', '--bad', '--bad-bg', '--run', '--run-bg',
-    '--link', '--link-done', '--up', '--down', '--crit', '--sel', '--radius', '--shadow',
+    '--link', '--link-done', '--risky', '--up', '--down', '--crit', '--sel', '--radius', '--shadow',
   ];
 
   /** Pfeilspitzen je Zustand → Token. */
   const MARKERS = {
-    def: '--link', done: '--link-done', bad: '--bad', up: '--up', down: '--down', crit: '--crit', sel: '--sel',
+    def: '--link', done: '--link-done', risky: '--risky', bad: '--bad',
+    up: '--up', down: '--down', crit: '--crit', sel: '--sel',
   };
 
   const CSS = `
-.pb-world{position:absolute;left:0;top:0;transform-origin:0 0;background-color:var(--bg);
-  background-image:radial-gradient(circle,#c9d4e2 1.1px,transparent 1.3px);background-size:20px 20px}
+.pb-world{position:absolute;left:0;top:0;transform-origin:0 0;background:var(--bg);color:var(--text)}
 .pb-world .ico{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
-/* Prioritätsachse */
-.pb-zones{position:absolute;left:0;top:0;height:100%;display:flex;pointer-events:none}
-.pb-zones .z{height:100%;border-right:1px solid #e1e8f1;position:relative}
-.pb-zones .z span{position:absolute;top:12px;left:14px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
-  padding:3px 10px;border-radius:999px;background:#fff;color:var(--ink);box-shadow:var(--shadow)}
-.pb-zones .axis{position:absolute;top:50px;left:14px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;font-weight:600}
-.pb-zones .axis i{display:block;height:3px;width:220px;border-radius:3px;background:linear-gradient(90deg,var(--navy),#c9d4e2)}
-.pb-zones.off{display:none}
+/* ---------- Raster: Wochen, Tage, Bänder ---------- */
+.pb-world .tl-week{position:absolute;top:0;border-left:1px solid #d3dce8}
+.pb-world .tl-week.alt{background:rgba(11,45,85,.025)}
+.pb-world .tl-days{position:absolute;top:${C.HEADER_HEIGHT}px;bottom:0;left:${C.LABEL_WIDTH}px;right:0;
+  background-image:linear-gradient(90deg,rgba(11,45,85,.045) 1px,transparent 1px);background-size:${C.DAY_WIDTH}px 100%}
+.pb-world .tl-week-label{position:absolute;left:0;right:0;top:0;height:${C.HEADER_HEIGHT}px;padding:8px 10px;background:#fff;
+  border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;z-index:2}
+.pb-world .tl-week-label b{display:block;color:var(--ink);font-size:13px}
+.pb-world .tl-week.today .tl-week-label b{color:var(--accent)}
+.pb-world .tl-band{position:absolute;left:0;border-bottom:1px solid var(--line)}
+.pb-world .tl-band.alt{background:rgba(11,45,85,.018)}
+.pb-world .tl-band-label{position:absolute;left:0;top:0;bottom:0;width:${C.LABEL_WIDTH}px;padding:14px;background:#fff;
+  border-right:1px solid var(--line);z-index:3}
+.pb-world .tl-band-label b{display:block;color:var(--ink);font-size:16px}
+.pb-world .tl-band-label span{font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.pb-world .tl-corner{position:absolute;left:0;top:0;width:${C.LABEL_WIDTH}px;height:${C.HEADER_HEIGHT}px;background:#fff;z-index:4;
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 14px;font-size:12px;color:var(--muted);line-height:1.35}
+.pb-world .tl-corner b{color:var(--ink)}
+.pb-world .tl-today{position:absolute;top:${C.HEADER_HEIGHT}px;bottom:0;left:${C.LABEL_WIDTH}px;width:2px;background:var(--accent);z-index:1}
 
-/* Blöcke */
-.block{position:absolute;border-radius:var(--radius)}
-.block.task{z-index:1000;background:#fff;box-shadow:var(--shadow);border:1.5px solid var(--line)}
-.block.task::before{content:"";position:absolute;left:-1.5px;top:-1.5px;bottom:-1.5px;width:6px;border-radius:var(--radius) 0 0 var(--radius)}
-.block.task.thinking{background:var(--thinking-bg);border-color:var(--thinking-line)}
-.block.task.thinking::before{background:var(--thinking)}
-.block.task.implementation{background:var(--impl-bg);border-color:var(--impl-line)}
-.block.task.implementation::before{background:var(--impl)}
-.block.group{border:2px dashed var(--group);background:rgba(255,255,255,.55)}
-.block.st-done{opacity:.55}
-.block.st-done .title{text-decoration:line-through}
-.inner{position:absolute;inset:0;padding:12px 14px 30px 14px;overflow:hidden;border-radius:calc(var(--radius) - 2px)}
-.thead{display:flex;align-items:center;gap:10px;margin-bottom:4px;padding-right:34px}
-.tico{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;flex:none;font-size:20px}
-.thinking .tico{background:var(--thinking);box-shadow:0 0 0 4px rgba(0,159,227,.18)}
-.implementation .tico{background:var(--impl);box-shadow:0 0 0 4px rgba(31,154,107,.16)}
-.tkind{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
-.thinking .tkind{color:var(--thinking)}
-.implementation .tkind{color:var(--impl)}
-.title{font-weight:700;font-size:16px;color:var(--ink);line-height:1.25;word-break:break-word}
-.notes{margin:4px 0 0;padding-left:18px;font-size:13.5px;color:var(--text)}
-.notes li::marker{color:var(--muted)}
-.desc{font-size:13px;color:var(--muted);margin-top:4px;white-space:pre-wrap;word-break:break-word}
-.foot{position:absolute;left:14px;right:10px;bottom:7px;display:flex;gap:6px;align-items:center;font-size:12px;white-space:nowrap;overflow:hidden}
-.badge{padding:1px 8px;border-radius:999px;font-weight:700}
-.badge.ready{background:var(--ok-bg);color:var(--ok)}
-.badge.waiting{background:var(--wait-bg);color:var(--wait)}
-.badge.cycle{background:var(--bad-bg);color:var(--bad)}
-.badge.in_progress{background:var(--run-bg);color:var(--run)}
-.badge.done{background:#e3e8ef;color:#4e5d70}
-.meta{color:var(--muted)}
-.wave{position:absolute;top:10px;right:10px;font-size:11.5px;font-weight:700;color:#fff;background:var(--navy);border-radius:999px;padding:1px 8px}
+/* ---------- Balken ---------- */
+.pb-world .bar{position:absolute;z-index:10;border-radius:10px;border:1.5px solid;box-shadow:var(--shadow)}
+.pb-world .bar.thinking{border-color:var(--thinking-line);background:var(--thinking-fill)}
+.pb-world .bar.implementation{border-color:var(--impl-line);background:var(--impl-fill)}
+.pb-world .bar.thinking.int-background{background:repeating-linear-gradient(-45deg,var(--thinking-bg) 0 7px,var(--thinking-fill) 7px 14px)}
+.pb-world .bar.implementation.int-background{background:repeating-linear-gradient(-45deg,var(--impl-bg) 0 7px,var(--impl-fill) 7px 14px)}
+.pb-world .bar.st-done{opacity:.5}
+.pb-world .bar.st-done .title{text-decoration:line-through}
+.pb-world .bar-body{position:absolute;inset:0;display:flex;gap:8px;align-items:flex-start;padding:7px 9px;overflow:hidden;border-radius:9px}
+.pb-world .bar.has-iterations .bar-body{bottom:16px}
+.pb-world .tico{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;flex:none;font-size:15px}
+.pb-world .thinking .tico{background:var(--thinking);box-shadow:0 0 0 3px rgba(0,159,227,.18)}
+.pb-world .implementation .tico{background:var(--impl);box-shadow:0 0 0 3px rgba(31,154,107,.16)}
+.pb-world .bar-text{min-width:0}
+.pb-world .bar .title{font-weight:700;font-size:14px;color:var(--ink);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb-world .bar .meta{display:flex;gap:6px;align-items:center;margin-top:2px;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.pb-world .bar.narrow .bar-body{overflow:visible;padding-left:0;padding-right:0;justify-content:center}
+.pb-world .bar.narrow .bar-text{position:absolute;left:calc(100% + var(--buf) + 10px);top:7px;max-width:${C.LABEL_RESERVE - 16}px}
+.pb-world .lev{font-weight:700;color:var(--ink)}
+.pb-world .badge{padding:0 7px;border-radius:999px;font-weight:700}
+.pb-world .badge.ready{background:var(--ok-bg);color:var(--ok)}
+.pb-world .badge.waiting{background:var(--wait-bg);color:var(--wait)}
+.pb-world .badge.cycle{background:var(--bad-bg);color:var(--bad)}
+.pb-world .badge.in_progress{background:var(--run-bg);color:var(--run)}
+.pb-world .badge.done{background:#e3e8ef;color:#4e5d70}
 
-/* Gruppen */
-.ghead{position:absolute;left:14px;top:-15px;display:flex;gap:8px;align-items:center;background:var(--navy);color:#fff;
-  border-radius:999px;padding:3px 12px;max-width:calc(100% - 28px);white-space:nowrap;overflow:hidden;box-shadow:var(--shadow)}
-.gtitle{font-weight:700;overflow:hidden;text-overflow:ellipsis}
-.gmeta{font-size:12px;opacity:.75}
-.gdesc{position:absolute;left:16px;bottom:8px;right:16px;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Themen-Streifen */
+.pb-world .bar-themes{position:absolute;left:10px;right:10px;top:-5px;height:5px;display:flex;gap:2px;z-index:2}
+.pb-world .bar-themes span{flex:1;border-radius:3px}
 
-/* Pfeile */
-.pb-links{position:absolute;left:0;top:0;z-index:500;pointer-events:none;overflow:visible}
-.pb-links .vis{fill:none;stroke:var(--link);stroke-width:2.2;marker-end:url(#m-def)}
-.pb-links .link.done .vis{stroke:var(--link-done);stroke-dasharray:5 4;marker-end:url(#m-done)}
-.pb-links .link.bad .vis{stroke:var(--bad);marker-end:url(#m-bad)}
+/* Iterationen */
+.pb-world .bar-iterations{position:absolute;left:0;right:0;bottom:0;height:16px;display:flex;overflow:hidden;border-radius:0 0 9px 9px;
+  border-top:1px solid rgba(11,45,85,.1)}
+.pb-world .iter-seg{flex:none;height:100%;border-right:2px solid #fff;padding:0 6px;font-size:10.5px;font-weight:700;line-height:15px;
+  color:var(--thinking);background:rgba(0,159,227,.12);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb-world .iter-seg:last-child{border-right:0}
+.pb-world .iter-seg.done{background:var(--thinking);color:#fff}
+
+/* Puffer (Unsicherheit) und laufendes Denken */
+.pb-world .bar-buffer{position:absolute;left:100%;top:7px;bottom:7px;border-radius:0 8px 8px 0;border:1.5px dashed;border-left:0}
+.pb-world .thinking .bar-buffer{border-color:var(--thinking-line);background:linear-gradient(90deg,rgba(0,159,227,.22),rgba(0,159,227,.04))}
+.pb-world .implementation .bar-buffer{border-color:var(--impl-line);background:linear-gradient(90deg,rgba(31,154,107,.22),rgba(31,154,107,.04))}
+.pb-world .bar-ongoing{position:absolute;left:calc(100% + var(--buf));top:12px;bottom:12px;border-radius:0 8px 8px 0;
+  background:linear-gradient(90deg,rgba(0,159,227,.3),rgba(0,159,227,0))}
+.pb-world .bar-ongoing span{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11.5px;font-weight:700;color:var(--thinking);white-space:nowrap}
+
+/* ---------- Pfeile ---------- */
+.pb-world .pb-links{position:absolute;left:0;top:0;z-index:5;pointer-events:none;overflow:visible}
+.pb-world .pb-links .hit{fill:none;stroke:transparent;stroke-width:14}
+.pb-world .pb-links .vis{fill:none;stroke:var(--link);stroke-width:2;marker-end:url(#m-def)}
+.pb-world .pb-links .link.via-theme .vis{stroke-dasharray:2 4}
+.pb-world .pb-links .link.done .vis{stroke:var(--link-done);stroke-dasharray:5 4;marker-end:url(#m-done)}
+.pb-world .pb-links .link.risky .vis{stroke:var(--risky);stroke-width:2.4;marker-end:url(#m-risky)}
+.pb-world .pb-links .link.bad .vis{stroke:var(--bad);marker-end:url(#m-bad)}
 `;
 
   /** <defs> mit den Pfeilspitzen für ein SVG. */
@@ -1421,29 +1712,89 @@ PB.diagramStyles = (() => {
   <script>
 /* js/render/board.js */
 /**
- * Darstellung des Boards.
- *  - markup(): reines HTML/SVG des Diagramms – wird auch vom statischen Export genutzt.
+ * Darstellung der Zeitachse.
+ *   x = Arbeitstage ab heute (Kalenderwochen im Kopf), y = Prioritätsbänder (1 oben).
+ *   Innerhalb eines Bandes werden Balken automatisch auf Zeilen verteilt (keine Überlappung).
+ *
+ *  - layout()/markup(): reine Berechnung bzw. HTML/SVG – auch für den statischen Export.
  *  - render() & Co.: Live-Board mit Zoom, Auswahl, Hervorhebungen.
  */
 PB.board = (() => {
   const C = PB.config;
   const U = PB.util;
   const I = PB.icons;
+  const CAL = PB.calendar;
   const A = PB.analysis;
   const model = PB.model;
   const ui = PB.ui;
+  const esc = U.escapeHtml;
 
   let dom = null;
   let analysis = null;
+  let current = null; // letztes Layout (für Koordinaten-Umrechnung)
+
+  /* =====================================================================
+   * Layout (zustandslos)
+   * ===================================================================== */
+
+  const dayX = (day) => C.LABEL_WIDTH + day * C.DAY_WIDTH;
+
+  /** Positionen aller Balken, Bänder und die Gesamtgrösse. */
+  function layout() {
+    const { tasks } = model.getState();
+    const latest = tasks.reduce((max, t) => Math.max(max, model.endOf(t) + t.bufferDays), 0);
+    const horizon = Math.ceil(Math.max(C.MIN_HORIZON_DAYS, latest + C.HORIZON_TAIL_DAYS) / 5) * 5;
+    const width = dayX(horizon);
+    const boxes = new Map();
+    const bands = [];
+    let y = C.HEADER_HEIGHT;
+
+    for (let priority = 1; priority <= C.PRIORITY_LEVELS; priority++) {
+      const list = tasks
+        .filter((t) => t.priority === priority)
+        .sort((a, b) => a.start - b.start || a.title.localeCompare(b.title, 'de'));
+      const rowEnds = [];
+      const placed = [];
+      for (const task of list) {
+        const x = dayX(task.start);
+        const w = model.durationOf(task) * C.DAY_WIDTH;
+        const bufferWidth = task.bufferDays * C.DAY_WIDTH;
+        const narrow = w < C.NARROW_BAR;
+        const occupiedUntil = task.ongoing ? width : x + w + bufferWidth + (narrow ? C.LABEL_RESERVE : 0);
+        let row = rowEnds.findIndex((end) => end + C.DAY_WIDTH / 2 <= x);
+        if (row < 0) row = rowEnds.push(0) - 1;
+        rowEnds[row] = occupiedUntil;
+        placed.push({ id: task.id, x, w, bufferWidth, narrow, row });
+      }
+      const rows = Math.max(1, rowEnds.length);
+      const height = rows * C.BAR_HEIGHT + (rows - 1) * C.ROW_GAP + 2 * C.BAND_PADDING;
+      for (const box of placed) {
+        box.y = y + C.BAND_PADDING + box.row * (C.BAR_HEIGHT + C.ROW_GAP);
+        boxes.set(box.id, box);
+      }
+      bands.push({ priority, y, height });
+      y += height;
+    }
+    return { width, height: y, horizon, bands, boxes };
+  }
 
   /* =====================================================================
    * Markup (zustandslos)
    * ===================================================================== */
 
-  function zonesHtml() {
-    const zones = C.PRIORITY_LABELS.map((label, i) =>
-      `<div class="z" style="width:${C.ZONE_WIDTH}px"><span>Prio ${i + 1} · ${label}</span></div>`).join('');
-    return `${zones}<div class="axis">Priorität hoch <i></i> tief</div>`;
+  function gridHtml(L) {
+    const weeks = CAL.weeks(L.horizon);
+    const columns = weeks.map((w, i) => {
+      const x = dayX(w.day);
+      const nextX = i + 1 < weeks.length ? dayX(weeks[i + 1].day) : L.width;
+      const label = i === 0 ? `Heute · KW ${w.week}` : `KW ${w.week}`;
+      return `<div class="tl-week${i % 2 ? ' alt' : ''}${i === 0 ? ' today' : ''}" style="left:${x}px;width:${nextX - x}px;height:${L.height}px">
+        <div class="tl-week-label"><b>${label}</b>${CAL.shortDate(w.date)}</div></div>`;
+    }).join('');
+    const bands = L.bands.map((b, i) => `<div class="tl-band${i % 2 ? ' alt' : ''}" style="top:${b.y}px;height:${b.height}px;width:${L.width}px">
+        <div class="tl-band-label"><b>Prio ${b.priority}</b><span>${C.PRIORITY_LABELS[b.priority - 1]}</span></div></div>`).join('');
+    return `<div class="tl-days"></div>${columns}${bands}
+      <div class="tl-corner"><b>Prio ↓</b><br>Zeit →</div><div class="tl-today"></div>`;
   }
 
   function statusBadge(task, a) {
@@ -1458,123 +1809,108 @@ PB.board = (() => {
     return `<span class="badge ${state}">${text}</span>`;
   }
 
-  function taskHtml(task, a, showPriority) {
-    const esc = U.escapeHtml;
-    const wave = a.wave.get(task.id);
-    const notes = task.notes.length ? `<ul class="notes">${task.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : '';
-    const effort = task.effortDays != null ? `<span class="meta">${U.formatNumber(task.effortDays)} PT</span>` : '';
-    const priority = showPriority ? `<span class="meta">· Prio ${a.priorityOf(task.id)}</span>` : '';
-    return `<div class="inner">
-      ${wave ? `<span class="wave" title="Welle ${wave}">W${wave}</span>` : ''}
-      <div class="thead">
-        <span class="tico">${I.forKind(task.kind)}</span>
-        <div><div class="tkind">${C.KIND_SUBTITLES[task.kind]}</div><div class="title">${esc(task.title || 'Ohne Titel')}</div></div>
-      </div>
-      ${notes}
-      ${task.description ? `<div class="desc">${esc(task.description)}</div>` : ''}
-      <div class="foot">${statusBadge(task, a)}${effort}${priority}</div>
+  function barHtml(task, box, a, L, interactive) {
+    const duration = model.durationOf(task);
+    const themes = task.themes.map(model.getTheme).filter(Boolean);
+    const leverage = a.leverage.get(task.id);
+    const classes = ['bar', task.kind, `int-${task.intensity}`, `st-${task.status}`,
+      box.narrow && 'narrow', task.iterations.length && 'has-iterations', task.ongoing && 'ongoing'].filter(Boolean).join(' ');
+    const style = `left:${box.x}px;top:${box.y}px;width:${box.w}px;height:${C.BAR_HEIGHT}px;--buf:${box.bufferWidth}px`;
+
+    const durationText = CAL.durationLabel(duration) + (task.bufferDays ? ` (bis ${CAL.durationLabel(duration + task.bufferDays)})` : '');
+    const meta = [
+      statusBadge(task, a),
+      `<span>${durationText}</span>`,
+      leverage ? `<span class="lev" title="Gibt ${leverage} Umsetzung(en) frei">🔓 ${leverage}</span>` : '',
+    ].join('');
+
+    const stripe = themes.length
+      ? `<div class="bar-themes">${themes.map((th) => `<span style="background:${th.color}" title="Thema: ${esc(th.title)}"></span>`).join('')}</div>`
+      : '';
+    const iterations = task.iterations.length
+      ? `<div class="bar-iterations">${task.iterations.map((it) =>
+        `<div class="iter-seg${it.done ? ' done' : ''}" style="width:${it.durationDays * C.DAY_WIDTH}px" title="${esc(it.title)} · ${CAL.durationLabel(it.durationDays)}${it.done ? ' · erledigt' : ''}">${esc(it.title)}${it.done ? ' ✓' : ''}</div>`).join('')}</div>`
+      : '';
+    const buffer = task.bufferDays
+      ? `<div class="bar-buffer" style="width:${box.bufferWidth}px" title="Puffer ${CAL.durationLabel(task.bufferDays)}"></div>`
+      : '';
+    const ongoing = task.ongoing
+      ? `<div class="bar-ongoing" style="width:${Math.max(0, L.width - box.x - box.w - box.bufferWidth)}px" title="Läuft danach weiter"><span>∞ laufend</span></div>`
+      : '';
+
+    const tooltip = [task.title, `${CAL.longDate(CAL.dateOf(task.start))} – ${CAL.longDate(CAL.dateOf(model.endOf(task)))}`,
+      ...task.notes.map((n) => `• ${n}`), task.description].filter(Boolean).join('\n');
+
+    return `<div class="${classes}" data-id="${esc(task.id)}" style="${style}" title="${esc(tooltip)}">
+      ${stripe}${buffer}${ongoing}
+      <div class="bar-body"><span class="tico">${I.forKind(task.kind)}</span>
+        <div class="bar-text"><div class="title">${esc(task.title)}</div><div class="meta">${meta}</div></div></div>
+      ${iterations}
+      ${interactive ? handlesHtml(task, box) : ''}
     </div>`;
   }
 
-  function groupHtml(group, a) {
-    const esc = U.escapeHtml;
-    const tasks = model.tasksWithin(group.id);
-    const done = tasks.filter((id) => a.stateOf(id) === 'done').length;
-    const ready = tasks.filter((id) => a.ready.has(id)).length;
-    return `<div class="ghead"><span class="gtitle">${esc(group.title || 'Gruppe')}</span>
-        <span class="gmeta">${done}/${tasks.length} fertig${ready ? ` · ${ready} startbar` : ''}</span></div>
-      ${group.description ? `<div class="gdesc">${esc(group.description)}</div>` : ''}`;
+  function handlesHtml(task, box) {
+    let offset = 0;
+    const iterationPorts = task.iterations.slice(0, -1).map((it, i) => {
+      offset += it.durationDays * C.DAY_WIDTH;
+      return `<div class="port it" data-iteration="${i}" style="left:${offset - 7}px" title="Ziehen: Abhängigkeit ab „${esc(it.title)}“"></div>`;
+    }).join('');
+    const bufferHandle = task.bufferDays
+      ? `<div class="rs buf" style="left:calc(100% + ${box.bufferWidth}px - 5px)" title="Puffer ändern"></div>` : '';
+    return `<div class="rs dur" title="Dauer ändern"></div>${bufferHandle}${iterationPorts}
+      <div class="port end" title="Ziehen: Pfeil zu einer Aufgabe, die hiervon abhängt"></div>`;
   }
 
-  const HANDLES = '<div class="port" title="Ziehen: Pfeil zu einem Block, der hiervon abhängt"></div>' +
-    '<div class="rs" title="Grösse ändern"></div>';
-
-  function nodeHtml(node, a, { interactive, showPriority, zIndex }) {
-    const isGroup = model.isGroup(node.id);
-    const classes = isGroup ? 'block group' : `block task ${node.kind} st-${node.status}`;
-    const { x, y, width, height } = node.layout;
-    const style = `left:${x}px;top:${y}px;width:${width}px;height:${height}px${zIndex ? `;z-index:${zIndex}` : ''}`;
-    const body = isGroup ? groupHtml(node, a) : taskHtml(node, a, showPriority);
-    return `<div class="${classes}" data-id="${U.escapeHtml(node.id)}" style="${style}">${body}${interactive ? HANDLES : ''}</div>`;
+  /** Waagrechte Kurve vom Ende des Vorgängers zum Anfang des Nachfolgers. */
+  function linkPath(x1, y1, x2, y2) {
+    const k = Math.max(30, Math.abs(x2 - x1) / 2);
+    return `M${x1},${y1} C${x1 + k},${y1} ${x2 - k},${y2} ${x2 - 2},${y2}`;
   }
 
-  /** Gruppen zuerst (grosse hinten), dann Aufgaben. */
-  function orderedNodes() {
-    const { groups, tasks } = model.getState();
-    const sortedGroups = [...groups].sort((a, b) => U.area(b.layout) - U.area(a.layout));
-    return [
-      ...sortedGroups.map((g, i) => ({ node: g, zIndex: 10 + i })),
-      ...tasks.map((t) => ({ node: t, zIndex: null })),
-    ];
+  /**
+   * Themen-Abhängigkeiten nur dort zeichnen, wo sie im Thema „ankommen“ bzw. es „verlassen“:
+   * Mitglieder mit einem Vorgänger (bzw. Nachfolger) im selben Thema hängen ohnehin indirekt daran.
+   */
+  function isVisibleEdge(e, a) {
+    if (!e.viaTheme) return true;
+    const dep = model.getDependency(e.depId);
+    const inTheme = (themeId, other) => model.isTheme(themeId) && model.membersOf(themeId).includes(other);
+    const hasPredInTheme = [...a.predecessors.get(e.to)].some((p) => inTheme(dep.to, p));
+    const hasSuccInTheme = [...a.successors.get(e.from)].some((s) => inTheme(dep.from, s));
+    return !(model.isTheme(dep.to) && hasPredInTheme) && !(model.isTheme(dep.from) && hasSuccInTheme);
   }
 
-  /** Kubische Kurve zwischen zwei Rechtecken, an der Seite mit dem grösseren Abstand. */
-  function linkPath(from, to) {
-    const a = U.center(from);
-    const b = U.center(to);
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const gapX = Math.abs(dx) - (from.width + to.width) / 2;
-    const gapY = Math.abs(dy) - (from.height + to.height) / 2;
-    let start, end, c1, c2;
-    if (gapX >= gapY) {
-      const dir = dx >= 0 ? 1 : -1;
-      start = { x: dir > 0 ? from.x + from.width : from.x, y: a.y };
-      end = { x: dir > 0 ? to.x - 2 : to.x + to.width + 2, y: b.y };
-      const k = Math.max(40, Math.abs(end.x - start.x) / 2) * dir;
-      c1 = { x: start.x + k, y: start.y };
-      c2 = { x: end.x - k, y: end.y };
-    } else {
-      const dir = dy >= 0 ? 1 : -1;
-      start = { x: a.x, y: dir > 0 ? from.y + from.height : from.y };
-      end = { x: b.x, y: dir > 0 ? to.y - 2 : to.y + to.height + 2 };
-      const k = Math.max(40, Math.abs(end.y - start.y) / 2) * dir;
-      c1 = { x: start.x, y: start.y + k };
-      c2 = { x: end.x, y: end.y - k };
-    }
-    return `M${start.x},${start.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${end.x},${end.y}`;
-  }
-
-  function linkClasses(dep, a) {
-    const fromTasks = model.tasksWithin(dep.from);
-    const toTasks = model.tasksWithin(dep.to);
-    const classes = ['link'];
-    if (fromTasks.length && fromTasks.every((id) => a.stateOf(id) === 'done')) classes.push('done');
-    if (fromTasks.some((id) => a.cycle.has(id)) && toTasks.some((id) => a.cycle.has(id))) classes.push('bad');
-    return classes.join(' ');
-  }
-
-  function linksHtml(a, { interactive }) {
-    return model.getState().dependencies.map((dep) => {
-      const from = model.getNode(dep.from);
-      const to = model.getNode(dep.to);
-      if (!from || !to) return '';
-      const d = linkPath(from.layout, to.layout);
-      const hit = interactive ? `<path class="hit" d="${d}"/>` : '';
-      return `<g class="${linkClasses(dep, a)}" data-dep="${U.escapeHtml(dep.id)}">${hit}<path class="vis" d="${d}"/></g>`;
+  function linksHtml(a, L) {
+    const mid = C.BAR_HEIGHT / 2;
+    return a.edges.filter((e) => isVisibleEdge(e, a)).map((e) => {
+      const from = model.getTask(e.from);
+      const fromBox = L.boxes.get(e.from);
+      const toBox = L.boxes.get(e.to);
+      if (!fromBox || !toBox) return '';
+      const x1 = dayX(model.iterationEnd(from, e.iteration));
+      const y1 = e.iteration !== null ? fromBox.y + C.BAR_HEIGHT - 8 : fromBox.y + mid;
+      const d = linkPath(x1, y1, toBox.x, toBox.y + mid);
+      const classes = ['link',
+        e.viaTheme && 'via-theme',
+        from.status === 'done' && 'done',
+        a.cycle.has(e.from) && a.cycle.has(e.to) && 'bad',
+        a.isRisky(e.from, e.to) && 'risky'].filter(Boolean).join(' ');
+      return `<g class="${classes}" data-dep="${esc(e.depId)}" data-from="${esc(e.from)}" data-to="${esc(e.to)}">
+        <path class="hit" d="${d}"/><path class="vis" d="${d}"/></g>`;
     }).join('');
   }
 
-  /** Benötigte Fläche (mindestens die ganze Prioritätsachse). */
-  function contentSize() {
-    let width = C.ZONE_WIDTH * C.PRIORITY_LEVELS;
-    let height = 1400;
-    for (const n of model.allNodes()) {
-      width = Math.max(width, n.layout.x + n.layout.width + 400);
-      height = Math.max(height, n.layout.y + n.layout.height + 400);
-    }
-    return { width, height };
-  }
-
-  /** Vollständiges Diagramm-Markup. */
+  /** Vollständiges Diagramm als HTML (für App und Export). */
   function markup(a, { interactive = false } = {}) {
-    const showPriority = model.getState().view.showPriorityAxis;
-    return {
-      zones: zonesHtml(),
-      nodes: orderedNodes().map(({ node, zIndex }) => nodeHtml(node, a, { interactive, showPriority, zIndex })).join(''),
-      links: linksHtml(a, { interactive }),
-      size: contentSize(),
-    };
+    const L = layout();
+    const bars = model.getState().tasks.map((t) => barHtml(t, L.boxes.get(t.id), a, L, interactive)).join('');
+    const draft = interactive ? '<path id="draftLink" class="draft" d="" style="display:none"/>' : '';
+    const html = `${gridHtml(L)}
+      <svg class="pb-links" width="${L.width}" height="${L.height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>${PB.diagramStyles.markerDefs()}</defs>${linksHtml(a, L)}${draft}</svg>
+      ${bars}`;
+    return { html, width: L.width, height: L.height, layout: L };
   }
 
   /* =====================================================================
@@ -1583,107 +1919,71 @@ PB.board = (() => {
 
   function init(elements) {
     dom = elements;
-    dom.links.querySelector('defs').innerHTML = PB.diagramStyles.markerDefs();
-    dom.zones.innerHTML = zonesHtml();
   }
-
-  const elementOf = (id) => dom.world.querySelector(`.block[data-id="${CSS.escape(id)}"]`);
 
   function render(a) {
     analysis = a;
     const m = markup(a, { interactive: true });
-    dom.world.querySelectorAll('.block').forEach((el) => el.remove());
-    dom.world.insertAdjacentHTML('beforeend', m.nodes);
-    dom.linkLayer.innerHTML = m.links;
+    current = m.layout;
+    dom.world.innerHTML = m.html;
     applyView();
     applySelection();
     applyHighlight();
   }
 
   function applyView() {
-    const { view } = model.getState();
-    const { width, height } = contentSize();
-    Object.assign(dom.world.style, { width: `${width}px`, height: `${height}px`, transform: `scale(${view.zoom})` });
-    Object.assign(dom.sizer.style, { width: `${width * view.zoom}px`, height: `${height * view.zoom}px` });
-    dom.links.setAttribute('width', width);
-    dom.links.setAttribute('height', height);
-    dom.zones.classList.toggle('off', !view.showPriorityAxis);
+    const { zoom } = model.getState().view;
+    Object.assign(dom.world.style, { width: `${current.width}px`, height: `${current.height}px`, transform: `scale(${zoom})` });
+    Object.assign(dom.sizer.style, { width: `${current.width * zoom}px`, height: `${current.height * zoom}px` });
   }
 
-  /** Positionen während einer Geste aktualisieren (ohne komplettes Neuzeichnen). */
-  function refreshLayout(ids) {
-    for (const id of ids) {
-      const el = elementOf(id);
-      const node = model.getNode(id);
-      if (!el || !node) continue;
-      const { x, y, width, height } = node.layout;
-      Object.assign(el.style, { left: `${x}px`, top: `${y}px`, width: `${width}px`, height: `${height}px` });
-    }
-    dom.linkLayer.querySelectorAll('.link').forEach((g) => {
-      const dep = model.getDependency(g.dataset.dep);
-      if (!dep) return;
-      const d = linkPath(model.getNode(dep.from).layout, model.getNode(dep.to).layout);
-      g.querySelectorAll('path').forEach((p) => p.setAttribute('d', d));
-    });
+  function showDraftLink(fromId, iteration, point) {
+    const draft = dom.world.querySelector('#draftLink');
+    const task = model.getTask(fromId);
+    const box = current.boxes.get(fromId);
+    if (!draft || !task || !box) return;
+    const y = iteration !== null ? box.y + C.BAR_HEIGHT - 8 : box.y + C.BAR_HEIGHT / 2;
+    draft.style.display = '';
+    draft.setAttribute('d', linkPath(dayX(model.iterationEnd(task, iteration)), y, point.x, point.y));
   }
 
-  function showDraftLink(fromId, point) {
-    const from = model.getNode(fromId);
-    dom.draft.style.display = '';
-    dom.draft.setAttribute('d', linkPath(from.layout, { x: point.x, y: point.y, width: 1, height: 1 }));
-  }
   function hideDraftLink() {
-    dom.draft.style.display = 'none';
-    dom.draft.setAttribute('d', '');
+    const draft = dom.world.querySelector('#draftLink');
+    if (draft) draft.style.display = 'none';
   }
 
   function applySelection() {
     const { type, id } = ui.selection;
-    dom.world.querySelectorAll('.block').forEach((el) =>
-      el.classList.toggle('selected', type === 'node' && el.dataset.id === id));
-    dom.linkLayer.querySelectorAll('.link').forEach((el) =>
+    dom.world.querySelectorAll('.bar').forEach((el) =>
+      el.classList.toggle('selected', type === 'task' && el.dataset.id === id));
+    dom.world.querySelectorAll('.link').forEach((el) =>
       el.classList.toggle('sel', type === 'dependency' && el.dataset.dep === id));
   }
 
-  /**
-   * Hervorhebung: Hover (vorher nötig / blockiert) hat Vorrang vor dem Fokusmodus.
-   * taskClass(id) → CSS-Klasse oder null (= abgedunkelt); linkClass(fromTasks, toTasks) analog.
-   */
+  /** Hover (vorher nötig / blockiert) hat Vorrang vor dem Fokusmodus. */
   function applyHighlight() {
     const CLASSES = ['dim', 'hl', 'up', 'down', 'crit', 'ready-hl'];
-    const blocks = [...dom.world.querySelectorAll('.block')];
-    const links = [...dom.linkLayer.querySelectorAll('.link')];
-    blocks.forEach((el) => el.classList.remove(...CLASSES));
+    const bars = [...dom.world.querySelectorAll('.bar')];
+    const links = [...dom.world.querySelectorAll('.link')];
+    bars.forEach((el) => el.classList.remove(...CLASSES));
     links.forEach((el) => el.classList.remove(...CLASSES));
     if (!analysis || ui.dragging) return;
-
     const rule = highlightRule();
     if (!rule) return;
-    blocks.forEach((el) => {
-      const id = el.dataset.id;
-      if (model.isGroup(id)) {
-        if (!model.tasksWithin(id).some(rule.taskClass)) el.classList.add('dim');
-      } else {
-        el.classList.add(rule.taskClass(id) || 'dim');
-      }
-    });
-    links.forEach((el) => {
-      const dep = model.getDependency(el.dataset.dep);
-      if (dep) el.classList.add(rule.linkClass(model.tasksWithin(dep.from), model.tasksWithin(dep.to)) || 'dim');
-    });
+    bars.forEach((el) => el.classList.add(rule.taskClass(el.dataset.id) || 'dim'));
+    links.forEach((el) => el.classList.add(rule.linkClass(el.dataset.from, el.dataset.to) || 'dim'));
   }
 
   function highlightRule() {
-    const any = (list, set) => list.some((x) => set.has(x));
     if (ui.hoverId && model.getNode(ui.hoverId)) {
-      const focus = new Set(model.tasksWithin(ui.hoverId));
+      const focus = new Set(model.tasksOf(ui.hoverId));
       const up = A.closure(focus, analysis.predecessors);
       const down = A.closure(focus, analysis.successors);
       return {
         taskClass: (id) => (focus.has(id) ? 'hl' : up.has(id) ? 'up' : down.has(id) ? 'down' : null),
         linkClass: (from, to) => {
-          if (any(from, up) && (any(to, up) || any(to, focus))) return 'up';
-          if ((any(from, focus) || any(from, down)) && any(to, down)) return 'down';
+          if (up.has(from) && (up.has(to) || focus.has(to))) return 'up';
+          if ((focus.has(from) || down.has(from)) && down.has(to)) return 'down';
           return null;
         },
       };
@@ -1695,7 +1995,7 @@ PB.board = (() => {
       const index = new Map(analysis.criticalPath.map((id, i) => [id, i]));
       return {
         taskClass: (id) => (index.has(id) ? 'crit' : null),
-        linkClass: (from, to) => (from.some((f) => index.has(f) && to.some((t) => index.get(t) === index.get(f) + 1)) ? 'crit' : null),
+        linkClass: (from, to) => (index.has(from) && index.get(to) === index.get(from) + 1 ? 'crit' : null),
       };
     }
     return null;
@@ -1707,6 +2007,15 @@ PB.board = (() => {
     const rect = dom.world.getBoundingClientRect();
     const zoom = model.getState().view.zoom;
     return { x: (clientX - rect.left) / zoom, y: (clientY - rect.top) / zoom };
+  }
+
+  /** Arbeitstag an einer x-Position (≥ 0). */
+  const dayAt = (x) => Math.max(0, Math.floor((x - C.LABEL_WIDTH) / C.DAY_WIDTH));
+
+  /** Prioritätsband an einer y-Position (oberhalb → 1, unterhalb → letztes). */
+  function priorityAt(y) {
+    const band = current.bands.find((b) => y < b.y + b.height);
+    return band ? band.priority : C.PRIORITY_LEVELS;
   }
 
   function viewportCenter() {
@@ -1729,53 +2038,46 @@ PB.board = (() => {
     c.scrollTop = wy * next - p.y;
   }
 
-  /** Alles sichtbar machen (inkl. Prioritätsachse oben links). */
+  /** Alle Prioritätsbänder in der Höhe zeigen (nicht kleiner als fitMin), in der Breite scrollen; ab heute. */
   function fit() {
-    const box = U.bounds(model.allNodes().map((n) => n.layout));
-    if (!box) return;
     const c = dom.canvas;
-    const x0 = Math.min(0, box.x - 40);
-    const y0 = 0;
-    const w = box.x + box.width + 40 - x0;
-    const h = box.y + box.height + 40 - y0;
-    const zoom = U.clamp(Math.min(c.clientWidth / w, c.clientHeight / h, 1.25), C.ZOOM.fitMin, C.ZOOM.max);
+    const zoom = U.clamp(Math.min(c.clientHeight / current.height, 1), C.ZOOM.fitMin, C.ZOOM.max);
     model.setView({ zoom });
     applyView();
-    // Passt alles hinein → zentrieren, sonst oben links (hohe Priorität) beginnen
-    c.scrollLeft = x0 * zoom - Math.max(0, (c.clientWidth - w * zoom) / 2);
-    c.scrollTop = y0 * zoom - Math.max(0, (c.clientHeight - h * zoom) / 2);
+    c.scrollLeft = 0;
+    c.scrollTop = 0;
   }
 
   function scrollTo(id) {
-    const node = model.getNode(id);
-    if (!node) return;
+    const box = current?.boxes.get(id);
+    if (!box) return;
     const zoom = model.getState().view.zoom;
-    const center = U.center(node.layout);
     dom.canvas.scrollTo({
-      left: center.x * zoom - dom.canvas.clientWidth / 2,
-      top: center.y * zoom - dom.canvas.clientHeight / 2,
+      left: Math.max(0, (box.x - C.LABEL_WIDTH - 40) * zoom),
+      top: Math.max(0, (box.y + C.BAR_HEIGHT / 2) * zoom - dom.canvas.clientHeight / 2),
       behavior: 'smooth',
     });
   }
 
   return {
-    markup, linkPath,
-    init, render, applyView, refreshLayout, showDraftLink, hideDraftLink, applySelection, applyHighlight,
-    toWorld, viewportCenter, setZoom, fit, scrollTo,
+    layout, markup,
+    init, render, applyView, showDraftLink, hideDraftLink, applySelection, applyHighlight,
+    toWorld, dayAt, priorityAt, viewportCenter, setZoom, fit, scrollTo,
   };
 })();
 </script>
   <script>
 /* js/render/sidebar.js */
 /**
- * Seitenleiste: Tabs „Details“ (Bearbeiten), „Ablauf“ (Wellen, kritischer Pfad) und „Hilfe“.
+ * Seitenleiste: Tabs „Details“ (Aufgabe, Thema oder Abhängigkeit bearbeiten),
+ * „Ablauf“ (wichtigste Denk-Themen, startbar, kritischer Pfad, Themen) und „Hilfe“.
  * Ändert das Modell direkt; Navigation/Meldungen laufen über die bei init() übergebenen actions.
  */
 PB.sidebar = (() => {
   const C = PB.config;
   const U = PB.util;
   const I = PB.icons;
-  const A = PB.analysis;
+  const CAL = PB.calendar;
   const model = PB.model;
   const ui = PB.ui;
   const esc = U.escapeHtml;
@@ -1797,8 +2099,10 @@ PB.sidebar = (() => {
     dom.body.addEventListener('mouseleave', () => actions.hover(null));
   }
 
-  function render(a) {
+  /** silent: nur Analyse übernehmen, nicht neu zeichnen (z. B. während im Panel getippt wird). */
+  function render(a, { silent = false } = {}) {
     analysis = a;
+    if (silent) return;
     dom.tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.tab === ui.tab));
     const views = { details: detailsView, plan: planView, help: helpView };
     dom.body.innerHTML = views[ui.tab]();
@@ -1808,56 +2112,53 @@ PB.sidebar = (() => {
    * Bausteine
    * ===================================================================== */
 
-  function kindDot(node) {
-    if (model.isGroup(node.id)) return '<span class="dot group"></span>';
-    return `<span class="dot ${node.kind}">${I.forKind(node.kind)}</span>`;
+  function dot(id) {
+    const theme = model.getTheme(id);
+    if (theme) return `<span class="dot theme" style="background:${theme.color}"></span>`;
+    const task = model.getTask(id);
+    return `<span class="dot ${task.kind}">${I.forKind(task.kind)}</span>`;
   }
 
-  function listItem(node, { meta = '', removeDep = null } = {}) {
+  function listItem(id, { meta = '', extra = '', removeDep = null } = {}) {
+    const node = model.getNode(id);
+    if (!node) return '';
     const remove = removeDep ? `<button class="x" data-remove-dep="${esc(removeDep)}" title="Entfernen">×</button>` : '';
-    return `<li data-goto="${esc(node.id)}">${kindDot(node)}<span class="t">${esc(node.title || 'Ohne Titel')}</span>${meta}${remove}</li>`;
+    return `<li data-goto="${esc(id)}">${dot(id)}<span class="t">${esc(node.title)}</span>${meta}${extra}${remove}</li>`;
   }
 
   const list = (items, empty = '– nichts –') =>
     `<ul class="list">${items.join('') || `<li class="hint">${empty}</li>`}</ul>`;
 
-  function field(label, control) {
-    return `<div class="field"><label>${label}</label>${control}</div>`;
-  }
+  const field = (label, control, extra = '') => `<div class="field"><label>${label}</label>${control}${extra}</div>`;
 
-  function select(name, options, current) {
+  function select(attrs, options, current) {
     const opts = Object.entries(options)
-      .map(([value, label]) => `<option value="${value}"${value === current ? ' selected' : ''}>${label}</option>`).join('');
-    return `<select data-field="${name}">${opts}</select>`;
+      .map(([value, label]) => `<option value="${esc(value)}"${String(value) === String(current) ? ' selected' : ''}>${esc(label)}</option>`).join('');
+    return `<select ${attrs}>${opts}</select>`;
   }
 
-  /** Mögliche Partner für eine neue Abhängigkeit (ohne Duplikate, ohne Verschachtelte). */
-  function dependencyOptions(id, direction) {
-    const deps = model.getState().dependencies;
-    const used = new Set(direction === 'incoming'
-      ? deps.filter((d) => d.to === id).map((d) => d.from)
-      : deps.filter((d) => d.from === id).map((d) => d.to));
-    return model.allNodes()
-      .filter((n) => n.id !== id && !used.has(n.id) && !model.areNested(n.id, id))
-      .sort((a, b) => a.title.localeCompare(b.title, 'de'))
-      .map((n) => {
-        const kind = model.isGroup(n.id) ? 'Gruppe' : C.KIND_LABELS[n.kind];
-        return `<option value="${esc(n.id)}">${kind}: ${esc(n.title || 'Ohne Titel')}</option>`;
-      }).join('');
+  const priorityOptions = Object.fromEntries(C.PRIORITY_LABELS.map((label, i) => [i + 1, `Prio ${i + 1} – ${label}`]));
+  const small = (text) => `<span class="small">${text}</span>`;
+
+  /** Dauer-Eingabe mit Schnellwahl. */
+  function durationField(label, name, value, { presets = C.DURATION_PRESETS, min = 1 } = {}) {
+    const buttons = presets.map((p) =>
+      `<button class="chip${p.days === value ? ' on' : ''}" data-preset="${name}" data-days="${p.days}">${p.label}</button>`).join('');
+    return field(label,
+      `<div class="duration"><input type="number" min="${min}" step="1" data-field="${name}" value="${value}">
+        <span class="small">Arbeitstage = ${CAL.durationLabel(value)}</span></div><div class="chips">${buttons}</div>`);
   }
 
   function legend() {
-    const arrow = (color, dash = '') =>
-      `<svg width="32" height="12"><path d="M1,6 H25" stroke="var(${color})" stroke-width="2" ${dash}/>` +
-      `<path d="M23,1 L31,6 L23,11z" fill="var(${color})"/></svg>`;
     return `<h3>Legende</h3><div class="legend">
-      <div><span class="dot thinking">${I.svg('brain')}</span><span><b>Denken</b> – Analyse, Konzept, braucht Zeit</span></div>
+      <div><span class="dot thinking">${I.svg('brain')}</span><span><b>Denken</b> – Analyse, Konzept</span></div>
       <div><span class="dot implementation">${I.svg('wrench')}</span><span><b>Umsetzung</b> – direkt machbar</span></div>
-      <div><span class="dot group"></span><span><b>Gruppe</b> – Abhängigkeitsblock / Rahmen</span></div>
-      <div>${arrow('--link')}<span>A → B: A muss vor B fertig sein</span></div>
-      <div>${arrow('--link-done', 'stroke-dasharray="4 3"')}<span>Voraussetzung erfüllt</span></div>
-      <div><span class="sw" style="box-shadow:0 0 0 3px var(--up)"></span><span>Beim Hovern: wird vorher benötigt</span></div>
-      <div><span class="sw" style="box-shadow:0 0 0 3px var(--down)"></span><span>Beim Hovern: wird dadurch blockiert</span></div>
+      <div><span class="sw full"></span><span>Voll = intensiv</span></div>
+      <div><span class="sw hatched"></span><span>Schraffiert = nebenbei / reift</span></div>
+      <div><span class="sw buffer"></span><span>Gestrichelt = Puffer / Unsicherheit</span></div>
+      <div><span class="sw ongoing"></span><span>∞ = läuft weiter</span></div>
+      <div><span class="lev">🔓 3</span><span>Hebel: gibt 3 Umsetzungen frei</span></div>
+      <div><span class="sw risky-line"></span><span>Orange Pfeil: Start im Puffer des Vorgängers (riskant)</span></div>
     </div>`;
   }
 
@@ -1866,18 +2167,31 @@ PB.sidebar = (() => {
    * ===================================================================== */
 
   function detailsView() {
-    if (ui.selection.type === 'dependency') return dependencyDetails(model.getDependency(ui.selection.id));
-    const node = ui.selection.type === 'node' && model.getNode(ui.selection.id);
-    if (!node) return `<p class="hint">Wähle einen Block auf dem Board aus, um ihn zu beschreiben.</p>${legend()}`;
-    return model.isGroup(node.id) ? groupDetails(node) : taskDetails(node);
+    const { type, id } = ui.selection;
+    if (type === 'dependency') return dependencyDetails(model.getDependency(id));
+    if (type === 'theme' && model.getTheme(id)) return themeDetails(model.getTheme(id));
+    if (type === 'task' && model.getTask(id)) return taskDetails(model.getTask(id));
+    return `<p class="hint">Wähle einen Balken auf der Zeitachse aus – oder doppelklicke auf eine freie Stelle, um eine Aufgabe anzulegen.</p>${legend()}`;
+  }
+
+  function iterationLabel(task, index) {
+    return index === null || !task?.iterations[index] ? 'komplett' : `nach „${task.iterations[index].title}“`;
   }
 
   function dependencyDetails(dep) {
     if (!dep) return '';
+    const fromTask = model.getTask(dep.from);
+    const iterationSelect = fromTask?.iterations.length
+      ? field('Benötigt wird',
+        select(`data-dep-iteration="${esc(dep.id)}"`,
+          { '': 'Vorgänger komplett', ...Object.fromEntries(fromTask.iterations.map((it, i) => [i, `nur bis „${it.title}“`])) },
+          dep.fromIteration ?? ''))
+      : '';
     return `<h3>Abhängigkeit</h3>
-      ${list([listItem(model.getNode(dep.from), { meta: '<span class="small">zuerst</span>' })])}
-      <div class="hint" style="margin:0 8px 6px">↓ muss fertig sein, bevor</div>
-      ${list([listItem(model.getNode(dep.to), { meta: '<span class="small">danach</span>' })])}
+      ${list([listItem(dep.from, { meta: small('zuerst') })])}
+      <div class="hint" style="margin:0 8px 6px">↓ muss fertig sein (${iterationLabel(fromTask, dep.fromIteration)}), bevor</div>
+      ${list([listItem(dep.to, { meta: small('danach') })])}
+      ${iterationSelect}
       <div class="btnrow">
         <button class="btn" data-action="reverse-dependency">Richtung umkehren</button>
         <button class="btn danger" data-action="delete">Löschen</button>
@@ -1885,20 +2199,33 @@ PB.sidebar = (() => {
   }
 
   function taskDetails(task) {
-    const priority = analysis.priorityOf(task.id);
-    const notes = task.notes.join('\n');
+    const isThinking = task.kind === 'thinking';
+    const duration = model.durationOf(task);
+    const end = CAL.dateOf(model.endOf(task));
+    const durationBlock = task.iterations.length
+      ? field('Dauer', `<p class="hint">Summe der Iterationen: <b>${CAL.durationLabel(duration)}</b></p>`)
+      : durationField('Dauer', 'durationDays', task.durationDays);
+
     return `
       ${field('Titel', `<input data-field="title" value="${esc(task.title)}">`)}
       <div class="row">
-        ${field('Art', select('kind', { thinking: 'Denken (Analyse)', implementation: 'Umsetzung' }, task.kind))}
-        ${field('Status', select('status', C.STATUS_LABELS, task.status))}
+        ${field('Art', select('data-field="kind"', { thinking: 'Denken', implementation: 'Umsetzung' }, task.kind))}
+        ${field('Status', select('data-field="status"', C.STATUS_LABELS, task.status))}
       </div>
       <div class="row">
-        ${field('Aufwand (Personentage)', `<input data-field="effortDays" inputmode="decimal" value="${task.effortDays ?? ''}">`)}
-        ${field('Priorität (Position)', `<input disabled value="${priority} – ${A.priorityLabel(priority)}">`)}
+        ${field('Priorität', select('data-field="priority"', priorityOptions, task.priority))}
+        ${field('Start', `<input type="date" data-field="start" min="${CAL.isoOf(0)}" value="${CAL.isoOf(task.start)}">`)}
       </div>
-      ${field('Stichpunkte (eine Zeile = ein Punkt)', `<textarea data-field="notes" rows="3">${esc(notes)}</textarea>`)}
-      ${field('Beschreibung', `<textarea data-field="description" rows="4">${esc(task.description)}</textarea>`)}
+      ${durationBlock}
+      ${durationField('Puffer (Unsicherheit)', 'bufferDays', task.bufferDays, {
+        min: 0, presets: [{ label: 'kein', days: 0 }, { label: '1 Wo', days: 5 }, { label: '2 Wo', days: 10 }, { label: '1 Mt', days: 20 }],
+      })}
+      <p class="hint">Ende: <b>${CAL.longDate(end)}</b> (KW ${CAL.weekNumber(end)})${task.bufferDays ? `, spätestens ${CAL.longDate(CAL.dateOf(model.endOf(task) + task.bufferDays))}` : ''}</p>
+      ${field('Arbeitsweise', select('data-field="intensity"', C.INTENSITY_LABELS, task.intensity))}
+      ${isThinking ? iterationsEditor(task) : ''}
+      ${themesEditor(task)}
+      ${field('Stichpunkte (eine Zeile = ein Punkt)', `<textarea data-field="notes" rows="3">${esc(task.notes.join('\n'))}</textarea>`)}
+      ${field('Beschreibung', `<textarea data-field="description" rows="3">${esc(task.description)}</textarea>`)}
       <p class="hint">${taskStateText(task)}</p>
       ${blockedBySection(task)}
       ${dependencySections(task.id)}
@@ -1908,47 +2235,91 @@ PB.sidebar = (() => {
       </div>`;
   }
 
+  function iterationsEditor(task) {
+    const rows = task.iterations.map((it, i) => `
+      <div class="iter-row">
+        <input type="checkbox" data-iter="${i}" data-iter-field="done" ${it.done ? 'checked' : ''} title="Erledigt">
+        <input data-iter="${i}" data-iter-field="title" value="${esc(it.title)}">
+        <input type="number" min="1" step="1" data-iter="${i}" data-iter-field="durationDays" value="${it.durationDays}" title="Arbeitstage">
+        <span class="small">${CAL.durationLabel(it.durationDays)}</span>
+        <button class="x" data-action="remove-iteration" data-index="${i}" title="Entfernen">×</button>
+      </div>`).join('');
+    return `<h3>Iterationen</h3>
+      <p class="hint">Denken in Schritten. Eine Umsetzung kann schon nach einer Iteration starten (Punkt an der Iterationsgrenze ziehen).</p>
+      ${rows}
+      <div class="btnrow">
+        <button class="btn" data-action="add-iteration">+ Iteration</button>
+        <label class="check"><input type="checkbox" data-field="ongoing" ${task.ongoing ? 'checked' : ''}> ∞ läuft danach weiter</label>
+      </div>`;
+  }
+
+  function themesEditor(task) {
+    const chips = model.getState().themes.map((th) =>
+      `<button class="chip theme${task.themes.includes(th.id) ? ' on' : ''}" data-toggle-theme="${esc(th.id)}" style="--c:${th.color}">${esc(th.title)}</button>`).join('');
+    return `<h3>Themen</h3><div class="chips">${chips}<button class="chip" data-action="add-theme">+ Neues Thema</button></div>`;
+  }
+
   function taskStateText(task) {
-    const wave = analysis.wave.get(task.id);
+    const leverage = analysis.leverage.get(task.id);
+    const lever = leverage ? ` 🔓 Gibt ${leverage} offene Umsetzung(en) frei.` : '';
     switch (analysis.stateOf(task.id)) {
       case 'done': return 'Erledigt.';
       case 'cycle': return '⚠ Teil eines Zyklus – Abhängigkeiten prüfen.';
-      case 'ready': return `✓ Kann jetzt gestartet werden (Welle ${wave}).`;
-      case 'in_progress': return `In Arbeit (Welle ${wave}).`;
-      default: return `Wartet auf ${analysis.openPredecessors(task.id).length} offene Aufgabe(n) – Welle ${wave}.`;
+      case 'ready': return `✓ Kann jetzt gestartet werden.${lever}`;
+      case 'in_progress': return `In Arbeit.${lever}`;
+      default: return `Wartet auf ${analysis.openPredecessors(task.id).length} offene Aufgabe(n).${lever}`;
     }
   }
 
   function blockedBySection(task) {
     const open = analysis.openPredecessors(task.id);
     if (!open.length) return '';
-    return `<h3>Effektiv blockiert durch</h3>
-      ${list(open.map((id) => listItem(model.getNode(id))))}
-      <p class="hint" style="margin-top:-4px">inkl. Abhängigkeiten der umgebenden Gruppe(n)</p>`;
+    return `<h3>Blockiert durch</h3>${list(open.map((id) => listItem(id)))}`;
   }
 
-  function groupDetails(group) {
-    const children = model.childrenOf(group.id);
+  function themeDetails(theme) {
+    const members = model.membersOf(theme.id);
     return `
-      ${field('Titel', `<input data-field="title" value="${esc(group.title)}">`)}
-      ${field('Beschreibung', `<textarea data-field="description" rows="3">${esc(group.description)}</textarea>`)}
-      <h3>Enthält (${children.length})</h3>
-      ${list(children.map((c) => listItem(c)), 'Blöcke in den Rahmen ziehen')}
-      ${dependencySections(group.id)}
-      <div class="btnrow"><button class="btn danger" data-action="delete">Löschen</button></div>`;
+      ${field('Thema', `<input data-theme-field="title" value="${esc(theme.title)}">`)}
+      ${field('Farbe', `<input type="color" data-theme-field="color" value="${theme.color}">`)}
+      <p class="hint">Eine Abhängigkeit auf ein Thema gilt für alle Aufgaben darin.</p>
+      <h3>Aufgaben (${members.length})</h3>
+      ${list(members.map((id) => listItem(id)), 'Aufgaben im Detail-Panel einem Thema zuordnen')}
+      ${dependencySections(theme.id)}
+      <div class="btnrow"><button class="btn danger" data-action="delete">Thema löschen</button></div>`;
+  }
+
+  function dependencyOptions(id, direction) {
+    const deps = model.getState().dependencies;
+    const used = new Set(direction === 'incoming'
+      ? deps.filter((d) => d.to === id).map((d) => d.from)
+      : deps.filter((d) => d.from === id).map((d) => d.to));
+    const { tasks, themes } = model.getState();
+    const option = (node, prefix) => `<option value="${esc(node.id)}">${prefix}: ${esc(node.title)}</option>`;
+    const available = (node) => node.id !== id && !used.has(node.id);
+    return [
+      ...themes.filter(available).map((th) => option(th, 'Thema')),
+      ...tasks.filter(available).sort((a, b) => a.title.localeCompare(b.title, 'de')).map((t) => option(t, C.KIND_LABELS[t.kind])),
+    ].join('');
   }
 
   function dependencySections(id) {
     const deps = model.getState().dependencies;
-    const incoming = deps.filter((d) => d.to === id).map((d) => listItem(model.getNode(d.from), { removeDep: d.id }));
-    const outgoing = deps.filter((d) => d.from === id).map((d) => listItem(model.getNode(d.to), { removeDep: d.id }));
+    const incoming = deps.filter((d) => d.to === id).map((d) => listItem(d.from, {
+      meta: d.fromIteration !== null ? small(iterationLabel(model.getTask(d.from), d.fromIteration)) : '',
+      removeDep: d.id,
+    }));
+    const outgoing = deps.filter((d) => d.from === id).map((d) => listItem(d.to, {
+      meta: d.fromIteration !== null ? small(`ab „${model.getTask(id).iterations[d.fromIteration].title}“`) : '',
+      removeDep: d.id,
+    }));
     return `
       <h3>Hängt ab von</h3>${list(incoming)}
       <select class="adddep" data-add-dependency="incoming">
         <option value="">+ Voraussetzung hinzufügen…</option>${dependencyOptions(id, 'incoming')}</select>
       <h3>Ist Voraussetzung für</h3>${list(outgoing)}
       <select class="adddep" data-add-dependency="outgoing">
-        <option value="">+ abhängigen Block hinzufügen…</option>${dependencyOptions(id, 'outgoing')}</select>`;
+        <option value="">+ abhängige Aufgabe hinzufügen…</option>${dependencyOptions(id, 'outgoing')}</select>`;
   }
 
   /* =====================================================================
@@ -1956,53 +2327,52 @@ PB.sidebar = (() => {
    * ===================================================================== */
 
   function planView() {
-    const { tasks } = model.getState();
-    if (!tasks.length) return '<p class="hint">Noch keine Aufgaben. Lege oben mit „Denken“ oder „Umsetzung“ los.</p>';
+    const { tasks, themes } = model.getState();
     const a = analysis;
-    const byId = (id) => model.getNode(id);
-    const openEffort = (kind) => tasks
-      .filter((t) => t.kind === kind && t.status !== 'done')
-      .reduce((sum, t) => sum + A.effortOf(t), 0);
-    const done = tasks.filter((t) => t.status === 'done');
-    const blocked = tasks.length - done.length - a.ready.size;
+    const open = tasks.filter((t) => t.status !== 'done');
+    const openWeeks = (kind) => open.filter((t) => t.kind === kind).reduce((s, t) => s + model.durationOf(t), 0);
+    const planEnd = CAL.dateOf(a.planEnd);
+    const byPriority = (x, y) => model.getTask(x).priority - model.getTask(y).priority;
 
     const stats = `<div class="stats">
       <div class="stat"><b>${a.ready.size}</b><span>jetzt parallel startbar</span></div>
-      <div class="stat"><b>${blocked}</b><span>blockiert / laufend</span></div>
-      <div class="stat thinking"><b>${U.formatNumber(openEffort('thinking'))} PT</b><span>${I.svg('brain')} Denken offen</span></div>
-      <div class="stat impl"><b>${U.formatNumber(openEffort('implementation'))} PT</b><span>${I.svg('wrench')} Umsetzung offen</span></div>
+      <div class="stat"><b>KW ${CAL.weekNumber(planEnd)}</b><span>Plan-Ende (${CAL.shortDate(planEnd)})</span></div>
+      <div class="stat thinking"><b>${CAL.durationLabel(openWeeks('thinking'))}</b><span>${I.svg('brain')} Denken offen</span></div>
+      <div class="stat impl"><b>${CAL.durationLabel(openWeeks('implementation'))}</b><span>${I.svg('wrench')} Umsetzung offen</span></div>
     </div>`;
 
     const warning = a.cycle.size
-      ? `<div class="warn">⚠ Zyklische Abhängigkeit zwischen: ${[...a.cycle].map((id) => esc(byId(id).title)).join(', ')}</div>`
+      ? `<div class="warn">⚠ Zyklische Abhängigkeit zwischen: ${[...a.cycle].map((id) => esc(model.getTask(id).title)).join(', ')}</div>`
       : '';
 
-    const waves = a.waves.map((ids, i) => {
-      const effort = ids.reduce((sum, id) => sum + A.effortOf(byId(id)), 0);
-      const items = ids.map((id) => {
-        const t = byId(id);
-        const running = t.status === 'in_progress' ? '● läuft · ' : '';
-        return listItem(t, { meta: `<span class="small">${running}P${a.priorityOf(id)} · ${U.formatNumber(A.effortOf(t))} PT</span>` });
-      });
-      return `<div class="wavebox${i === 0 ? ' now' : ''}">
-        <div class="wh"><span>Welle ${i + 1}${i === 0 ? ' – jetzt' : ''}</span>
-        <span class="small">${ids.length} Aufgaben · ${U.formatNumber(effort)} PT</span></div>${list(items)}</div>`;
-    }).join('');
+    const important = a.importantThinking.slice(0, 6).map((id) => {
+      const t = model.getTask(id);
+      const lever = a.leverage.get(id);
+      return listItem(id, { meta: small(`${lever ? `🔓 ${lever} · ` : ''}${CAL.durationLabel(model.durationOf(t))} · P${t.priority}`) });
+    });
 
-    const critical = a.criticalPath.length ? `
-      <h3>Kritischer Pfad · ${U.formatNumber(a.criticalEffort)} PT</h3>
-      <p class="hint">Längste Kette nacheinander abhängiger Aufgaben – bestimmt die minimale Gesamtdauer.</p>
-      ${list(a.criticalPath.map((id, i) => listItem(byId(id), {
-        meta: `<span class="small">${i ? '↳ ' : ''}${U.formatNumber(A.effortOf(byId(id)))} PT</span>`,
-      })))}` : '';
+    const ready = [...a.ready].sort(byPriority).map((id) =>
+      listItem(id, { meta: small(`P${model.getTask(id).priority} · ${CAL.durationLabel(model.durationOf(model.getTask(id)))}`) }));
 
-    const finished = done.length
-      ? `<h3>Erledigt (${done.length})</h3>${list(done.map((t) => listItem(t, { meta: '<span class="small">✓</span>' })))}`
-      : '';
+    const critical = a.criticalPath.map((id, i) =>
+      listItem(id, { meta: small(`${i ? '↳ ' : ''}${CAL.durationLabel(model.durationOf(model.getTask(id)))}`) }));
 
+    const themeItems = themes.map((th) => listItem(th.id, { meta: small(`${model.membersOf(th.id).length} Aufgaben`) }));
+    const done = tasks.filter((t) => t.status === 'done').map((t) => listItem(t.id, { meta: small('✓') }));
+
+    if (!tasks.length) {
+      return `<p class="hint">Noch keine Aufgaben. Lege oben mit „Denken“ oder „Umsetzung“ los – oder doppelklicke auf die Zeitachse.</p>`;
+    }
     return `${stats}${warning}
-      <p class="hint">Alles in einer Welle hat keine Abhängigkeit untereinander und kann <b>parallel</b> bearbeitet werden. Sortiert nach Priorität.</p>
-      ${waves}${critical}${finished}`;
+      <h3>Wichtigste Denk-Themen</h3>
+      <p class="hint">Viel Hebel (🔓 = freigegebene Umsetzungen) × lange Dauer – hier früh anfangen.</p>
+      ${list(important, 'Keine offenen Denk-Themen')}
+      <h3>Jetzt parallel startbar (${a.ready.size})</h3>${list(ready)}
+      ${critical.length ? `<h3>Kritischer Pfad · ${CAL.durationLabel(a.criticalDays)}</h3>
+        <p class="hint">Längste Kette nacheinander abhängiger Aufgaben – bestimmt die minimale Gesamtdauer.</p>${list(critical)}` : ''}
+      <h3>Themen</h3>${list(themeItems, 'Noch keine Themen')}
+      <div class="btnrow"><button class="btn" data-action="add-theme">+ Thema</button></div>
+      ${done.length ? `<h3>Erledigt (${done.length})</h3>${list(done)}` : ''}`;
   }
 
   /* =====================================================================
@@ -2010,27 +2380,31 @@ PB.sidebar = (() => {
    * ===================================================================== */
 
   function helpView() {
-    return `<h3>So funktioniert's</h3>
+    return `<h3>Die Zeitachse</h3>
     <ul class="help">
-      <li><b>Blöcke anlegen</b> mit „Denken“, „Umsetzung“ oder „Gruppe“.</li>
-      <li><b>Verschieben</b>: Block ziehen. <b>Grösse</b>: Ecke unten rechts ziehen.</li>
-      <li><b>Abhängigkeit</b>: am runden Punkt rechts am Block ziehen und auf dem Block loslassen, der davon abhängt – oder im Detail-Panel wählen.</li>
-      <li><b>Gruppen</b>: Blöcke in einen Rahmen ziehen. Hängt eine Gruppe von etwas ab, gilt das für alle Blöcke darin.</li>
-      <li><b>Priorität</b> ergibt sich aus der Position: links hoch, rechts tief.</li>
+      <li><b>Waagrecht = Zeit</b> in Kalenderwochen ab heute. Die <b>Länge</b> eines Balkens ist seine Dauer.</li>
+      <li><b>Senkrecht = Priorität</b>: Prio 1 oben. Steht etwas Wichtiges weit rechts, wartet es zu lange.</li>
+    </ul>
+    <h3>Bedienen</h3>
+    <ul class="help">
+      <li><b>Balken ziehen</b>: waagrecht = Start, senkrecht = Priorität.</li>
+      <li><b>Rechte Kante</b> = Dauer, <b>gestrichelte Kante</b> = Puffer.</li>
+      <li><b>Punkt am Ende ziehen</b> und auf einer Aufgabe loslassen = Abhängigkeit. Der Punkt an einer <b>Iterationsgrenze</b> heisst: „braucht nur bis hier“.</li>
+      <li>Nachfolger werden automatisch <b>nach rechts geschoben</b>, wenn sie sonst zu früh starten würden.</li>
+      <li><b>Doppelklick</b> auf eine freie Stelle = neue Aufgabe an diesem Tag in diesem Prio-Band.</li>
+      <li><b>Themen</b> fassen Aufgaben zusammen. Eine Abhängigkeit auf ein Thema gilt für alle darin.</li>
       <li><b>Hover</b> zeigt, was vorher nötig ist (orange) und was blockiert wird (blau).</li>
-      <li><b>Ablauf</b>: Wellen paralleler Arbeit, offener Aufwand, kritischer Pfad.</li>
     </ul>
     <h3>Tastatur</h3>
     <ul class="help">
       <li><b>Entf</b> löschen · <b>Strg+D</b> duplizieren · <b>Esc</b> Auswahl aufheben</li>
-      <li><b>Strg+Z / Strg+Y</b> rückgängig / wiederholen</li>
-      <li><b>Strg + Mausrad</b> zoomen · leere Fläche ziehen = verschieben</li>
+      <li><b>Strg+Z / Strg+Y</b> rückgängig / wiederholen · <b>Strg + Mausrad</b> zoomen</li>
     </ul>
     <h3>Speichern & Teilen</h3>
     <ul class="help">
       <li>Alles wird automatisch im Browser gespeichert.</li>
-      <li><b>Export</b> speichert das Board als JSON-Datei (Format „prio-board“, siehe README), <b>Import</b> lädt sie wieder.</li>
-      <li><b>Als HTML</b> erzeugt eine statische Seite nur mit dem Diagramm – zum Verschicken oder Ablegen.</li>
+      <li><b>Datei ▸ Export</b> speichert als JSON (Format „prio-board“), <b>Import</b> lädt JSON oder eine exportierte HTML-Seite.</li>
+      <li><b>Datei ▸ Als HTML</b> erzeugt eine statische Seite nur mit dem Diagramm.</li>
     </ul>
     ${legend()}`;
   }
@@ -2039,7 +2413,17 @@ PB.sidebar = (() => {
    * Ereignisse
    * ===================================================================== */
 
-  const selectedNode = () => (ui.selection.type === 'node' ? model.getNode(ui.selection.id) : null);
+  const selectedTask = () => (ui.selection.type === 'task' ? model.getTask(ui.selection.id) : null);
+  const selectedTheme = () => (ui.selection.type === 'theme' ? model.getTheme(ui.selection.id) : null);
+
+  /** Ein Historieneintrag pro Fokus beim Tippen. */
+  function typingOptions() {
+    if (editCheckpointPending) {
+      model.checkpoint();
+      editCheckpointPending = false;
+    }
+    return { record: false, source: 'sidebar' };
+  }
 
   function onTabClick(event) {
     const button = event.target.closest('button[data-tab]');
@@ -2048,49 +2432,98 @@ PB.sidebar = (() => {
     render(analysis);
   }
 
-  /** Text-Eingaben: ein Historieneintrag pro Fokus, Seitenleiste wird nicht neu gezeichnet. */
+  /** Text- und Zahleneingaben: Seitenleiste wird dabei nicht neu gezeichnet (Fokus bleibt). */
   function onInput(event) {
-    const name = event.target.dataset.field;
-    const node = selectedNode();
-    if (!name || !node || event.target.tagName === 'SELECT') return;
-    if (editCheckpointPending) {
-      model.checkpoint();
-      editCheckpointPending = false;
+    const t = event.target;
+    if (t.tagName === 'SELECT' || t.type === 'checkbox' || t.type === 'date') return;
+    const task = selectedTask();
+    const theme = selectedTheme();
+
+    if (task && t.dataset.field) {
+      const value = readField(t.dataset.field, t.value);
+      if (value === undefined) return;
+      model.updateTask(task.id, { [t.dataset.field]: value }, typingOptions());
+      if (t.type === 'number') updateDurationLabel(t, value);
+    } else if (task && t.dataset.iterField) {
+      const value = t.dataset.iterField === 'durationDays' ? U.parseNumber(t.value) : t.value;
+      if (value === null) return;
+      model.updateIteration(task.id, Number(t.dataset.iter), { [t.dataset.iterField]: value }, typingOptions());
+      if (t.type === 'number') updateDurationLabel(t, value);
+    } else if (theme && t.dataset.themeField) {
+      model.updateTheme(theme.id, { [t.dataset.themeField]: t.value }, typingOptions());
     }
-    model.updateNode(node.id, { [name]: readField(name, event.target.value) }, { record: false, source: 'sidebar' });
   }
 
+  /** „= 2 Wo“ neben einer Dauer-Eingabe aktualisieren, ohne die Seitenleiste neu zu zeichnen. */
+  function updateDurationLabel(input, days) {
+    const label = input.parentElement.querySelector('.small');
+    if (label) label.textContent = input.closest('.duration') ? `Arbeitstage = ${CAL.durationLabel(days)}` : CAL.durationLabel(days);
+  }
+
+  /** Feldwert umwandeln; undefined = (noch) ungültig, nicht übernehmen. */
   function readField(name, value) {
     if (name === 'notes') return value.split('\n').map((s) => s.trim()).filter(Boolean);
-    if (name === 'effortDays') return U.parseNumber(value);
+    if (name === 'durationDays' || name === 'bufferDays') {
+      const n = U.parseNumber(value);
+      if (n === null) return undefined;
+      return Math.max(name === 'durationDays' ? 1 : 0, Math.round(n));
+    }
     return value;
   }
 
   function onChange(event) {
-    const target = event.target;
-    const node = selectedNode();
-    if (!node) return;
-    if (target.tagName === 'SELECT' && target.dataset.field) {
-      model.updateNode(node.id, { [target.dataset.field]: target.value });
-    } else if (target.dataset.addDependency && target.value) {
-      const [from, to] = target.dataset.addDependency === 'incoming' ? [target.value, node.id] : [node.id, target.value];
-      actions.addDependency(from, to);
+    const t = event.target;
+    const task = selectedTask();
+
+    if (t.dataset.addDependency && t.value) {
+      const id = ui.selection.id;
+      const [from, to] = t.dataset.addDependency === 'incoming' ? [t.value, id] : [id, t.value];
+      actions.addDependency(from, to, null);
+    } else if (t.dataset.depIteration) {
+      model.setDependencyIteration(t.dataset.depIteration, t.value === '' ? null : Number(t.value));
+    } else if (task && t.dataset.field === 'ongoing') {
+      model.updateTask(task.id, { ongoing: t.checked });
+    } else if (task && t.dataset.field === 'start') {
+      const day = CAL.dayOf(t.value);
+      if (day !== null) model.updateTask(task.id, { start: day });
+    } else if (task && t.tagName === 'SELECT' && t.dataset.field) {
+      const value = t.dataset.field === 'priority' ? Number(t.value) : t.value;
+      model.updateTask(task.id, { [t.dataset.field]: value });
+    } else if (task && t.dataset.iterField === 'done') {
+      model.updateIteration(task.id, Number(t.dataset.iter), { done: t.checked });
     }
+    // Bewusst kein Neuzeichnen nach Texteingaben: Ein Klick, der den Fokus wechselt,
+    // würde sonst auf einem bereits ersetzten Element landen und verloren gehen.
   }
 
   function onClick(event) {
-    const remove = event.target.closest('[data-remove-dep]');
+    const t = event.target;
+    const remove = t.closest('[data-remove-dep]');
     if (remove) {
       event.stopPropagation();
       model.removeDependency(remove.dataset.removeDep);
       return;
     }
-    const action = event.target.closest('[data-action]');
-    if (action) {
-      actions.run(action.dataset.action);
+    const preset = t.closest('[data-preset]');
+    if (preset && selectedTask()) {
+      model.updateTask(selectedTask().id, { [preset.dataset.preset]: Number(preset.dataset.days) });
       return;
     }
-    const item = event.target.closest('[data-goto]');
+    const toggle = t.closest('[data-toggle-theme]');
+    if (toggle && selectedTask()) {
+      const result = model.toggleTaskTheme(selectedTask().id, toggle.dataset.toggleTheme);
+      if (!result.ok && result.error) actions.toast(result.error);
+      return;
+    }
+    const action = t.closest('[data-action]');
+    if (action) {
+      const index = action.dataset.index === undefined ? null : Number(action.dataset.index);
+      if (action.dataset.action === 'add-iteration') model.addIteration(selectedTask().id);
+      else if (action.dataset.action === 'remove-iteration') model.removeIteration(selectedTask().id, index);
+      else actions.run(action.dataset.action);
+      return;
+    }
+    const item = t.closest('[data-goto]');
     if (item) actions.goTo(item.dataset.goto);
   }
 
@@ -2112,9 +2545,9 @@ PB.sidebar = (() => {
 PB.staticExport = (() => {
   const U = PB.util;
   const I = PB.icons;
+  const CAL = PB.calendar;
   const model = PB.model;
   const DATA_ELEMENT_ID = 'prio-board-data';
-  const PADDING = 40;
 
   const PAGE_CSS = `
 *{box-sizing:border-box}
@@ -2130,7 +2563,6 @@ body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Sour
 .page-legend span{display:inline-flex;align-items:center;gap:8px}
 .page-legend .dot{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-size:12px}
 .page-legend .dot.thinking{background:var(--thinking)} .page-legend .dot.implementation{background:var(--impl)}
-.page-legend .dot.group{border:2px dashed var(--group)}
 .page-legend .ico{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media print{
   @page{size:landscape;margin:10mm}
@@ -2148,30 +2580,22 @@ body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Sour
   addEventListener('afterprint',fit);fit();
 })();`;
 
-  /** Ausschnitt: alle Blöcke plus Rand; mit Prioritätsachse immer ab der linken oberen Ecke. */
-  function viewport(showAxis) {
-    const box = U.bounds(model.allNodes().map((n) => n.layout)) || { x: 0, y: 0, width: 400, height: 200 };
-    const x = showAxis ? 0 : Math.max(0, box.x - PADDING);
-    const y = showAxis ? 0 : Math.max(0, box.y - PADDING);
-    return { x, y, width: box.x + box.width + PADDING - x, height: box.y + box.height + PADDING - y };
-  }
-
   function summary(analysis) {
     const { tasks } = model.getState();
     const done = tasks.filter((t) => t.status === 'done').length;
-    const date = new Date().toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    return `Stand ${date} · ${tasks.length} Aufgaben · ${analysis.ready.size} startbar · ${done} erledigt` +
-      (analysis.criticalPath.length ? ` · kritischer Pfad ${U.formatNumber(analysis.criticalEffort)} PT` : '');
+    const end = CAL.dateOf(analysis.planEnd);
+    return `Stand ${CAL.longDate(CAL.dateOf(0))} · ${tasks.length} Aufgaben · ${analysis.ready.size} startbar · ` +
+      `${done} erledigt · Plan-Ende KW ${CAL.weekNumber(end)} (${CAL.shortDate(end)})`;
   }
 
   function legend() {
     return `<footer class="page-legend">
       <span><span class="dot thinking">${I.svg('brain')}</span>Denken – Analyse, braucht Zeit</span>
       <span><span class="dot implementation">${I.svg('wrench')}</span>Umsetzung – direkt machbar</span>
-      <span><span class="dot group"></span>Gruppe / Abhängigkeitsblock</span>
-      <span>A → B: A muss vor B fertig sein</span>
-      <span>W1, W2 …: Wellen – gleiche Welle = parallel möglich</span>
-      <span>Priorität: links hoch, rechts tief</span>
+      <span>Länge = Dauer · gestrichelt = Puffer · ∞ = läuft weiter</span>
+      <span>Voll = intensiv · schraffiert = nebenbei / reift</span>
+      <span>🔓 n = gibt n Umsetzungen frei</span>
+      <span>A → B: A muss vor B fertig sein · orange = riskant</span>
     </footer>`;
   }
 
@@ -2181,9 +2605,7 @@ body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Sour
   function build(analysis) {
     const state = model.getState();
     const esc = U.escapeHtml;
-    const showAxis = state.view.showPriorityAxis;
     const m = PB.board.markup(analysis, { interactive: false });
-    const vp = viewport(showAxis);
     const doc = PB.format.serialize(state, { model, analysis });
 
     return `<!doctype html>
@@ -2204,14 +2626,8 @@ ${PB.diagramStyles.CSS}
 <body>
 <header class="page-head"><h1>${esc(state.board.title)}</h1><p>${esc(summary(analysis))}</p></header>
 <main class="stage-wrap">
-  <div class="stage" style="width:${vp.width}px;height:${vp.height}px">
-    <div class="pb-world" style="left:${-vp.x}px;top:${-vp.y}px;width:${m.size.width}px;height:${m.size.height}px">
-      ${showAxis ? `<div class="pb-zones">${m.zones}</div>` : ''}
-      <svg class="pb-links" width="${m.size.width}" height="${m.size.height}" xmlns="http://www.w3.org/2000/svg">
-        <defs>${PB.diagramStyles.markerDefs()}</defs>${m.links}
-      </svg>
-      ${m.nodes}
-    </div>
+  <div class="stage" style="width:${m.width}px;height:${m.height}px">
+    <div class="pb-world" style="width:${m.width}px;height:${m.height}px">${m.html}</div>
   </div>
 </main>
 ${legend()}
@@ -2369,12 +2785,14 @@ PB.dialog = (() => {
   <script>
 /* js/ui/interactions.js */
 /**
- * Maus-/Touch-Interaktionen auf der Arbeitsfläche:
- * Verschieben, Grösse ändern, Abhängigkeiten ziehen, Pannen, Hover, Zoom mit Strg+Mausrad.
+ * Maus-/Touch-Interaktionen auf der Zeitachse:
+ *  - Balken ziehen: waagrecht = Start, senkrecht = Prioritätsband
+ *  - rechte Kante = Dauer, gestrichelte Kante = Puffer
+ *  - Punkt am Ende (oder an einer Iterationsgrenze) ziehen = Abhängigkeit
+ *  - leere Fläche ziehen = verschieben, Doppelklick = neue Aufgabe, Strg+Mausrad = Zoom
  */
 PB.interactions = (() => {
   const C = PB.config;
-  const U = PB.util;
   const model = PB.model;
   const board = PB.board;
   const ui = PB.ui;
@@ -2400,11 +2818,15 @@ PB.interactions = (() => {
   function onPointerDown(event) {
     if (event.button !== 0 && event.button !== 1) return;
     const target = event.target;
-    const block = target.closest('.block');
-    const id = block?.dataset.id;
-    if (block && target.closest('.port')) return startLink(event, id);
-    if (block && target.closest('.rs')) return startResize(event, id);
-    if (block && event.button === 0) return startMove(event, id);
+    const bar = target.closest('.bar');
+    const id = bar?.dataset.id;
+    if (bar && event.button === 0) {
+      const port = target.closest('.port');
+      if (port) return startLink(event, id, port.dataset.iteration === undefined ? null : Number(port.dataset.iteration));
+      if (target.closest('.rs.dur')) return startResize(event, id, 'duration');
+      if (target.closest('.rs.buf')) return startResize(event, id, 'buffer');
+      return startMove(event, id);
+    }
     const link = target.closest('.link');
     if (link) return actions.select('dependency', link.dataset.dep);
     return startPan(event);
@@ -2425,7 +2847,7 @@ PB.interactions = (() => {
     window.addEventListener('pointercancel', end);
   }
 
-  /** Startet eine Geste beim ersten echten Bewegen (damit Klicks keinen Historieneintrag erzeugen). */
+  /** Geste, die erst bei echter Bewegung beginnt (Klicks erzeugen keinen Historieneintrag). */
   function gesture() {
     let started = false;
     return {
@@ -2435,60 +2857,59 @@ PB.interactions = (() => {
         started = true;
         ui.dragging = true;
         model.beginGesture();
-        board.applyHighlight();
       },
     };
   }
 
-  /* ---------- Verschieben ---------- */
+  /** Verschiebung in ganzen Arbeitstagen seit Gestenbeginn. */
+  const daysBetween = (fromX, toX) => Math.round((toX - fromX) / C.DAY_WIDTH);
+
+  /* ---------- Balken verschieben ---------- */
 
   function startMove(event, id) {
     event.preventDefault();
-    actions.select('node', id);
+    actions.select('task', id);
+    const task = model.getTask(id);
     const origin = board.toWorld(event.clientX, event.clientY);
-    // Gruppen nehmen ihren Inhalt mit
-    const moving = [id, ...model.descendantsOf(id)].map((nodeId) => {
-      const { x, y } = model.getNode(nodeId).layout;
-      return { id: nodeId, x, y };
-    });
-    const lead = moving[0];
+    const start = task.start;
     const g = gesture();
 
     track((e) => {
       const p = board.toWorld(e.clientX, e.clientY);
-      const dx = p.x - origin.x;
-      const dy = p.y - origin.y;
-      if (!g.started && Math.hypot(dx, dy) * model.getState().view.zoom < DRAG_THRESHOLD) return;
+      if (!g.started && Math.hypot(p.x - origin.x, p.y - origin.y) * model.getState().view.zoom < DRAG_THRESHOLD) return;
       g.start();
-      const offsetX = Math.max(0, U.snap(lead.x + dx)) - lead.x;
-      const offsetY = Math.max(0, U.snap(lead.y + dy)) - lead.y;
-      moving.forEach((m) => model.setLayout(m.id, { x: m.x + offsetX, y: m.y + offsetY }));
-      board.refreshLayout(moving.map((m) => m.id));
+      model.previewTask(id, {
+        start: Math.max(0, start + daysBetween(origin.x, p.x)),
+        priority: board.priorityAt(p.y),
+      });
+      actions.preview();
     }, () => {
       if (g.started) model.endGesture();
     });
   }
 
-  /* ---------- Grösse ändern ---------- */
+  /* ---------- Dauer / Puffer ändern ---------- */
 
-  function startResize(event, id) {
+  function startResize(event, id, mode) {
     event.preventDefault();
     event.stopPropagation();
-    actions.select('node', id);
-    const node = model.getNode(id);
+    actions.select('task', id);
+    const task = model.getTask(id);
     const origin = board.toWorld(event.clientX, event.clientY);
-    const start = { width: node.layout.width, height: node.layout.height };
-    const min = model.isGroup(id) ? C.MIN_SIZE.group : C.MIN_SIZE.task;
+    const lastIteration = task.iterations.length - 1;
+    const initial = {
+      duration: lastIteration >= 0 ? task.iterations[lastIteration].durationDays : task.durationDays,
+      buffer: task.bufferDays,
+    };
     const g = gesture();
 
     track((e) => {
       g.start();
-      const p = board.toWorld(e.clientX, e.clientY);
-      model.setLayout(id, {
-        width: Math.max(min.width, U.snap(start.width + p.x - origin.x)),
-        height: Math.max(min.height, U.snap(start.height + p.y - origin.y)),
-      });
-      board.refreshLayout([id]);
+      const delta = daysBetween(origin.x, board.toWorld(e.clientX, e.clientY).x);
+      if (mode === 'buffer') model.previewTask(id, { bufferDays: Math.max(0, initial.buffer + delta) });
+      else if (lastIteration >= 0) model.previewIteration(id, lastIteration, initial.duration + delta);
+      else model.previewTask(id, { durationDays: Math.max(1, initial.duration + delta) });
+      actions.preview();
     }, () => {
       if (g.started) model.endGesture();
     });
@@ -2496,7 +2917,7 @@ PB.interactions = (() => {
 
   /* ---------- Abhängigkeit ziehen ---------- */
 
-  function startLink(event, fromId) {
+  function startLink(event, fromId, iteration) {
     event.preventDefault();
     event.stopPropagation();
     ui.dragging = true;
@@ -2504,12 +2925,12 @@ PB.interactions = (() => {
     board.applyHighlight();
 
     track((e) => {
-      board.showDraftLink(fromId, board.toWorld(e.clientX, e.clientY));
+      board.showDraftLink(fromId, iteration, board.toWorld(e.clientX, e.clientY));
     }, (e) => {
       document.body.classList.remove('linking');
       board.hideDraftLink();
-      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.block');
-      if (target && target.dataset.id !== fromId) actions.addDependency(fromId, target.dataset.id);
+      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bar');
+      if (target && target.dataset.id !== fromId) actions.addDependency(fromId, target.dataset.id, iteration);
       else board.applyHighlight();
     });
   }
@@ -2535,14 +2956,19 @@ PB.interactions = (() => {
 
   function onPointerOver(event) {
     if (ui.dragging) return;
-    actions.hover(event.target.closest('.block')?.dataset.id ?? null);
+    actions.hover(event.target.closest('.bar')?.dataset.id ?? null);
   }
 
   function onDoubleClick(event) {
-    const block = event.target.closest('.block');
-    if (!block) return;
-    actions.select('node', block.dataset.id);
-    actions.focusTitle();
+    const bar = event.target.closest('.bar');
+    if (bar) {
+      actions.select('task', bar.dataset.id);
+      actions.focusTitle();
+      return;
+    }
+    const p = board.toWorld(event.clientX, event.clientY);
+    if (p.x < C.LABEL_WIDTH || p.y < C.HEADER_HEIGHT) return;
+    actions.createAt({ start: board.dayAt(p.x), priority: board.priorityAt(p.y) }, event.clientX, event.clientY);
   }
 
   function onWheel(event) {
@@ -2562,8 +2988,8 @@ PB.interactions = (() => {
 /**
  * Einstiegspunkt: verbindet Modell, Darstellung, Interaktionen und Werkzeugleiste.
  *
- * Datenfluss:  Benutzeraktion → PB.model (Änderung) → Ereignis → onModelChange()
- *              → Analyse → Board + Seitenleiste neu zeichnen → im Browser speichern.
+ * Datenfluss:  Benutzeraktion → PB.model (Änderung + Zeitplan) → Ereignis → onModelChange()
+ *              → Analyse → Zeitachse + Seitenleiste neu zeichnen → im Browser speichern.
  */
 PB.app = (() => {
   const C = PB.config;
@@ -2578,6 +3004,7 @@ PB.app = (() => {
   const $ = (selector) => document.querySelector(selector);
   let analysis = null;
   let toastTimer = null;
+  let previewFrame = null;
 
   /* ---------- Start ---------- */
 
@@ -2585,24 +3012,17 @@ PB.app = (() => {
     PB.diagramStyles.inject();
     PB.icons.hydrate();
 
-    board.init({
-      canvas: $('#canvas'),
-      sizer: $('#sizer'),
-      world: $('#world'),
-      zones: $('#zones'),
-      links: $('#links'),
-      linkLayer: $('#linkLayer'),
-      draft: $('#draftLink'),
-    });
+    board.init({ canvas: $('#canvas'), sizer: $('#sizer'), world: $('#world') });
     sidebar.init({ tabs: $('#sideTabs'), body: $('#sideBody') }, {
-      goTo, hover, addDependency, run: runAction,
+      goTo, hover, addDependency, toast, run: runAction,
     });
     PB.interactions.init({ canvas: $('#canvas'), world: $('#world') }, {
-      select, clearSelection, hover, addDependency, focusTitle, viewChanged: persist,
+      select, clearSelection, hover, addDependency, focusTitle, createAt, preview, viewChanged: persist,
     });
 
     model.subscribe(onModelChange);
     bindToolbar();
+    bindFileMenu();
     bindBoardTitle();
     bindKeyboard();
 
@@ -2612,7 +3032,8 @@ PB.app = (() => {
       board.fit();
       updateHeader();
       persist();
-      if (saved?.repairs.length) reportRepairs(saved);
+      if (saved?.migrated) reportMigration();
+      else if (saved?.repairs.length) reportRepairs(saved);
     });
   }
 
@@ -2620,15 +3041,24 @@ PB.app = (() => {
     dropStaleSelection();
     analysis = PB.analysis.analyze(model);
     board.render(analysis);
-    if (meta.source !== 'sidebar') sidebar.render(analysis);
+    sidebar.render(analysis, { silent: meta.source === 'sidebar' });
     updateHeader();
     persist();
   }
 
+  /** Live-Vorschau während des Ziehens (höchstens einmal pro Frame). */
+  function preview() {
+    if (previewFrame) return;
+    previewFrame = requestAnimationFrame(() => {
+      previewFrame = null;
+      analysis = PB.analysis.analyze(model);
+      board.render(analysis);
+    });
+  }
+
   /** Speichert im Browser; zeigt einen Hinweis, wenn das nicht möglich ist (z. B. Vorschau/Sandbox). */
   function persist() {
-    const saved = storage.saveLocal(model.getState());
-    $('#saveWarning').hidden = saved;
+    $('#saveWarning').hidden = storage.saveLocal(model.getState());
   }
 
   function reportRepairs({ repairs, backupKey }) {
@@ -2638,6 +3068,17 @@ PB.app = (() => {
       `Dein gespeichertes Board hatte kleine Fehler und wurde automatisch repariert:\n${list}${more}\n\n` +
       `Das Original ist im Browser gesichert (${backupKey}).`,
       { title: 'Board repariert' });
+  }
+
+  function reportMigration() {
+    PB.dialog.alert(
+      'Dein Board wurde auf die neue Zeitachse umgestellt:\n' +
+      '• Priorität = bisherige Position (links = hoch)\n' +
+      '• Dauer = bisheriger Aufwand (1 PT ≈ 1 Arbeitstag)\n' +
+      '• Gruppen sind jetzt Themen (farbiger Streifen)\n' +
+      '• Alles startet ab heute, Abhängigkeiten schieben automatisch nach hinten\n\n' +
+      'Das alte Board bleibt im Browser gesichert.',
+      { title: 'Neue Zeitachse' });
   }
 
   /* ---------- Auswahl & Navigation ---------- */
@@ -2659,8 +3100,8 @@ PB.app = (() => {
 
   function dropStaleSelection() {
     const { type, id } = ui.selection;
-    const exists = type === 'node' ? model.getNode(id) : type === 'dependency' ? model.getDependency(id) : true;
-    if (!exists) ui.selection = { type: null, id: null };
+    const exists = { task: model.getTask, theme: model.getTheme, dependency: model.getDependency }[type]?.(id);
+    if (type && !exists) ui.selection = { type: null, id: null };
   }
 
   function hover(id) {
@@ -2670,12 +3111,16 @@ PB.app = (() => {
   }
 
   function goTo(id) {
+    if (model.isTheme(id)) {
+      select('theme', id);
+      return;
+    }
     board.scrollTo(id);
-    select('node', id);
+    select('task', id);
   }
 
   function focusTitle() {
-    const input = $('#sideBody [data-field="title"]');
+    const input = $('#sideBody [data-field="title"], #sideBody [data-theme-field="title"]');
     if (input) {
       input.focus();
       input.select();
@@ -2684,30 +3129,60 @@ PB.app = (() => {
 
   /* ---------- Aktionen ---------- */
 
-  function addNode(kind) {
-    const position = board.viewportCenter();
-    const id = kind === 'group' ? model.addGroup(position) : model.addTask(kind, position);
-    select('node', id);
+  function addTask(kind, position) {
+    const id = model.addTask(kind, position);
+    board.scrollTo(id);
+    select('task', id);
     focusTitle();
   }
 
-  function addDependency(from, to) {
-    const result = model.addDependency(from, to);
+  /** Neue Aufgabe an der sichtbaren Stelle (Werkzeugleiste). */
+  function addTaskInView(kind) {
+    const center = board.viewportCenter();
+    addTask(kind, { start: board.dayAt(center.x), priority: board.priorityAt(center.y) });
+  }
+
+  /** Doppelklick auf freie Fläche: kleines Menü „Denken / Umsetzung“. */
+  function createAt(position, clientX, clientY) {
+    const menu = $('#createMenu');
+    menu.hidden = false;
+    menu.style.left = `${Math.min(clientX, window.innerWidth - 200)}px`;
+    menu.style.top = `${Math.min(clientY, window.innerHeight - 110)}px`;
+    menu.onclick = (event) => {
+      const button = event.target.closest('[data-kind]');
+      menu.hidden = true;
+      if (button) addTask(button.dataset.kind, position);
+    };
+  }
+
+  function addTheme() {
+    const id = model.addTheme();
+    const task = ui.selection.type === 'task' ? ui.selection.id : null;
+    if (task) model.toggleTaskTheme(task, id);
+    select('theme', id);
+    focusTitle();
+  }
+
+  function addDependency(from, to, fromIteration = null) {
+    const result = model.addDependency(from, to, fromIteration);
+    const fromTask = model.getTask(from);
+    const iteration = fromIteration !== null && fromTask?.iterations[fromIteration];
     toast(result.ok
-      ? `„${model.getNode(to).title}“ hängt jetzt von „${model.getNode(from).title}“ ab`
+      ? `„${model.getNode(to).title}“ hängt jetzt von „${model.getNode(from).title}“${iteration ? ` (bis „${iteration.title}“)` : ''} ab`
       : result.error);
   }
 
   function deleteSelection() {
     const { type, id } = ui.selection;
-    if (type === 'node') model.removeNode(id);
+    if (type === 'task') model.removeTask(id);
+    if (type === 'theme') model.removeTheme(id);
     if (type === 'dependency') model.removeDependency(id);
   }
 
   function duplicateSelection() {
-    if (ui.selection.type !== 'node' || model.isGroup(ui.selection.id)) return;
+    if (ui.selection.type !== 'task') return;
     const copy = model.duplicateTask(ui.selection.id);
-    if (copy) select('node', copy);
+    if (copy) select('task', copy);
   }
 
   function reverseSelectedDependency() {
@@ -2717,7 +3192,12 @@ PB.app = (() => {
   }
 
   function runAction(name) {
-    const handlers = { delete: deleteSelection, duplicate: duplicateSelection, 'reverse-dependency': reverseSelectedDependency };
+    const handlers = {
+      delete: deleteSelection,
+      duplicate: duplicateSelection,
+      'reverse-dependency': reverseSelectedDependency,
+      'add-theme': addTheme,
+    };
     handlers[name]?.();
   }
 
@@ -2779,7 +3259,7 @@ PB.app = (() => {
   }
 
   async function clearBoard() {
-    if (!await PB.dialog.confirm('Alle Blöcke und Abhängigkeiten entfernen?\n(Rückgängig möglich)', { okLabel: 'Leeren', danger: true })) return;
+    if (!await PB.dialog.confirm('Alle Aufgaben, Themen und Abhängigkeiten entfernen?\n(Rückgängig möglich)', { okLabel: 'Leeren', danger: true })) return;
     model.clear();
   }
 
@@ -2787,20 +3267,19 @@ PB.app = (() => {
 
   function bindToolbar() {
     const on = (selector, handler) => $(selector).addEventListener('click', handler);
-    on('#addThinking', () => addNode('thinking'));
-    on('#addImplementation', () => addNode('implementation'));
-    on('#addGroup', () => addNode('group'));
+    on('#addThinking', () => addTaskInView('thinking'));
+    on('#addImplementation', () => addTaskInView('implementation'));
+    on('#addTheme', addTheme);
     on('#undo', model.undo);
     on('#redo', model.redo);
-    on('#zoomIn', () => { board.setZoom(model.getState().view.zoom * C.ZOOM.step); updateHeader(); persist(); });
-    on('#zoomOut', () => { board.setZoom(model.getState().view.zoom / C.ZOOM.step); updateHeader(); persist(); });
-    on('#fit', () => { board.fit(); updateHeader(); persist(); });
-    on('#priorityAxis', () => {
-      model.setView({ showPriorityAxis: !model.getState().view.showPriorityAxis });
-      board.render(analysis);
+    const zoomBy = (factor) => {
+      board.setZoom(model.getState().view.zoom * factor);
       updateHeader();
       persist();
-    });
+    };
+    on('#zoomIn', () => zoomBy(C.ZOOM.step));
+    on('#zoomOut', () => zoomBy(1 / C.ZOOM.step));
+    on('#fit', () => { board.fit(); updateHeader(); persist(); });
     $('#focusMode').addEventListener('click', (event) => {
       const button = event.target.closest('button[data-focus]');
       if (!button) return;
@@ -2808,30 +3287,37 @@ PB.app = (() => {
       updateHeader();
       board.applyHighlight();
     });
-    bindFileMenu();
     on('#exportJson', exportJson);
     on('#exportHtml', exportHtml);
     on('#importJson', importBoard);
     on('#loadExample', loadExample);
+    on('#clearBoard', clearBoard);
     on('#saveWarning', () => PB.dialog.alert(
       'Diese Ansicht darf nichts im Browser speichern (z. B. eingebettete Vorschau).\n' +
       'Änderungen gehen beim Schliessen verloren. Sichere dein Board über Datei ▸ Export\n' +
       'oder öffne prio-board.html direkt im Browser (Chrome, Edge, Firefox).',
       { title: 'Nicht gespeichert' }));
-    on('#clearBoard', clearBoard);
   }
 
   function bindFileMenu() {
     const menu = $('#fileMenu');
     const button = $('#fileMenuButton');
+    const createMenu = $('#createMenu');
     const setOpen = (open) => {
       menu.classList.toggle('open', open);
       button.setAttribute('aria-expanded', String(open));
     };
     button.addEventListener('click', () => setOpen(!menu.classList.contains('open')));
     menu.querySelector('.menu-panel').addEventListener('click', () => setOpen(false));
-    document.addEventListener('pointerdown', (event) => { if (!menu.contains(event.target)) setOpen(false); });
-    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setOpen(false); });
+    document.addEventListener('pointerdown', (event) => {
+      if (!menu.contains(event.target)) setOpen(false);
+      if (!createMenu.contains(event.target)) createMenu.hidden = true;
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      createMenu.hidden = true;
+    });
   }
 
   function bindBoardTitle() {
@@ -2853,7 +3339,6 @@ PB.app = (() => {
     $('#undo').disabled = !model.canUndo();
     $('#redo').disabled = !model.canRedo();
     $('#zoomLabel').textContent = `${Math.round(view.zoom * 100)}%`;
-    $('#priorityAxis').classList.toggle('on', view.showPriorityAxis);
     document.querySelectorAll('#focusMode button').forEach((b) => b.classList.toggle('on', b.dataset.focus === ui.focusMode));
   }
 
@@ -2871,7 +3356,7 @@ PB.app = (() => {
         clearSelection();
         return;
       }
-      if (typing) return;
+      if (typing || document.querySelector('dialog[open]')) return;
       if (mod && key === 'z') { event.preventDefault(); event.shiftKey ? model.redo() : model.undo(); }
       else if (mod && key === 'y') { event.preventDefault(); model.redo(); }
       else if (mod && key === 'd') { event.preventDefault(); duplicateSelection(); }

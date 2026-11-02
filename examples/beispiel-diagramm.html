@@ -17,12 +17,13 @@
   --muted:#62738a;
   --line:#dbe3ee;
   --thinking:#009fe3;
-  --thinking-bg:#eaf7fd;
-  --thinking-line:#9bd8f3;
+  --thinking-bg:#eef8fd;
+  --thinking-fill:#d3eefb;
+  --thinking-line:#7fcdf0;
   --impl:#1f9a6b;
-  --impl-bg:#eaf7f1;
-  --impl-line:#a6dcc6;
-  --group:#8a9ab0;
+  --impl-bg:#eef8f3;
+  --impl-fill:#d2efe2;
+  --impl-line:#8fd2b4;
   --ok:#1a7f4e;
   --ok-bg:#dcf3e7;
   --wait:#9a5b00;
@@ -33,6 +34,7 @@
   --run-bg:#dcecfb;
   --link:#7f90a8;
   --link-done:#9ccfb6;
+  --risky:#e8590c;
   --up:#f29200;
   --down:#0b5cad;
   --crit:#d6336c;
@@ -54,7 +56,6 @@ body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Sour
 .page-legend span{display:inline-flex;align-items:center;gap:8px}
 .page-legend .dot{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-size:12px}
 .page-legend .dot.thinking{background:var(--thinking)} .page-legend .dot.implementation{background:var(--impl)}
-.page-legend .dot.group{border:2px dashed var(--group)}
 .page-legend .ico{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media print{
   @page{size:landscape;margin:10mm}
@@ -63,163 +64,201 @@ body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Sour
   .stage{box-shadow:none}
 }
 
-.pb-world{position:absolute;left:0;top:0;transform-origin:0 0;background-color:var(--bg);
-  background-image:radial-gradient(circle,#c9d4e2 1.1px,transparent 1.3px);background-size:20px 20px}
+.pb-world{position:absolute;left:0;top:0;transform-origin:0 0;background:var(--bg);color:var(--text)}
 .pb-world .ico{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
-/* Prioritätsachse */
-.pb-zones{position:absolute;left:0;top:0;height:100%;display:flex;pointer-events:none}
-.pb-zones .z{height:100%;border-right:1px solid #e1e8f1;position:relative}
-.pb-zones .z span{position:absolute;top:12px;left:14px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
-  padding:3px 10px;border-radius:999px;background:#fff;color:var(--ink);box-shadow:var(--shadow)}
-.pb-zones .axis{position:absolute;top:50px;left:14px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;font-weight:600}
-.pb-zones .axis i{display:block;height:3px;width:220px;border-radius:3px;background:linear-gradient(90deg,var(--navy),#c9d4e2)}
-.pb-zones.off{display:none}
+/* ---------- Raster: Wochen, Tage, Bänder ---------- */
+.pb-world .tl-week{position:absolute;top:0;border-left:1px solid #d3dce8}
+.pb-world .tl-week.alt{background:rgba(11,45,85,.025)}
+.pb-world .tl-days{position:absolute;top:50px;bottom:0;left:132px;right:0;
+  background-image:linear-gradient(90deg,rgba(11,45,85,.045) 1px,transparent 1px);background-size:28px 100%}
+.pb-world .tl-week-label{position:absolute;left:0;right:0;top:0;height:50px;padding:8px 10px;background:#fff;
+  border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;z-index:2}
+.pb-world .tl-week-label b{display:block;color:var(--ink);font-size:13px}
+.pb-world .tl-week.today .tl-week-label b{color:var(--accent)}
+.pb-world .tl-band{position:absolute;left:0;border-bottom:1px solid var(--line)}
+.pb-world .tl-band.alt{background:rgba(11,45,85,.018)}
+.pb-world .tl-band-label{position:absolute;left:0;top:0;bottom:0;width:132px;padding:14px;background:#fff;
+  border-right:1px solid var(--line);z-index:3}
+.pb-world .tl-band-label b{display:block;color:var(--ink);font-size:16px}
+.pb-world .tl-band-label span{font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.pb-world .tl-corner{position:absolute;left:0;top:0;width:132px;height:50px;background:#fff;z-index:4;
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 14px;font-size:12px;color:var(--muted);line-height:1.35}
+.pb-world .tl-corner b{color:var(--ink)}
+.pb-world .tl-today{position:absolute;top:50px;bottom:0;left:132px;width:2px;background:var(--accent);z-index:1}
 
-/* Blöcke */
-.block{position:absolute;border-radius:var(--radius)}
-.block.task{z-index:1000;background:#fff;box-shadow:var(--shadow);border:1.5px solid var(--line)}
-.block.task::before{content:"";position:absolute;left:-1.5px;top:-1.5px;bottom:-1.5px;width:6px;border-radius:var(--radius) 0 0 var(--radius)}
-.block.task.thinking{background:var(--thinking-bg);border-color:var(--thinking-line)}
-.block.task.thinking::before{background:var(--thinking)}
-.block.task.implementation{background:var(--impl-bg);border-color:var(--impl-line)}
-.block.task.implementation::before{background:var(--impl)}
-.block.group{border:2px dashed var(--group);background:rgba(255,255,255,.55)}
-.block.st-done{opacity:.55}
-.block.st-done .title{text-decoration:line-through}
-.inner{position:absolute;inset:0;padding:12px 14px 30px 14px;overflow:hidden;border-radius:calc(var(--radius) - 2px)}
-.thead{display:flex;align-items:center;gap:10px;margin-bottom:4px;padding-right:34px}
-.tico{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;flex:none;font-size:20px}
-.thinking .tico{background:var(--thinking);box-shadow:0 0 0 4px rgba(0,159,227,.18)}
-.implementation .tico{background:var(--impl);box-shadow:0 0 0 4px rgba(31,154,107,.16)}
-.tkind{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
-.thinking .tkind{color:var(--thinking)}
-.implementation .tkind{color:var(--impl)}
-.title{font-weight:700;font-size:16px;color:var(--ink);line-height:1.25;word-break:break-word}
-.notes{margin:4px 0 0;padding-left:18px;font-size:13.5px;color:var(--text)}
-.notes li::marker{color:var(--muted)}
-.desc{font-size:13px;color:var(--muted);margin-top:4px;white-space:pre-wrap;word-break:break-word}
-.foot{position:absolute;left:14px;right:10px;bottom:7px;display:flex;gap:6px;align-items:center;font-size:12px;white-space:nowrap;overflow:hidden}
-.badge{padding:1px 8px;border-radius:999px;font-weight:700}
-.badge.ready{background:var(--ok-bg);color:var(--ok)}
-.badge.waiting{background:var(--wait-bg);color:var(--wait)}
-.badge.cycle{background:var(--bad-bg);color:var(--bad)}
-.badge.in_progress{background:var(--run-bg);color:var(--run)}
-.badge.done{background:#e3e8ef;color:#4e5d70}
-.meta{color:var(--muted)}
-.wave{position:absolute;top:10px;right:10px;font-size:11.5px;font-weight:700;color:#fff;background:var(--navy);border-radius:999px;padding:1px 8px}
+/* ---------- Balken ---------- */
+.pb-world .bar{position:absolute;z-index:10;border-radius:10px;border:1.5px solid;box-shadow:var(--shadow)}
+.pb-world .bar.thinking{border-color:var(--thinking-line);background:var(--thinking-fill)}
+.pb-world .bar.implementation{border-color:var(--impl-line);background:var(--impl-fill)}
+.pb-world .bar.thinking.int-background{background:repeating-linear-gradient(-45deg,var(--thinking-bg) 0 7px,var(--thinking-fill) 7px 14px)}
+.pb-world .bar.implementation.int-background{background:repeating-linear-gradient(-45deg,var(--impl-bg) 0 7px,var(--impl-fill) 7px 14px)}
+.pb-world .bar.st-done{opacity:.5}
+.pb-world .bar.st-done .title{text-decoration:line-through}
+.pb-world .bar-body{position:absolute;inset:0;display:flex;gap:8px;align-items:flex-start;padding:7px 9px;overflow:hidden;border-radius:9px}
+.pb-world .bar.has-iterations .bar-body{bottom:16px}
+.pb-world .tico{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;flex:none;font-size:15px}
+.pb-world .thinking .tico{background:var(--thinking);box-shadow:0 0 0 3px rgba(0,159,227,.18)}
+.pb-world .implementation .tico{background:var(--impl);box-shadow:0 0 0 3px rgba(31,154,107,.16)}
+.pb-world .bar-text{min-width:0}
+.pb-world .bar .title{font-weight:700;font-size:14px;color:var(--ink);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb-world .bar .meta{display:flex;gap:6px;align-items:center;margin-top:2px;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.pb-world .bar.narrow .bar-body{overflow:visible;padding-left:0;padding-right:0;justify-content:center}
+.pb-world .bar.narrow .bar-text{position:absolute;left:calc(100% + var(--buf) + 10px);top:7px;max-width:174px}
+.pb-world .lev{font-weight:700;color:var(--ink)}
+.pb-world .badge{padding:0 7px;border-radius:999px;font-weight:700}
+.pb-world .badge.ready{background:var(--ok-bg);color:var(--ok)}
+.pb-world .badge.waiting{background:var(--wait-bg);color:var(--wait)}
+.pb-world .badge.cycle{background:var(--bad-bg);color:var(--bad)}
+.pb-world .badge.in_progress{background:var(--run-bg);color:var(--run)}
+.pb-world .badge.done{background:#e3e8ef;color:#4e5d70}
 
-/* Gruppen */
-.ghead{position:absolute;left:14px;top:-15px;display:flex;gap:8px;align-items:center;background:var(--navy);color:#fff;
-  border-radius:999px;padding:3px 12px;max-width:calc(100% - 28px);white-space:nowrap;overflow:hidden;box-shadow:var(--shadow)}
-.gtitle{font-weight:700;overflow:hidden;text-overflow:ellipsis}
-.gmeta{font-size:12px;opacity:.75}
-.gdesc{position:absolute;left:16px;bottom:8px;right:16px;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Themen-Streifen */
+.pb-world .bar-themes{position:absolute;left:10px;right:10px;top:-5px;height:5px;display:flex;gap:2px;z-index:2}
+.pb-world .bar-themes span{flex:1;border-radius:3px}
 
-/* Pfeile */
-.pb-links{position:absolute;left:0;top:0;z-index:500;pointer-events:none;overflow:visible}
-.pb-links .vis{fill:none;stroke:var(--link);stroke-width:2.2;marker-end:url(#m-def)}
-.pb-links .link.done .vis{stroke:var(--link-done);stroke-dasharray:5 4;marker-end:url(#m-done)}
-.pb-links .link.bad .vis{stroke:var(--bad);marker-end:url(#m-bad)}
+/* Iterationen */
+.pb-world .bar-iterations{position:absolute;left:0;right:0;bottom:0;height:16px;display:flex;overflow:hidden;border-radius:0 0 9px 9px;
+  border-top:1px solid rgba(11,45,85,.1)}
+.pb-world .iter-seg{flex:none;height:100%;border-right:2px solid #fff;padding:0 6px;font-size:10.5px;font-weight:700;line-height:15px;
+  color:var(--thinking);background:rgba(0,159,227,.12);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb-world .iter-seg:last-child{border-right:0}
+.pb-world .iter-seg.done{background:var(--thinking);color:#fff}
+
+/* Puffer (Unsicherheit) und laufendes Denken */
+.pb-world .bar-buffer{position:absolute;left:100%;top:7px;bottom:7px;border-radius:0 8px 8px 0;border:1.5px dashed;border-left:0}
+.pb-world .thinking .bar-buffer{border-color:var(--thinking-line);background:linear-gradient(90deg,rgba(0,159,227,.22),rgba(0,159,227,.04))}
+.pb-world .implementation .bar-buffer{border-color:var(--impl-line);background:linear-gradient(90deg,rgba(31,154,107,.22),rgba(31,154,107,.04))}
+.pb-world .bar-ongoing{position:absolute;left:calc(100% + var(--buf));top:12px;bottom:12px;border-radius:0 8px 8px 0;
+  background:linear-gradient(90deg,rgba(0,159,227,.3),rgba(0,159,227,0))}
+.pb-world .bar-ongoing span{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11.5px;font-weight:700;color:var(--thinking);white-space:nowrap}
+
+/* ---------- Pfeile ---------- */
+.pb-world .pb-links{position:absolute;left:0;top:0;z-index:5;pointer-events:none;overflow:visible}
+.pb-world .pb-links .hit{fill:none;stroke:transparent;stroke-width:14}
+.pb-world .pb-links .vis{fill:none;stroke:var(--link);stroke-width:2;marker-end:url(#m-def)}
+.pb-world .pb-links .link.via-theme .vis{stroke-dasharray:2 4}
+.pb-world .pb-links .link.done .vis{stroke:var(--link-done);stroke-dasharray:5 4;marker-end:url(#m-done)}
+.pb-world .pb-links .link.risky .vis{stroke:var(--risky);stroke-width:2.4;marker-end:url(#m-risky)}
+.pb-world .pb-links .link.bad .vis{stroke:var(--bad);marker-end:url(#m-bad)}
 
 </style>
 </head>
 <body>
-<header class="page-head"><h1>IT-Priorisierung</h1><p>Stand 02.11.2026 · 8 Aufgaben · 4 startbar · 0 erledigt · kritischer Pfad 16 PT</p></header>
+<header class="page-head"><h1>IT-Priorisierung</h1><p>Stand 02.11.2026 · 9 Aufgaben · 3 startbar · 0 erledigt · Plan-Ende KW 52 (21.12.)</p></header>
 <main class="stage-wrap">
-  <div class="stage" style="width:2280px;height:940px">
-    <div class="pb-world" style="left:0px;top:0px;width:2640px;height:1400px">
-      <div class="pb-zones"><div class="z" style="width:480px"><span>Prio 1 · sehr hoch</span></div><div class="z" style="width:480px"><span>Prio 2 · hoch</span></div><div class="z" style="width:480px"><span>Prio 3 · mittel</span></div><div class="z" style="width:480px"><span>Prio 4 · tief</span></div><div class="z" style="width:480px"><span>Prio 5 · sehr tief</span></div><div class="axis">Priorität hoch <i></i> tief</div></div>
-      <svg class="pb-links" width="2640" height="1400" xmlns="http://www.w3.org/2000/svg">
-        <defs><marker id="m-def" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--link)"/></marker><marker id="m-done" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--link-done)"/></marker><marker id="m-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--bad)"/></marker><marker id="m-up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--up)"/></marker><marker id="m-down" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--down)"/></marker><marker id="m-crit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--crit)"/></marker><marker id="m-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sel)"/></marker></defs><g class="link" data-dep="d-harness"><path class="vis" d="M1520,270 C1560,270 1518,270 1558,270"/></g><g class="link" data-dep="d-prozess"><path class="vis" d="M1520,510 C1560,510 1518,510 1558,510"/></g><g class="link" data-dep="d-ui-skalierung"><path class="vis" d="M1860,740 C1860,691 1380,691 1380,642"/></g><g class="link" data-dep="d-lz-skalierung"><path class="vis" d="M1170,740 C1170,691 1380,691 1380,642"/></g>
-      </svg>
-      <div class="block group" data-id="g-skalierung" style="left:920px;top:120px;width:920px;height:520px;z-index:10"><div class="ghead"><span class="gtitle">Skalierung – Abhängigkeitsblock</span>
-        <span class="gmeta">0/4 fertig</span></div>
-      <div class="gdesc">Harness und Prozessdaten können parallel laufen</div></div><div class="block task implementation st-open" data-id="t-quickwin-monitoring" style="left:100px;top:180px;width:300px;height:140px"><div class="inner">
-      <span class="wave" title="Welle 1">W1</span>
-      <div class="thead">
-        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
-        <div><div class="tkind">Umsetzung</div><div class="title">Quick Win: Monitoring-Alerts anpassen</div></div>
-      </div>
+  <div class="stage" style="width:1812px;height:830px">
+    <div class="pb-world" style="width:1812px;height:830px"><div class="tl-days"></div><div class="tl-week today" style="left:132px;width:140px;height:830px">
+        <div class="tl-week-label"><b>Heute · KW 45</b>2.11.</div></div><div class="tl-week alt" style="left:272px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 46</b>9.11.</div></div><div class="tl-week" style="left:412px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 47</b>16.11.</div></div><div class="tl-week alt" style="left:552px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 48</b>23.11.</div></div><div class="tl-week" style="left:692px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 49</b>30.11.</div></div><div class="tl-week alt" style="left:832px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 50</b>7.12.</div></div><div class="tl-week" style="left:972px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 51</b>14.12.</div></div><div class="tl-week alt" style="left:1112px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 52</b>21.12.</div></div><div class="tl-week" style="left:1252px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 53</b>28.12.</div></div><div class="tl-week alt" style="left:1392px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 1</b>4.1.</div></div><div class="tl-week" style="left:1532px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 2</b>11.1.</div></div><div class="tl-week alt" style="left:1672px;width:140px;height:830px">
+        <div class="tl-week-label"><b>KW 3</b>18.1.</div></div><div class="tl-band" style="top:50px;height:156px;width:1812px">
+        <div class="tl-band-label"><b>Prio 1</b><span>sehr hoch</span></div></div><div class="tl-band alt" style="top:206px;height:226px;width:1812px">
+        <div class="tl-band-label"><b>Prio 2</b><span>hoch</span></div></div><div class="tl-band" style="top:432px;height:226px;width:1812px">
+        <div class="tl-band-label"><b>Prio 3</b><span>mittel</span></div></div><div class="tl-band alt" style="top:658px;height:86px;width:1812px">
+        <div class="tl-band-label"><b>Prio 4</b><span>tief</span></div></div><div class="tl-band" style="top:744px;height:86px;width:1812px">
+        <div class="tl-band-label"><b>Prio 5</b><span>sehr tief</span></div></div>
+      <div class="tl-corner"><b>Prio ↓</b><br>Zeit →</div><div class="tl-today"></div>
+      <svg class="pb-links" width="1812" height="830" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="m-def" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--link)"/></marker><marker id="m-done" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--link-done)"/></marker><marker id="m-risky" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--risky)"/></marker><marker id="m-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--bad)"/></marker><marker id="m-up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--up)"/></marker><marker id="m-down" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--down)"/></marker><marker id="m-crit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--crit)"/></marker><marker id="m-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sel)"/></marker></defs><g class="link via-theme" data-dep="d-ui-skalierung" data-from="t-ui-zielarchitektur" data-to="t-denken-prozessdaten">
+        <path class="hit" d="M412,184 C442,184 382,319 410,319"/><path class="vis" d="M412,184 C442,184 382,319 410,319"/></g><g class="link via-theme" data-dep="d-ui-skalierung" data-from="t-ui-zielarchitektur" data-to="t-denken-harness">
+        <path class="hit" d="M412,184 C442,184 382,475 410,475"/><path class="vis" d="M412,184 C442,184 382,475 410,475"/></g><g class="link via-theme risky" data-dep="d-lz-skalierung" data-from="t-lz" data-to="t-denken-prozessdaten">
+        <path class="hit" d="M412,249 C442,249 382,319 410,319"/><path class="vis" d="M412,249 C442,249 382,319 410,319"/></g><g class="link via-theme risky" data-dep="d-lz-skalierung" data-from="t-lz" data-to="t-denken-harness">
+        <path class="hit" d="M412,249 C442,249 382,475 410,475"/><path class="vis" d="M412,249 C442,249 382,475 410,475"/></g><g class="link" data-dep="d-prozess-level1" data-from="t-denken-prozessdaten" data-to="t-umsetzung-level1">
+        <path class="hit" d="M552,340 C582,340 522,389 550,389"/><path class="vis" d="M552,340 C582,340 522,389 550,389"/></g><g class="link" data-dep="d-prozess-komplett" data-from="t-denken-prozessdaten" data-to="t-umsetzung-prozess">
+        <path class="hit" d="M832,319 C862,319 802,615 830,615"/><path class="vis" d="M832,319 C862,319 802,615 830,615"/></g><g class="link risky" data-dep="d-harness" data-from="t-denken-harness" data-to="t-umsetzung-harness">
+        <path class="hit" d="M692,475 C722,475 662,545 690,545"/><path class="vis" d="M692,475 C722,475 662,545 690,545"/></g><g class="link" data-dep="d-quickwin-logging" data-from="t-quickwin-monitoring" data-to="t-logging">
+        <path class="hit" d="M188,93 C218,93 158,701 186,701"/><path class="vis" d="M188,93 C218,93 158,701 186,701"/></g></svg>
+      <div class="bar implementation int-focused st-open narrow" data-id="t-quickwin-monitoring" style="left:132px;top:64px;width:56px;height:58px;--buf:0px" title="Quick Win: Monitoring-Alerts anpassen
+02.11.2026 – 04.11.2026
+Keine Abhängigkeit – sofort machbar">
       
-      <div class="desc">Keine Abhängigkeit – sofort machbar</div>
-      <div class="foot"><span class="badge ready">▶ startbar</span><span class="meta">1 PT</span><span class="meta">· Prio 1</span></div>
-    </div></div><div class="block task implementation st-open" data-id="t-logging" style="left:120px;top:400px;width:260px;height:140px"><div class="inner">
-      <span class="wave" title="Welle 1">W1</span>
-      <div class="thead">
-        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
-        <div><div class="tkind">Umsetzung</div><div class="title">Logging vereinheitlichen</div></div>
-      </div>
-      
-      
-      <div class="foot"><span class="badge ready">▶ startbar</span><span class="meta">2 PT</span><span class="meta">· Prio 1</span></div>
-    </div></div><div class="block task thinking st-open" data-id="t-denken-harness" style="left:980px;top:180px;width:540px;height:180px"><div class="inner">
-      <span class="wave" title="Welle 2">W2</span>
-      <div class="thead">
-        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
-        <div><div class="tkind">Denken · Analyse</div><div class="title">Denken Harness</div></div>
-      </div>
-      <ul class="notes"><li>Skills</li><li>Workflow</li><li>Sprache</li></ul>
-      <div class="desc">Wie soll der Harness aufgebaut sein?</div>
-      <div class="foot"><span class="badge waiting">⏸ wartet auf 2</span><span class="meta">5 PT</span><span class="meta">· Prio 3</span></div>
-    </div></div><div class="block task implementation st-open" data-id="t-umsetzung-harness" style="left:1560px;top:180px;width:240px;height:180px"><div class="inner">
-      <span class="wave" title="Welle 3">W3</span>
-      <div class="thead">
-        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
-        <div><div class="tkind">Umsetzung</div><div class="title">Umsetzung Harness</div></div>
-      </div>
+      <div class="bar-body"><span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+        <div class="bar-text"><div class="title">Quick Win: Monitoring-Alerts anpassen</div><div class="meta"><span class="badge ready">▶ startbar</span><span>2 T</span><span class="lev" title="Gibt 1 Umsetzung(en) frei">🔓 1</span></div></div></div>
       
       
-      <div class="foot"><span class="badge waiting">⏸ wartet auf 3</span><span class="meta">3 PT</span><span class="meta">· Prio 4</span></div>
-    </div></div><div class="block task thinking st-open" data-id="t-denken-prozessdaten" style="left:980px;top:420px;width:540px;height:180px"><div class="inner">
-      <span class="wave" title="Welle 2">W2</span>
-      <div class="thead">
-        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
-        <div><div class="tkind">Denken · Analyse</div><div class="title">Denken Prozessdaten</div></div>
-      </div>
-      <ul class="notes"><li>Level 1</li><li>Level 2</li><li>Auswerten</li></ul>
+    </div><div class="bar thinking int-background st-open has-iterations ongoing" data-id="t-ui-zielarchitektur" style="left:132px;top:134px;width:420px;height:58px;--buf:0px" title="UI-Zielarchitektur
+02.11.2026 – 23.11.2026
+Fundament: Zielbild der UI-Architektur – wird laufend weiterentwickelt">
+      <div class="bar-ongoing" style="width:1260px" title="Läuft danach weiter"><span>∞ laufend</span></div>
+      <div class="bar-body"><span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
+        <div class="bar-text"><div class="title">UI-Zielarchitektur</div><div class="meta"><span class="badge ready">▶ startbar</span><span>3 Wo</span><span class="lev" title="Gibt 3 Umsetzung(en) frei">🔓 3</span></div></div></div>
+      <div class="bar-iterations"><div class="iter-seg" style="width:280px" title="Zielbild · 2 Wo">Zielbild</div><div class="iter-seg" style="width:140px" title="Leitplanken · 1 Wo">Leitplanken</div></div>
       
-      <div class="foot"><span class="badge waiting">⏸ wartet auf 2</span><span class="meta">5 PT</span><span class="meta">· Prio 3</span></div>
-    </div></div><div class="block task implementation st-open" data-id="t-umsetzung-prozess" style="left:1560px;top:420px;width:240px;height:180px"><div class="inner">
-      <span class="wave" title="Welle 3">W3</span>
-      <div class="thead">
-        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
-        <div><div class="tkind">Umsetzung</div><div class="title">Umsetzung Prozess</div></div>
-      </div>
+    </div><div class="bar thinking int-focused st-open" data-id="t-lz" style="left:132px;top:220px;width:280px;height:58px;--buf:140px" title="LZ
+02.11.2026 – 16.11.2026
+Grundlage für den Skalierungsblock">
+      <div class="bar-buffer" style="width:140px" title="Puffer 1 Wo"></div>
+      <div class="bar-body"><span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
+        <div class="bar-text"><div class="title">LZ</div><div class="meta"><span class="badge ready">▶ startbar</span><span>2 Wo (bis 3 Wo)</span><span class="lev" title="Gibt 3 Umsetzung(en) frei">🔓 3</span></div></div></div>
       
       
-      <div class="foot"><span class="badge waiting">⏸ wartet auf 3</span><span class="meta">3 PT</span><span class="meta">· Prio 4</span></div>
-    </div></div><div class="block task thinking st-open" data-id="t-lz" style="left:920px;top:740px;width:500px;height:160px"><div class="inner">
-      <span class="wave" title="Welle 1">W1</span>
-      <div class="thead">
-        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
-        <div><div class="tkind">Denken · Analyse</div><div class="title">LZ</div></div>
-      </div>
+    </div><div class="bar thinking int-background st-open has-iterations" data-id="t-denken-prozessdaten" style="left:412px;top:290px;width:420px;height:58px;--buf:0px" title="Denken Prozessdaten
+16.11.2026 – 07.12.2026">
+      <div class="bar-themes"><span style="background:#7b5ea7" title="Thema: Skalierung"></span></div>
+      <div class="bar-body"><span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
+        <div class="bar-text"><div class="title">Denken Prozessdaten</div><div class="meta"><span class="badge waiting">⏸ wartet auf 2</span><span>3 Wo</span><span class="lev" title="Gibt 2 Umsetzung(en) frei">🔓 2</span></div></div></div>
+      <div class="bar-iterations"><div class="iter-seg" style="width:140px" title="Level 1 · 1 Wo">Level 1</div><div class="iter-seg" style="width:140px" title="Level 2 · 1 Wo">Level 2</div><div class="iter-seg" style="width:140px" title="Auswerten · 1 Wo">Auswerten</div></div>
       
-      <div class="desc">Grundlage für den Skalierungsblock</div>
-      <div class="foot"><span class="badge ready">▶ startbar</span><span class="meta">4 PT</span><span class="meta">· Prio 3</span></div>
-    </div></div><div class="block task thinking st-open" data-id="t-ui-zielarchitektur" style="left:1480px;top:740px;width:760px;height:160px"><div class="inner">
-      <span class="wave" title="Welle 1">W1</span>
-      <div class="thead">
-        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
-        <div><div class="tkind">Denken · Analyse</div><div class="title">UI-Zielarchitektur</div></div>
-      </div>
+    </div><div class="bar implementation int-focused st-open narrow" data-id="t-umsetzung-level1" style="left:552px;top:360px;width:140px;height:58px;--buf:0px" title="Umsetzung Prozess Level 1
+23.11.2026 – 30.11.2026">
+      <div class="bar-themes"><span style="background:#7b5ea7" title="Thema: Skalierung"></span></div>
+      <div class="bar-body"><span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+        <div class="bar-text"><div class="title">Umsetzung Prozess Level 1</div><div class="meta"><span class="badge waiting">⏸ wartet auf 3</span><span>1 Wo</span></div></div></div>
       
-      <div class="desc">Fundament: Zielbild der UI-Architektur</div>
-      <div class="foot"><span class="badge ready">▶ startbar</span><span class="meta">8 PT</span><span class="meta">· Prio 4</span></div>
+      
+    </div><div class="bar implementation int-focused st-open" data-id="t-umsetzung-prozess" style="left:832px;top:586px;width:280px;height:58px;--buf:140px" title="Umsetzung Prozess komplett
+07.12.2026 – 21.12.2026">
+      <div class="bar-themes"><span style="background:#7b5ea7" title="Thema: Skalierung"></span></div><div class="bar-buffer" style="width:140px" title="Puffer 1 Wo"></div>
+      <div class="bar-body"><span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+        <div class="bar-text"><div class="title">Umsetzung Prozess komplett</div><div class="meta"><span class="badge waiting">⏸ wartet auf 3</span><span>2 Wo (bis 3 Wo)</span></div></div></div>
+      
+      
+    </div><div class="bar thinking int-focused st-open" data-id="t-denken-harness" style="left:412px;top:446px;width:280px;height:58px;--buf:140px" title="Denken Harness
+16.11.2026 – 30.11.2026
+• Skills
+• Workflow
+• Sprache
+Wie soll der Harness aufgebaut sein?">
+      <div class="bar-themes"><span style="background:#7b5ea7" title="Thema: Skalierung"></span></div><div class="bar-buffer" style="width:140px" title="Puffer 1 Wo"></div>
+      <div class="bar-body"><span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
+        <div class="bar-text"><div class="title">Denken Harness</div><div class="meta"><span class="badge waiting">⏸ wartet auf 2</span><span>2 Wo (bis 3 Wo)</span><span class="lev" title="Gibt 1 Umsetzung(en) frei">🔓 1</span></div></div></div>
+      
+      
+    </div><div class="bar implementation int-focused st-open" data-id="t-umsetzung-harness" style="left:692px;top:516px;width:280px;height:58px;--buf:0px" title="Umsetzung Harness
+30.11.2026 – 14.12.2026">
+      <div class="bar-themes"><span style="background:#7b5ea7" title="Thema: Skalierung"></span></div>
+      <div class="bar-body"><span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+        <div class="bar-text"><div class="title">Umsetzung Harness</div><div class="meta"><span class="badge waiting">⏸ wartet auf 3</span><span>2 Wo</span></div></div></div>
+      
+      
+    </div><div class="bar implementation int-focused st-open narrow" data-id="t-logging" style="left:188px;top:672px;width:140px;height:58px;--buf:0px" title="Logging vereinheitlichen
+04.11.2026 – 11.11.2026">
+      
+      <div class="bar-body"><span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+        <div class="bar-text"><div class="title">Logging vereinheitlichen</div><div class="meta"><span class="badge waiting">⏸ wartet auf 1</span><span>1 Wo</span></div></div></div>
+      
+      
     </div></div>
-    </div>
   </div>
 </main>
 <footer class="page-legend">
       <span><span class="dot thinking"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>Denken – Analyse, braucht Zeit</span>
       <span><span class="dot implementation"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>Umsetzung – direkt machbar</span>
-      <span><span class="dot group"></span>Gruppe / Abhängigkeitsblock</span>
-      <span>A → B: A muss vor B fertig sein</span>
-      <span>W1, W2 …: Wellen – gleiche Welle = parallel möglich</span>
-      <span>Priorität: links hoch, rechts tief</span>
+      <span>Länge = Dauer · gestrichelt = Puffer · ∞ = läuft weiter</span>
+      <span>Voll = intensiv · schraffiert = nebenbei / reift</span>
+      <span>🔓 n = gibt n Umsetzungen frei</span>
+      <span>A → B: A muss vor B fertig sein · orange = riskant</span>
     </footer>
-<script type="application/json" id="prio-board-data">{"format":"prio-board","version":1,"exportedAt":"2026-11-02T08:55:03.018Z","board":{"title":"IT-Priorisierung"},"view":{"zoom":0.47368421052631576,"showPriorityAxis":true},"groups":[{"id":"g-skalierung","title":"Skalierung – Abhängigkeitsblock","description":"Harness und Prozessdaten können parallel laufen","layout":{"x":920,"y":120,"width":920,"height":520}}],"tasks":[{"id":"t-quickwin-monitoring","kind":"implementation","title":"Quick Win: Monitoring-Alerts anpassen","description":"Keine Abhängigkeit – sofort machbar","notes":[],"status":"open","effortDays":1,"layout":{"x":100,"y":180,"width":300,"height":140}},{"id":"t-logging","kind":"implementation","title":"Logging vereinheitlichen","description":"","notes":[],"status":"open","effortDays":2,"layout":{"x":120,"y":400,"width":260,"height":140}},{"id":"t-denken-harness","kind":"thinking","title":"Denken Harness","description":"Wie soll der Harness aufgebaut sein?","notes":["Skills","Workflow","Sprache"],"status":"open","effortDays":5,"layout":{"x":980,"y":180,"width":540,"height":180}},{"id":"t-umsetzung-harness","kind":"implementation","title":"Umsetzung Harness","description":"","notes":[],"status":"open","effortDays":3,"layout":{"x":1560,"y":180,"width":240,"height":180}},{"id":"t-denken-prozessdaten","kind":"thinking","title":"Denken Prozessdaten","description":"","notes":["Level 1","Level 2","Auswerten"],"status":"open","effortDays":5,"layout":{"x":980,"y":420,"width":540,"height":180}},{"id":"t-umsetzung-prozess","kind":"implementation","title":"Umsetzung Prozess","description":"","notes":[],"status":"open","effortDays":3,"layout":{"x":1560,"y":420,"width":240,"height":180}},{"id":"t-lz","kind":"thinking","title":"LZ","description":"Grundlage für den Skalierungsblock","notes":[],"status":"open","effortDays":4,"layout":{"x":920,"y":740,"width":500,"height":160}},{"id":"t-ui-zielarchitektur","kind":"thinking","title":"UI-Zielarchitektur","description":"Fundament: Zielbild der UI-Architektur","notes":[],"status":"open","effortDays":8,"layout":{"x":1480,"y":740,"width":760,"height":160}}],"dependencies":[{"id":"d-harness","from":"t-denken-harness","to":"t-umsetzung-harness"},{"id":"d-prozess","from":"t-denken-prozessdaten","to":"t-umsetzung-prozess"},{"id":"d-ui-skalierung","from":"t-ui-zielarchitektur","to":"g-skalierung"},{"id":"d-lz-skalierung","from":"t-lz","to":"g-skalierung"}],"analysis":{"note":"Beim Export berechnet – wird beim Import ignoriert.","tasks":{"t-quickwin-monitoring":{"priority":1,"group":null,"wave":1,"state":"ready","blockedBy":[]},"t-logging":{"priority":1,"group":null,"wave":1,"state":"ready","blockedBy":[]},"t-denken-harness":{"priority":3,"group":"g-skalierung","wave":2,"state":"waiting","blockedBy":["t-ui-zielarchitektur","t-lz"]},"t-umsetzung-harness":{"priority":4,"group":"g-skalierung","wave":3,"state":"waiting","blockedBy":["t-denken-harness","t-ui-zielarchitektur","t-lz"]},"t-denken-prozessdaten":{"priority":3,"group":"g-skalierung","wave":2,"state":"waiting","blockedBy":["t-ui-zielarchitektur","t-lz"]},"t-umsetzung-prozess":{"priority":4,"group":"g-skalierung","wave":3,"state":"waiting","blockedBy":["t-denken-prozessdaten","t-ui-zielarchitektur","t-lz"]},"t-lz":{"priority":3,"group":null,"wave":1,"state":"ready","blockedBy":[]},"t-ui-zielarchitektur":{"priority":4,"group":null,"wave":1,"state":"ready","blockedBy":[]}},"waves":[["t-quickwin-monitoring","t-logging","t-lz","t-ui-zielarchitektur"],["t-denken-harness","t-denken-prozessdaten"],["t-umsetzung-harness","t-umsetzung-prozess"]],"criticalPath":{"tasks":["t-ui-zielarchitektur","t-denken-harness","t-umsetzung-harness"],"effortDays":16}}}</script>
+<script type="application/json" id="prio-board-data">{"format":"prio-board","version":2,"exportedAt":"2026-11-02T12:11:56.023Z","board":{"title":"IT-Priorisierung"},"view":{"zoom":0.9686746987951808},"themes":[{"id":"th-skalierung","title":"Skalierung","color":"#7b5ea7"}],"tasks":[{"id":"t-quickwin-monitoring","kind":"implementation","title":"Quick Win: Monitoring-Alerts anpassen","description":"Keine Abhängigkeit – sofort machbar","notes":[],"status":"open","priority":1,"start":"2026-11-02","durationDays":2,"bufferDays":0,"intensity":"focused","ongoing":false,"iterations":[],"themes":[]},{"id":"t-ui-zielarchitektur","kind":"thinking","title":"UI-Zielarchitektur","description":"Fundament: Zielbild der UI-Architektur – wird laufend weiterentwickelt","notes":[],"status":"open","priority":1,"start":"2026-11-02","durationDays":15,"bufferDays":0,"intensity":"background","ongoing":true,"iterations":[{"title":"Zielbild","durationDays":10,"done":false},{"title":"Leitplanken","durationDays":5,"done":false}],"themes":[]},{"id":"t-lz","kind":"thinking","title":"LZ","description":"Grundlage für den Skalierungsblock","notes":[],"status":"open","priority":2,"start":"2026-11-02","durationDays":10,"bufferDays":5,"intensity":"focused","ongoing":false,"iterations":[],"themes":[]},{"id":"t-denken-prozessdaten","kind":"thinking","title":"Denken Prozessdaten","description":"","notes":[],"status":"open","priority":2,"start":"2026-11-16","durationDays":10,"bufferDays":0,"intensity":"background","ongoing":false,"iterations":[{"title":"Level 1","durationDays":5,"done":false},{"title":"Level 2","durationDays":5,"done":false},{"title":"Auswerten","durationDays":5,"done":false}],"themes":["th-skalierung"]},{"id":"t-umsetzung-level1","kind":"implementation","title":"Umsetzung Prozess Level 1","description":"","notes":[],"status":"open","priority":2,"start":"2026-11-23","durationDays":5,"bufferDays":0,"intensity":"focused","ongoing":false,"iterations":[],"themes":["th-skalierung"]},{"id":"t-umsetzung-prozess","kind":"implementation","title":"Umsetzung Prozess komplett","description":"","notes":[],"status":"open","priority":3,"start":"2026-12-07","durationDays":10,"bufferDays":5,"intensity":"focused","ongoing":false,"iterations":[],"themes":["th-skalierung"]},{"id":"t-denken-harness","kind":"thinking","title":"Denken Harness","description":"Wie soll der Harness aufgebaut sein?","notes":["Skills","Workflow","Sprache"],"status":"open","priority":3,"start":"2026-11-16","durationDays":10,"bufferDays":5,"intensity":"focused","ongoing":false,"iterations":[],"themes":["th-skalierung"]},{"id":"t-umsetzung-harness","kind":"implementation","title":"Umsetzung Harness","description":"","notes":[],"status":"open","priority":3,"start":"2026-11-30","durationDays":10,"bufferDays":0,"intensity":"focused","ongoing":false,"iterations":[],"themes":["th-skalierung"]},{"id":"t-logging","kind":"implementation","title":"Logging vereinheitlichen","description":"","notes":[],"status":"open","priority":4,"start":"2026-11-04","durationDays":5,"bufferDays":0,"intensity":"focused","ongoing":false,"iterations":[],"themes":[]}],"dependencies":[{"id":"d-ui-skalierung","from":"t-ui-zielarchitektur","to":"th-skalierung","fromIteration":0},{"id":"d-lz-skalierung","from":"t-lz","to":"th-skalierung","fromIteration":null},{"id":"d-prozess-level1","from":"t-denken-prozessdaten","to":"t-umsetzung-level1","fromIteration":0},{"id":"d-prozess-komplett","from":"t-denken-prozessdaten","to":"t-umsetzung-prozess","fromIteration":null},{"id":"d-harness","from":"t-denken-harness","to":"t-umsetzung-harness","fromIteration":null},{"id":"d-quickwin-logging","from":"t-quickwin-monitoring","to":"t-logging","fromIteration":null}],"analysis":{"note":"Beim Export berechnet – wird beim Import ignoriert.","planEnd":"2026-12-21","tasks":{"t-quickwin-monitoring":{"end":"2026-11-04","durationDays":2,"wave":1,"state":"ready","leverage":1,"blockedBy":[]},"t-ui-zielarchitektur":{"end":"2026-11-23","durationDays":15,"wave":1,"state":"ready","leverage":3,"blockedBy":[]},"t-lz":{"end":"2026-11-16","durationDays":10,"wave":1,"state":"ready","leverage":3,"blockedBy":[]},"t-denken-prozessdaten":{"end":"2026-12-07","durationDays":15,"wave":2,"state":"waiting","leverage":2,"blockedBy":["t-ui-zielarchitektur","t-lz"]},"t-umsetzung-level1":{"end":"2026-11-30","durationDays":5,"wave":3,"state":"waiting","leverage":0,"blockedBy":["t-ui-zielarchitektur","t-lz","t-denken-prozessdaten"]},"t-umsetzung-prozess":{"end":"2026-12-21","durationDays":10,"wave":3,"state":"waiting","leverage":0,"blockedBy":["t-ui-zielarchitektur","t-lz","t-denken-prozessdaten"]},"t-denken-harness":{"end":"2026-11-30","durationDays":10,"wave":2,"state":"waiting","leverage":1,"blockedBy":["t-ui-zielarchitektur","t-lz"]},"t-umsetzung-harness":{"end":"2026-12-14","durationDays":10,"wave":3,"state":"waiting","leverage":0,"blockedBy":["t-ui-zielarchitektur","t-lz","t-denken-harness"]},"t-logging":{"end":"2026-11-11","durationDays":5,"wave":2,"state":"waiting","leverage":0,"blockedBy":["t-quickwin-monitoring"]}},"waves":[["t-quickwin-monitoring","t-ui-zielarchitektur","t-lz"],["t-denken-prozessdaten","t-denken-harness","t-logging"],["t-umsetzung-level1","t-umsetzung-harness","t-umsetzung-prozess"]],"importantThinking":["t-ui-zielarchitektur","t-denken-prozessdaten","t-lz","t-denken-harness"],"criticalPath":{"tasks":["t-ui-zielarchitektur","t-denken-prozessdaten","t-umsetzung-prozess"],"durationDays":40}}}</script>
 <script>(function(){
   var wrap=document.querySelector('.stage-wrap'),stage=document.querySelector('.stage');
   var w=stage.offsetWidth,h=stage.offsetHeight;

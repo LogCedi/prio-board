@@ -3,7 +3,7 @@
  * Wird von Renderern gelesen und von app.js geändert.
  */
 PB.ui = {
-  /** { type: 'node' | 'dependency' | null, id } */
+  /** { type: 'task' | 'theme' | 'dependency' | null, id } */
   selection: { type: null, id: null },
   hoverId: null,
   tab: 'plan',            // 'details' | 'plan' | 'help'

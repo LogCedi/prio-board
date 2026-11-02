@@ -1,10 +1,12 @@
 /**
- * Maus-/Touch-Interaktionen auf der Arbeitsfläche:
- * Verschieben, Grösse ändern, Abhängigkeiten ziehen, Pannen, Hover, Zoom mit Strg+Mausrad.
+ * Maus-/Touch-Interaktionen auf der Zeitachse:
+ *  - Balken ziehen: waagrecht = Start, senkrecht = Prioritätsband
+ *  - rechte Kante = Dauer, gestrichelte Kante = Puffer
+ *  - Punkt am Ende (oder an einer Iterationsgrenze) ziehen = Abhängigkeit
+ *  - leere Fläche ziehen = verschieben, Doppelklick = neue Aufgabe, Strg+Mausrad = Zoom
  */
 PB.interactions = (() => {
   const C = PB.config;
-  const U = PB.util;
   const model = PB.model;
   const board = PB.board;
   const ui = PB.ui;
@@ -30,11 +32,15 @@ PB.interactions = (() => {
   function onPointerDown(event) {
     if (event.button !== 0 && event.button !== 1) return;
     const target = event.target;
-    const block = target.closest('.block');
-    const id = block?.dataset.id;
-    if (block && target.closest('.port')) return startLink(event, id);
-    if (block && target.closest('.rs')) return startResize(event, id);
-    if (block && event.button === 0) return startMove(event, id);
+    const bar = target.closest('.bar');
+    const id = bar?.dataset.id;
+    if (bar && event.button === 0) {
+      const port = target.closest('.port');
+      if (port) return startLink(event, id, port.dataset.iteration === undefined ? null : Number(port.dataset.iteration));
+      if (target.closest('.rs.dur')) return startResize(event, id, 'duration');
+      if (target.closest('.rs.buf')) return startResize(event, id, 'buffer');
+      return startMove(event, id);
+    }
     const link = target.closest('.link');
     if (link) return actions.select('dependency', link.dataset.dep);
     return startPan(event);
@@ -55,7 +61,7 @@ PB.interactions = (() => {
     window.addEventListener('pointercancel', end);
   }
 
-  /** Startet eine Geste beim ersten echten Bewegen (damit Klicks keinen Historieneintrag erzeugen). */
+  /** Geste, die erst bei echter Bewegung beginnt (Klicks erzeugen keinen Historieneintrag). */
   function gesture() {
     let started = false;
     return {
@@ -65,60 +71,59 @@ PB.interactions = (() => {
         started = true;
         ui.dragging = true;
         model.beginGesture();
-        board.applyHighlight();
       },
     };
   }
 
-  /* ---------- Verschieben ---------- */
+  /** Verschiebung in ganzen Arbeitstagen seit Gestenbeginn. */
+  const daysBetween = (fromX, toX) => Math.round((toX - fromX) / C.DAY_WIDTH);
+
+  /* ---------- Balken verschieben ---------- */
 
   function startMove(event, id) {
     event.preventDefault();
-    actions.select('node', id);
+    actions.select('task', id);
+    const task = model.getTask(id);
     const origin = board.toWorld(event.clientX, event.clientY);
-    // Gruppen nehmen ihren Inhalt mit
-    const moving = [id, ...model.descendantsOf(id)].map((nodeId) => {
-      const { x, y } = model.getNode(nodeId).layout;
-      return { id: nodeId, x, y };
-    });
-    const lead = moving[0];
+    const start = task.start;
     const g = gesture();
 
     track((e) => {
       const p = board.toWorld(e.clientX, e.clientY);
-      const dx = p.x - origin.x;
-      const dy = p.y - origin.y;
-      if (!g.started && Math.hypot(dx, dy) * model.getState().view.zoom < DRAG_THRESHOLD) return;
+      if (!g.started && Math.hypot(p.x - origin.x, p.y - origin.y) * model.getState().view.zoom < DRAG_THRESHOLD) return;
       g.start();
-      const offsetX = Math.max(0, U.snap(lead.x + dx)) - lead.x;
-      const offsetY = Math.max(0, U.snap(lead.y + dy)) - lead.y;
-      moving.forEach((m) => model.setLayout(m.id, { x: m.x + offsetX, y: m.y + offsetY }));
-      board.refreshLayout(moving.map((m) => m.id));
+      model.previewTask(id, {
+        start: Math.max(0, start + daysBetween(origin.x, p.x)),
+        priority: board.priorityAt(p.y),
+      });
+      actions.preview();
     }, () => {
       if (g.started) model.endGesture();
     });
   }
 
-  /* ---------- Grösse ändern ---------- */
+  /* ---------- Dauer / Puffer ändern ---------- */
 
-  function startResize(event, id) {
+  function startResize(event, id, mode) {
     event.preventDefault();
     event.stopPropagation();
-    actions.select('node', id);
-    const node = model.getNode(id);
+    actions.select('task', id);
+    const task = model.getTask(id);
     const origin = board.toWorld(event.clientX, event.clientY);
-    const start = { width: node.layout.width, height: node.layout.height };
-    const min = model.isGroup(id) ? C.MIN_SIZE.group : C.MIN_SIZE.task;
+    const lastIteration = task.iterations.length - 1;
+    const initial = {
+      duration: lastIteration >= 0 ? task.iterations[lastIteration].durationDays : task.durationDays,
+      buffer: task.bufferDays,
+    };
     const g = gesture();
 
     track((e) => {
       g.start();
-      const p = board.toWorld(e.clientX, e.clientY);
-      model.setLayout(id, {
-        width: Math.max(min.width, U.snap(start.width + p.x - origin.x)),
-        height: Math.max(min.height, U.snap(start.height + p.y - origin.y)),
-      });
-      board.refreshLayout([id]);
+      const delta = daysBetween(origin.x, board.toWorld(e.clientX, e.clientY).x);
+      if (mode === 'buffer') model.previewTask(id, { bufferDays: Math.max(0, initial.buffer + delta) });
+      else if (lastIteration >= 0) model.previewIteration(id, lastIteration, initial.duration + delta);
+      else model.previewTask(id, { durationDays: Math.max(1, initial.duration + delta) });
+      actions.preview();
     }, () => {
       if (g.started) model.endGesture();
     });
@@ -126,7 +131,7 @@ PB.interactions = (() => {
 
   /* ---------- Abhängigkeit ziehen ---------- */
 
-  function startLink(event, fromId) {
+  function startLink(event, fromId, iteration) {
     event.preventDefault();
     event.stopPropagation();
     ui.dragging = true;
@@ -134,12 +139,12 @@ PB.interactions = (() => {
     board.applyHighlight();
 
     track((e) => {
-      board.showDraftLink(fromId, board.toWorld(e.clientX, e.clientY));
+      board.showDraftLink(fromId, iteration, board.toWorld(e.clientX, e.clientY));
     }, (e) => {
       document.body.classList.remove('linking');
       board.hideDraftLink();
-      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.block');
-      if (target && target.dataset.id !== fromId) actions.addDependency(fromId, target.dataset.id);
+      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bar');
+      if (target && target.dataset.id !== fromId) actions.addDependency(fromId, target.dataset.id, iteration);
       else board.applyHighlight();
     });
   }
@@ -165,14 +170,19 @@ PB.interactions = (() => {
 
   function onPointerOver(event) {
     if (ui.dragging) return;
-    actions.hover(event.target.closest('.block')?.dataset.id ?? null);
+    actions.hover(event.target.closest('.bar')?.dataset.id ?? null);
   }
 
   function onDoubleClick(event) {
-    const block = event.target.closest('.block');
-    if (!block) return;
-    actions.select('node', block.dataset.id);
-    actions.focusTitle();
+    const bar = event.target.closest('.bar');
+    if (bar) {
+      actions.select('task', bar.dataset.id);
+      actions.focusTitle();
+      return;
+    }
+    const p = board.toWorld(event.clientX, event.clientY);
+    if (p.x < C.LABEL_WIDTH || p.y < C.HEADER_HEIGHT) return;
+    actions.createAt({ start: board.dayAt(p.x), priority: board.priorityAt(p.y) }, event.clientX, event.clientY);
   }
 
   function onWheel(event) {

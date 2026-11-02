@@ -1,23 +1,29 @@
 /**
- * JSON-Dateiformat „prio-board“ (Version 1) – Export, Import, Validierung, Migration.
+ * JSON-Dateiformat „prio-board“ (Version 2) – Export, Import, Validierung, Migration.
  * Beschreibung: schema/prio-board.schema.json und README.md.
  *
  *   {
- *     "format": "prio-board", "version": 1, "exportedAt": "…",
- *     "board": { "title": "…" },
- *     "view": { "zoom": 1, "showPriorityAxis": true },
- *     "groups": [ { "id", "title", "description", "layout": { "x", "y", "width", "height" } } ],
- *     "tasks": [ { "id", "kind": "thinking|implementation", "title", "description",
- *                  "notes": ["…"], "status": "open|in_progress|done", "effortDays": 3, "layout": {…} } ],
- *     "dependencies": [ { "id", "from", "to" } ],      // from muss vor to fertig sein
- *     "analysis": { … }                                 // nur Export, wird beim Import ignoriert
+ *     "format": "prio-board", "version": 2, "exportedAt": "…",
+ *     "board": { "title": "…" }, "view": { "zoom": 1 },
+ *     "themes": [ { "id", "title", "color": "#rrggbb" } ],
+ *     "tasks": [ { "id", "kind": "thinking|implementation", "title", "description", "notes": [],
+ *                  "status": "open|in_progress|done", "priority": 1-5, "start": "YYYY-MM-DD",
+ *                  "durationDays", "bufferDays", "intensity": "focused|background", "ongoing",
+ *                  "iterations": [ { "title", "durationDays", "done" } ], "themes": [themeId] } ],
+ *     "dependencies": [ { "id", "from", "to", "fromIteration": null | index } ],
+ *     "analysis": { … }   // nur Export, wird beim Import ignoriert
  *   }
+ *
+ * Ältere Stände werden migriert: v1 (freies Board mit Gruppen) und die ersten internen
+ * Speicherstände ({ blocks, deps }).
  */
 PB.format = (() => {
   const C = PB.config;
   const U = PB.util;
+  const CAL = PB.calendar;
   const KINDS = ['thinking', 'implementation'];
   const STATUSES = ['open', 'in_progress', 'done'];
+  const INTENSITIES = ['focused', 'background'];
 
   class FormatError extends Error {
     constructor(problems) {
@@ -27,13 +33,13 @@ PB.format = (() => {
     }
   }
 
-  /* ---------- Export ---------- */
-
-  const layoutOut = (l) => ({ x: l.x, y: l.y, width: l.width, height: l.height });
+  /* =====================================================================
+   * Export
+   * ===================================================================== */
 
   /**
-   * Zustand → Dokument. Mit { model, analysis } wird zusätzlich ein
-   * berechneter "analysis"-Block angehängt (für Auswertungen ausserhalb des Tools).
+   * Zustand → Dokument. Mit { model, analysis } wird zusätzlich ein berechneter
+   * "analysis"-Block angehängt (für Auswertungen ausserhalb des Tools).
    */
   function serialize(state, { model, analysis, exportedAt = new Date().toISOString() } = {}) {
     const doc = {
@@ -41,13 +47,8 @@ PB.format = (() => {
       version: C.FORMAT.version,
       exportedAt,
       board: { title: state.board.title },
-      view: { zoom: state.view.zoom, showPriorityAxis: state.view.showPriorityAxis },
-      groups: state.groups.map((g) => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        layout: layoutOut(g.layout),
-      })),
+      view: { zoom: state.view.zoom },
+      themes: state.themes.map((t) => ({ id: t.id, title: t.title, color: t.color })),
       tasks: state.tasks.map((t) => ({
         id: t.id,
         kind: t.kind,
@@ -55,10 +56,16 @@ PB.format = (() => {
         description: t.description,
         notes: [...t.notes],
         status: t.status,
-        effortDays: t.effortDays ?? null,
-        layout: layoutOut(t.layout),
+        priority: t.priority,
+        start: CAL.isoOf(t.start),
+        durationDays: t.durationDays,
+        bufferDays: t.bufferDays,
+        intensity: t.intensity,
+        ongoing: t.ongoing,
+        iterations: t.iterations.map((it) => ({ title: it.title, durationDays: it.durationDays, done: it.done })),
+        themes: [...t.themes],
       })),
-      dependencies: state.dependencies.map((d) => ({ id: d.id, from: d.from, to: d.to })),
+      dependencies: state.dependencies.map((d) => ({ id: d.id, from: d.from, to: d.to, fromIteration: d.fromIteration })),
     };
     if (model && analysis) doc.analysis = buildAnalysis(state, model, analysis);
     return doc;
@@ -67,24 +74,29 @@ PB.format = (() => {
   function buildAnalysis(state, model, a) {
     return {
       note: 'Beim Export berechnet – wird beim Import ignoriert.',
+      planEnd: CAL.isoOf(a.planEnd),
       tasks: Object.fromEntries(state.tasks.map((t) => [t.id, {
-        priority: a.priorityOf(t.id),
-        group: model.parentOf(t.id),
+        end: CAL.isoOf(model.endOf(t)),
+        durationDays: model.durationOf(t),
         wave: a.wave.get(t.id) ?? null,
         state: a.stateOf(t.id),
+        leverage: a.leverage.get(t.id),
         blockedBy: a.openPredecessors(t.id),
       }])),
       waves: a.waves,
-      criticalPath: { tasks: a.criticalPath, effortDays: a.criticalEffort },
+      importantThinking: a.importantThinking,
+      criticalPath: { tasks: a.criticalPath, durationDays: a.criticalDays },
     };
   }
 
-  /* ---------- Import ---------- */
+  /* =====================================================================
+   * Import
+   * ===================================================================== */
 
   /**
    * String oder Objekt → normalisierter Zustand.
    * Standard (Import): streng – wirft FormatError mit allen Problemen.
-   * { repair: true } (eigener gespeicherter Stand): repariert stattdessen, was geht
+   * { repair: true } (eigener gespeicherter Stand): repariert, was geht
    *   (ungültige Werte → Standardwerte, kaputte Pfeile entfernt, doppelte IDs umbenannt)
    *   und meldet jede Reparatur über onWarning(message).
    */
@@ -98,6 +110,7 @@ PB.format = (() => {
       }
     }
     if (isLegacy(raw)) raw = migrateLegacy(raw);
+    if (raw?.format === C.FORMAT.name && raw.version === 1) raw = migrateV1(raw);
     return normalize(raw, { repair, onWarning });
   }
 
@@ -107,12 +120,11 @@ PB.format = (() => {
     // Grundstruktur ist nie reparierbar
     const fatal = [];
     if (raw.format !== C.FORMAT.name) fatal.push(`"format" muss "${C.FORMAT.name}" sein`);
-    if (!Number.isInteger(raw.version) || raw.version < 1 || raw.version > C.FORMAT.version) {
-      fatal.push(`"version" ${JSON.stringify(raw.version)} wird nicht unterstützt (1–${C.FORMAT.version})`);
-    }
-    for (const key of ['groups', 'tasks', 'dependencies']) {
+    if (raw.version !== C.FORMAT.version) fatal.push(`"version" ${JSON.stringify(raw.version)} wird nicht unterstützt (1–${C.FORMAT.version})`);
+    for (const key of ['tasks', 'dependencies']) {
       if (!Array.isArray(raw[key])) fatal.push(`"${key}" muss eine Liste sein`);
     }
+    if (raw.themes !== undefined && !Array.isArray(raw.themes)) fatal.push('"themes" muss eine Liste sein');
     if (fatal.length) throw new FormatError(fatal);
 
     // Alles Weitere: im Reparaturmodus Hinweis + Standardwert, sonst Fehler
@@ -120,71 +132,80 @@ PB.format = (() => {
     const report = (message) => (repair ? onWarning(message) : problems.push(message));
     const text = (v) => (typeof v === 'string' ? v : '');
 
-    const nodeIds = new Set();
+    const ids = new Set();
     const readId = (id, where) => {
       if (typeof id !== 'string' || !id.trim()) {
         report(`${where}: "id" fehlt`);
         id = U.uid('n');
-      } else if (nodeIds.has(id)) {
+      } else if (ids.has(id)) {
         report(`${where}: doppelte id "${id}"`);
         id = U.uid('n');
       }
-      nodeIds.add(id);
+      ids.add(id);
       return id;
     };
-    const DEFAULT_LAYOUT = { x: 0, y: 0, width: 240, height: 130 };
-    const readLayout = (l, where) => {
-      const out = {};
-      for (const k of ['x', 'y', 'width', 'height']) {
-        let v = Number(l?.[k]);
-        const invalid = !Number.isFinite(v) || ((k === 'width' || k === 'height') && v <= 0);
-        if (invalid) {
-          report(`${where}: "layout.${k}" fehlt oder ist ungültig`);
-          v = DEFAULT_LAYOUT[k];
-        }
-        out[k] = v;
+    /** Ganze Zahl in [min, max]; fehlend → fallback, ungültig → Problem + fallback. */
+    const readInt = (value, where, field, { min, max = Infinity, fallback }) => {
+      if (value === undefined || value === null || value === '') return fallback;
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < min || n > max) {
+        report(`${where}: "${field}" muss eine Zahl zwischen ${min} und ${max === Infinity ? '∞' : max} sein`);
+        return fallback;
       }
-      return out;
+      return Math.round(n);
+    };
+    const readEnum = (value, allowed, where, field, fallback) => {
+      if (value === undefined) return fallback;
+      if (allowed.includes(value)) return value;
+      report(`${where}: "${field}" muss ${allowed.map((a) => `"${a}"`).join(' oder ')} sein`);
+      return fallback;
     };
 
-    const groups = raw.groups.map((g, i) => {
-      const where = `groups[${i}]`;
-      return {
-        id: readId(g?.id, where),
-        title: text(g?.title) || 'Gruppe',
-        description: text(g?.description),
-        layout: readLayout(g?.layout, where),
-      };
+    const themes = (raw.themes || []).map((th, i) => {
+      const where = `themes[${i}]`;
+      const color = /^#[0-9a-f]{6}$/i.test(th?.color) ? th.color : C.THEME_COLORS[i % C.THEME_COLORS.length];
+      return { id: readId(th?.id, where), title: text(th?.title) || 'Thema', color };
     });
+    const themeIds = new Set(themes.map((t) => t.id));
 
     const tasks = raw.tasks.map((t, i) => {
       const where = `tasks[${i}]`;
-      let kind = t?.kind;
-      if (!KINDS.includes(kind)) {
-        report(`${where}: "kind" muss "thinking" oder "implementation" sein`);
-        kind = 'thinking';
+      const kind = readEnum(t?.kind, KINDS, where, 'kind', 'thinking');
+      let start = t?.start === undefined ? 0 : CAL.dayOf(t.start);
+      if (start === null) {
+        report(`${where}: "start" muss ein Datum im Format JJJJ-MM-TT sein`);
+        start = 0;
       }
-      let status = t?.status ?? 'open';
-      if (!STATUSES.includes(status)) {
-        report(`${where}: unbekannter "status" "${status}"`);
-        status = 'open';
-      }
-      let effort = t?.effortDays === null || t?.effortDays === undefined || t?.effortDays === '' ? null : Number(t.effortDays);
-      if (effort !== null && !(effort >= 0)) {
-        report(`${where}: "effortDays" muss eine Zahl ≥ 0 oder null sein`);
-        effort = null;
-      }
+      const iterations = kind === 'thinking' && Array.isArray(t?.iterations)
+        ? t.iterations.map((it, j) => ({
+          title: text(it?.title) || `Iteration ${j + 1}`,
+          durationDays: readInt(it?.durationDays, `${where}.iterations[${j}]`, 'durationDays', { min: 1, fallback: 5 }),
+          done: it?.done === true,
+        }))
+        : [];
+      const taskThemes = Array.isArray(t?.themes) ? t.themes.filter((id) => {
+        if (themeIds.has(id)) return true;
+        report(`${where}: unbekanntes Thema "${id}"${repair ? ' – entfernt' : ''}`);
+        return false;
+      }) : [];
       return {
         id: readId(t?.id, where),
         kind,
         title: text(t?.title) || 'Ohne Titel',
         description: text(t?.description),
         notes: Array.isArray(t?.notes) ? t.notes.filter((n) => typeof n === 'string' && n.trim()) : [],
-        status,
-        effortDays: effort,
-        layout: readLayout(t?.layout, where),
+        status: readEnum(t?.status, STATUSES, where, 'status', 'open'),
+        priority: readInt(t?.priority, where, 'priority', { min: 1, max: C.PRIORITY_LEVELS, fallback: 3 }),
+        start,
+        durationDays: readInt(t?.durationDays, where, 'durationDays', { min: 1, fallback: C.DEFAULT_DURATION[kind] }),
+        bufferDays: readInt(t?.bufferDays, where, 'bufferDays', { min: 0, fallback: 0 }),
+        intensity: readEnum(t?.intensity, INTENSITIES, where, 'intensity', 'focused'),
+        ongoing: kind === 'thinking' && t?.ongoing === true,
+        iterations,
+        themes: [...new Set(taskThemes)],
       };
     });
+    const taskById = new Map(tasks.map((t) => [t.id, t]));
 
     const dependencies = [];
     const depIds = new Set();
@@ -192,8 +213,8 @@ PB.format = (() => {
     raw.dependencies.forEach((d, i) => {
       const where = `dependencies[${i}]`;
       const broken = [];
-      if (!nodeIds.has(d?.from)) broken.push(`"from" verweist auf unbekannte id "${d?.from}"`);
-      if (!nodeIds.has(d?.to)) broken.push(`"to" verweist auf unbekannte id "${d?.to}"`);
+      if (!ids.has(d?.from)) broken.push(`"from" verweist auf unbekannte id "${d?.from}"`);
+      if (!ids.has(d?.to)) broken.push(`"to" verweist auf unbekannte id "${d?.to}"`);
       if (d?.from === d?.to) broken.push('"from" und "to" sind identisch');
       if (broken.length) {
         broken.forEach((b) => report(`${where}: ${b}${repair ? ' – entfernt' : ''}`));
@@ -204,48 +225,87 @@ PB.format = (() => {
       pairs.add(pair);
       const id = typeof d.id === 'string' && d.id && !depIds.has(d.id) ? d.id : U.uid('d');
       depIds.add(id);
-      dependencies.push({ id, from: d.from, to: d.to });
+      const index = Number.isInteger(d.fromIteration) ? d.fromIteration : null;
+      const fromIteration = index !== null && taskById.get(d.from)?.iterations[index] ? index : null;
+      if (index !== null && fromIteration === null) report(`${where}: "fromIteration" ${index} existiert nicht`);
+      dependencies.push({ id, from: d.from, to: d.to, fromIteration });
     });
 
     if (problems.length) throw new FormatError(problems);
 
     return {
       board: { title: text(raw.board?.title).trim() || 'Prio-Board' },
-      view: {
-        zoom: U.clamp(Number(raw.view?.zoom) || 1, C.ZOOM.min, C.ZOOM.max),
-        showPriorityAxis: raw.view?.showPriorityAxis !== false,
-      },
-      groups,
+      view: { zoom: U.clamp(Number(raw.view?.zoom) || 1, C.ZOOM.min, C.ZOOM.max) },
+      themes,
       tasks,
       dependencies,
     };
   }
 
-  /* ---------- Migration älterer Stände ---------- */
+  /* =====================================================================
+   * Migration älterer Stände
+   * ===================================================================== */
+
+  const V1_ZONE_WIDTH = 480;
+
+  /**
+   * v1 (freies Board) → v2 (Zeitplan):
+   *  - Priorität aus der x-Spalte (480 px je Stufe, links = hoch)
+   *  - Dauer aus effortDays (1 PT ≈ 1 Arbeitstag)
+   *  - Gruppen → Themen (Mitglied aller Gruppen, die den Mittelpunkt umschliessen)
+   *  - Start: heute; der Zeitplan schiebt danach entlang der Abhängigkeiten
+   */
+  function migrateV1(v1) {
+    const groups = Array.isArray(v1.groups) ? v1.groups : [];
+    const tasks = Array.isArray(v1.tasks) ? v1.tasks : [];
+    const groupsAround = (layout) => {
+      if (!layout) return [];
+      const c = U.center(layout);
+      return groups
+        .filter((g) => g.layout && U.area(g.layout) > U.area(layout) && U.containsPoint(g.layout, c))
+        .map((g) => g.id);
+    };
+    const priorityOf = (layout) => (layout
+      ? U.clamp(Math.floor((layout.x + layout.width / 2) / V1_ZONE_WIDTH) + 1, 1, C.PRIORITY_LEVELS)
+      : 3);
+    return {
+      format: C.FORMAT.name,
+      version: 2,
+      board: v1.board,
+      view: { zoom: v1.view?.zoom ?? 1 },
+      themes: groups.map((g, i) => ({ id: g.id, title: g.title, color: C.THEME_COLORS[i % C.THEME_COLORS.length] })),
+      tasks: tasks.map((t) => ({
+        id: t.id,
+        kind: t.kind,
+        title: t.title,
+        description: t.description,
+        notes: t.notes,
+        status: t.status,
+        priority: priorityOf(t.layout),
+        durationDays: Math.max(1, Math.round(Number(t.effortDays) || C.DEFAULT_DURATION[t.kind] || 5)),
+        bufferDays: 0,
+        themes: groupsAround(t.layout),
+      })),
+      dependencies: Array.isArray(v1.dependencies) ? v1.dependencies.map((d) => ({ id: d.id, from: d.from, to: d.to })) : [],
+    };
+  }
 
   /** Interner Speicherstand der ersten Versionen: { blocks: [...], deps: [...] } */
   const isLegacy = (o) => o && !o.format && Array.isArray(o.blocks) && Array.isArray(o.deps);
 
-  /** mirror=true: Version mit „hohe Priorität rechts“ → horizontal spiegeln. */
+  /** Erste Versionen → v1. mirror=true: Version mit „hohe Priorität rechts“ → horizontal spiegeln. */
   function migrateLegacy(old, { mirror = false } = {}) {
     const KIND = { denken: 'thinking', umsetzung: 'implementation' };
     const STATUS = { offen: 'open', laeuft: 'in_progress', fertig: 'done' };
-    const axisWidth = C.ZONE_WIDTH * C.PRIORITY_LEVELS;
-    const layoutOf = (b) => ({
-      x: mirror ? Math.max(0, axisWidth - b.x - b.w) : b.x,
-      y: b.y,
-      width: b.w,
-      height: b.h,
-    });
+    const axisWidth = V1_ZONE_WIDTH * C.PRIORITY_LEVELS;
+    const layoutOf = (b) => ({ x: mirror ? Math.max(0, axisWidth - b.x - b.w) : b.x, y: b.y, width: b.w, height: b.h });
     const isGroupBlock = (b) => b.type === 'gruppe';
     return {
       format: C.FORMAT.name,
-      version: C.FORMAT.version,
+      version: 1,
       board: { title: 'Prio-Board' },
-      view: { zoom: old.view?.scale ?? 1, showPriorityAxis: old.view?.prio !== false },
-      groups: old.blocks.filter(isGroupBlock).map((b) => ({
-        id: b.id, title: b.title, description: b.desc || '', layout: layoutOf(b),
-      })),
+      view: { zoom: old.view?.scale ?? 1 },
+      groups: old.blocks.filter(isGroupBlock).map((b) => ({ id: b.id, title: b.title, description: b.desc || '', layout: layoutOf(b) })),
       tasks: old.blocks.filter((b) => !isGroupBlock(b)).map((b) => ({
         id: b.id,
         kind: KIND[b.type] || 'thinking',

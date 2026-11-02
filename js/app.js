@@ -1,8 +1,8 @@
 /**
  * Einstiegspunkt: verbindet Modell, Darstellung, Interaktionen und Werkzeugleiste.
  *
- * Datenfluss:  Benutzeraktion → PB.model (Änderung) → Ereignis → onModelChange()
- *              → Analyse → Board + Seitenleiste neu zeichnen → im Browser speichern.
+ * Datenfluss:  Benutzeraktion → PB.model (Änderung + Zeitplan) → Ereignis → onModelChange()
+ *              → Analyse → Zeitachse + Seitenleiste neu zeichnen → im Browser speichern.
  */
 PB.app = (() => {
   const C = PB.config;
@@ -17,6 +17,7 @@ PB.app = (() => {
   const $ = (selector) => document.querySelector(selector);
   let analysis = null;
   let toastTimer = null;
+  let previewFrame = null;
 
   /* ---------- Start ---------- */
 
@@ -24,24 +25,17 @@ PB.app = (() => {
     PB.diagramStyles.inject();
     PB.icons.hydrate();
 
-    board.init({
-      canvas: $('#canvas'),
-      sizer: $('#sizer'),
-      world: $('#world'),
-      zones: $('#zones'),
-      links: $('#links'),
-      linkLayer: $('#linkLayer'),
-      draft: $('#draftLink'),
-    });
+    board.init({ canvas: $('#canvas'), sizer: $('#sizer'), world: $('#world') });
     sidebar.init({ tabs: $('#sideTabs'), body: $('#sideBody') }, {
-      goTo, hover, addDependency, run: runAction,
+      goTo, hover, addDependency, toast, run: runAction,
     });
     PB.interactions.init({ canvas: $('#canvas'), world: $('#world') }, {
-      select, clearSelection, hover, addDependency, focusTitle, viewChanged: persist,
+      select, clearSelection, hover, addDependency, focusTitle, createAt, preview, viewChanged: persist,
     });
 
     model.subscribe(onModelChange);
     bindToolbar();
+    bindFileMenu();
     bindBoardTitle();
     bindKeyboard();
 
@@ -51,7 +45,8 @@ PB.app = (() => {
       board.fit();
       updateHeader();
       persist();
-      if (saved?.repairs.length) reportRepairs(saved);
+      if (saved?.migrated) reportMigration();
+      else if (saved?.repairs.length) reportRepairs(saved);
     });
   }
 
@@ -59,15 +54,24 @@ PB.app = (() => {
     dropStaleSelection();
     analysis = PB.analysis.analyze(model);
     board.render(analysis);
-    if (meta.source !== 'sidebar') sidebar.render(analysis);
+    sidebar.render(analysis, { silent: meta.source === 'sidebar' });
     updateHeader();
     persist();
   }
 
+  /** Live-Vorschau während des Ziehens (höchstens einmal pro Frame). */
+  function preview() {
+    if (previewFrame) return;
+    previewFrame = requestAnimationFrame(() => {
+      previewFrame = null;
+      analysis = PB.analysis.analyze(model);
+      board.render(analysis);
+    });
+  }
+
   /** Speichert im Browser; zeigt einen Hinweis, wenn das nicht möglich ist (z. B. Vorschau/Sandbox). */
   function persist() {
-    const saved = storage.saveLocal(model.getState());
-    $('#saveWarning').hidden = saved;
+    $('#saveWarning').hidden = storage.saveLocal(model.getState());
   }
 
   function reportRepairs({ repairs, backupKey }) {
@@ -77,6 +81,17 @@ PB.app = (() => {
       `Dein gespeichertes Board hatte kleine Fehler und wurde automatisch repariert:\n${list}${more}\n\n` +
       `Das Original ist im Browser gesichert (${backupKey}).`,
       { title: 'Board repariert' });
+  }
+
+  function reportMigration() {
+    PB.dialog.alert(
+      'Dein Board wurde auf die neue Zeitachse umgestellt:\n' +
+      '• Priorität = bisherige Position (links = hoch)\n' +
+      '• Dauer = bisheriger Aufwand (1 PT ≈ 1 Arbeitstag)\n' +
+      '• Gruppen sind jetzt Themen (farbiger Streifen)\n' +
+      '• Alles startet ab heute, Abhängigkeiten schieben automatisch nach hinten\n\n' +
+      'Das alte Board bleibt im Browser gesichert.',
+      { title: 'Neue Zeitachse' });
   }
 
   /* ---------- Auswahl & Navigation ---------- */
@@ -98,8 +113,8 @@ PB.app = (() => {
 
   function dropStaleSelection() {
     const { type, id } = ui.selection;
-    const exists = type === 'node' ? model.getNode(id) : type === 'dependency' ? model.getDependency(id) : true;
-    if (!exists) ui.selection = { type: null, id: null };
+    const exists = { task: model.getTask, theme: model.getTheme, dependency: model.getDependency }[type]?.(id);
+    if (type && !exists) ui.selection = { type: null, id: null };
   }
 
   function hover(id) {
@@ -109,12 +124,16 @@ PB.app = (() => {
   }
 
   function goTo(id) {
+    if (model.isTheme(id)) {
+      select('theme', id);
+      return;
+    }
     board.scrollTo(id);
-    select('node', id);
+    select('task', id);
   }
 
   function focusTitle() {
-    const input = $('#sideBody [data-field="title"]');
+    const input = $('#sideBody [data-field="title"], #sideBody [data-theme-field="title"]');
     if (input) {
       input.focus();
       input.select();
@@ -123,30 +142,60 @@ PB.app = (() => {
 
   /* ---------- Aktionen ---------- */
 
-  function addNode(kind) {
-    const position = board.viewportCenter();
-    const id = kind === 'group' ? model.addGroup(position) : model.addTask(kind, position);
-    select('node', id);
+  function addTask(kind, position) {
+    const id = model.addTask(kind, position);
+    board.scrollTo(id);
+    select('task', id);
     focusTitle();
   }
 
-  function addDependency(from, to) {
-    const result = model.addDependency(from, to);
+  /** Neue Aufgabe an der sichtbaren Stelle (Werkzeugleiste). */
+  function addTaskInView(kind) {
+    const center = board.viewportCenter();
+    addTask(kind, { start: board.dayAt(center.x), priority: board.priorityAt(center.y) });
+  }
+
+  /** Doppelklick auf freie Fläche: kleines Menü „Denken / Umsetzung“. */
+  function createAt(position, clientX, clientY) {
+    const menu = $('#createMenu');
+    menu.hidden = false;
+    menu.style.left = `${Math.min(clientX, window.innerWidth - 200)}px`;
+    menu.style.top = `${Math.min(clientY, window.innerHeight - 110)}px`;
+    menu.onclick = (event) => {
+      const button = event.target.closest('[data-kind]');
+      menu.hidden = true;
+      if (button) addTask(button.dataset.kind, position);
+    };
+  }
+
+  function addTheme() {
+    const id = model.addTheme();
+    const task = ui.selection.type === 'task' ? ui.selection.id : null;
+    if (task) model.toggleTaskTheme(task, id);
+    select('theme', id);
+    focusTitle();
+  }
+
+  function addDependency(from, to, fromIteration = null) {
+    const result = model.addDependency(from, to, fromIteration);
+    const fromTask = model.getTask(from);
+    const iteration = fromIteration !== null && fromTask?.iterations[fromIteration];
     toast(result.ok
-      ? `„${model.getNode(to).title}“ hängt jetzt von „${model.getNode(from).title}“ ab`
+      ? `„${model.getNode(to).title}“ hängt jetzt von „${model.getNode(from).title}“${iteration ? ` (bis „${iteration.title}“)` : ''} ab`
       : result.error);
   }
 
   function deleteSelection() {
     const { type, id } = ui.selection;
-    if (type === 'node') model.removeNode(id);
+    if (type === 'task') model.removeTask(id);
+    if (type === 'theme') model.removeTheme(id);
     if (type === 'dependency') model.removeDependency(id);
   }
 
   function duplicateSelection() {
-    if (ui.selection.type !== 'node' || model.isGroup(ui.selection.id)) return;
+    if (ui.selection.type !== 'task') return;
     const copy = model.duplicateTask(ui.selection.id);
-    if (copy) select('node', copy);
+    if (copy) select('task', copy);
   }
 
   function reverseSelectedDependency() {
@@ -156,7 +205,12 @@ PB.app = (() => {
   }
 
   function runAction(name) {
-    const handlers = { delete: deleteSelection, duplicate: duplicateSelection, 'reverse-dependency': reverseSelectedDependency };
+    const handlers = {
+      delete: deleteSelection,
+      duplicate: duplicateSelection,
+      'reverse-dependency': reverseSelectedDependency,
+      'add-theme': addTheme,
+    };
     handlers[name]?.();
   }
 
@@ -218,7 +272,7 @@ PB.app = (() => {
   }
 
   async function clearBoard() {
-    if (!await PB.dialog.confirm('Alle Blöcke und Abhängigkeiten entfernen?\n(Rückgängig möglich)', { okLabel: 'Leeren', danger: true })) return;
+    if (!await PB.dialog.confirm('Alle Aufgaben, Themen und Abhängigkeiten entfernen?\n(Rückgängig möglich)', { okLabel: 'Leeren', danger: true })) return;
     model.clear();
   }
 
@@ -226,20 +280,19 @@ PB.app = (() => {
 
   function bindToolbar() {
     const on = (selector, handler) => $(selector).addEventListener('click', handler);
-    on('#addThinking', () => addNode('thinking'));
-    on('#addImplementation', () => addNode('implementation'));
-    on('#addGroup', () => addNode('group'));
+    on('#addThinking', () => addTaskInView('thinking'));
+    on('#addImplementation', () => addTaskInView('implementation'));
+    on('#addTheme', addTheme);
     on('#undo', model.undo);
     on('#redo', model.redo);
-    on('#zoomIn', () => { board.setZoom(model.getState().view.zoom * C.ZOOM.step); updateHeader(); persist(); });
-    on('#zoomOut', () => { board.setZoom(model.getState().view.zoom / C.ZOOM.step); updateHeader(); persist(); });
-    on('#fit', () => { board.fit(); updateHeader(); persist(); });
-    on('#priorityAxis', () => {
-      model.setView({ showPriorityAxis: !model.getState().view.showPriorityAxis });
-      board.render(analysis);
+    const zoomBy = (factor) => {
+      board.setZoom(model.getState().view.zoom * factor);
       updateHeader();
       persist();
-    });
+    };
+    on('#zoomIn', () => zoomBy(C.ZOOM.step));
+    on('#zoomOut', () => zoomBy(1 / C.ZOOM.step));
+    on('#fit', () => { board.fit(); updateHeader(); persist(); });
     $('#focusMode').addEventListener('click', (event) => {
       const button = event.target.closest('button[data-focus]');
       if (!button) return;
@@ -247,30 +300,37 @@ PB.app = (() => {
       updateHeader();
       board.applyHighlight();
     });
-    bindFileMenu();
     on('#exportJson', exportJson);
     on('#exportHtml', exportHtml);
     on('#importJson', importBoard);
     on('#loadExample', loadExample);
+    on('#clearBoard', clearBoard);
     on('#saveWarning', () => PB.dialog.alert(
       'Diese Ansicht darf nichts im Browser speichern (z. B. eingebettete Vorschau).\n' +
       'Änderungen gehen beim Schliessen verloren. Sichere dein Board über Datei ▸ Export\n' +
       'oder öffne prio-board.html direkt im Browser (Chrome, Edge, Firefox).',
       { title: 'Nicht gespeichert' }));
-    on('#clearBoard', clearBoard);
   }
 
   function bindFileMenu() {
     const menu = $('#fileMenu');
     const button = $('#fileMenuButton');
+    const createMenu = $('#createMenu');
     const setOpen = (open) => {
       menu.classList.toggle('open', open);
       button.setAttribute('aria-expanded', String(open));
     };
     button.addEventListener('click', () => setOpen(!menu.classList.contains('open')));
     menu.querySelector('.menu-panel').addEventListener('click', () => setOpen(false));
-    document.addEventListener('pointerdown', (event) => { if (!menu.contains(event.target)) setOpen(false); });
-    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setOpen(false); });
+    document.addEventListener('pointerdown', (event) => {
+      if (!menu.contains(event.target)) setOpen(false);
+      if (!createMenu.contains(event.target)) createMenu.hidden = true;
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      createMenu.hidden = true;
+    });
   }
 
   function bindBoardTitle() {
@@ -292,7 +352,6 @@ PB.app = (() => {
     $('#undo').disabled = !model.canUndo();
     $('#redo').disabled = !model.canRedo();
     $('#zoomLabel').textContent = `${Math.round(view.zoom * 100)}%`;
-    $('#priorityAxis').classList.toggle('on', view.showPriorityAxis);
     document.querySelectorAll('#focusMode button').forEach((b) => b.classList.toggle('on', b.dataset.focus === ui.focusMode));
   }
 
@@ -310,7 +369,7 @@ PB.app = (() => {
         clearSelection();
         return;
       }
-      if (typing) return;
+      if (typing || document.querySelector('dialog[open]')) return;
       if (mod && key === 'z') { event.preventDefault(); event.shiftKey ? model.redo() : model.undo(); }
       else if (mod && key === 'y') { event.preventDefault(); model.redo(); }
       else if (mod && key === 'd') { event.preventDefault(); duplicateSelection(); }

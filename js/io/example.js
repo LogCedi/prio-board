@@ -1,67 +1,71 @@
 /**
- * Beispiel-Board (nach der Skizze). Gleicher Inhalt wie examples/beispiel.json –
- * hier als Skript eingebettet, weil Browser über file:// keine JSON-Dateien nachladen dürfen.
+ * Beispiel-Board (nach der ursprünglichen Skizze). Startdaten fehlen bewusst:
+ * alles beginnt „heute“, der Zeitplan schiebt entlang der Abhängigkeiten.
+ * Gleicher Inhalt wie examples/beispiel.json (dort mit konkreten Daten).
  */
 PB.example = {
   format: 'prio-board',
-  version: 1,
+  version: 2,
   board: { title: 'IT-Priorisierung' },
-  view: { zoom: 1, showPriorityAxis: true },
-  groups: [
-    {
-      id: 'g-skalierung',
-      title: 'Skalierung – Abhängigkeitsblock',
-      description: 'Harness und Prozessdaten können parallel laufen',
-      layout: { x: 920, y: 120, width: 920, height: 520 },
-    },
+  view: { zoom: 1 },
+  themes: [
+    { id: 'th-skalierung', title: 'Skalierung', color: '#7b5ea7' },
   ],
   tasks: [
     {
       id: 't-quickwin-monitoring', kind: 'implementation', title: 'Quick Win: Monitoring-Alerts anpassen',
-      description: 'Keine Abhängigkeit – sofort machbar', notes: [], status: 'open', effortDays: 1,
-      layout: { x: 100, y: 180, width: 300, height: 140 },
+      description: 'Keine Abhängigkeit – sofort machbar', priority: 1, durationDays: 2,
     },
     {
-      id: 't-logging', kind: 'implementation', title: 'Logging vereinheitlichen',
-      description: '', notes: [], status: 'open', effortDays: 2,
-      layout: { x: 120, y: 400, width: 260, height: 140 },
+      id: 't-ui-zielarchitektur', kind: 'thinking', title: 'UI-Zielarchitektur',
+      description: 'Fundament: Zielbild der UI-Architektur – wird laufend weiterentwickelt',
+      priority: 1, durationDays: 15, intensity: 'background', ongoing: true,
+      iterations: [
+        { title: 'Zielbild', durationDays: 10, done: false },
+        { title: 'Leitplanken', durationDays: 5, done: false },
+      ],
+    },
+    {
+      id: 't-lz', kind: 'thinking', title: 'LZ', description: 'Grundlage für den Skalierungsblock',
+      priority: 2, durationDays: 10, bufferDays: 5,
+    },
+    {
+      id: 't-denken-prozessdaten', kind: 'thinking', title: 'Denken Prozessdaten',
+      priority: 2, intensity: 'background', themes: ['th-skalierung'],
+      iterations: [
+        { title: 'Level 1', durationDays: 5, done: false },
+        { title: 'Level 2', durationDays: 5, done: false },
+        { title: 'Auswerten', durationDays: 5, done: false },
+      ],
+    },
+    {
+      id: 't-umsetzung-level1', kind: 'implementation', title: 'Umsetzung Prozess Level 1',
+      priority: 2, durationDays: 5, themes: ['th-skalierung'],
+    },
+    {
+      id: 't-umsetzung-prozess', kind: 'implementation', title: 'Umsetzung Prozess komplett',
+      priority: 3, durationDays: 10, bufferDays: 5, themes: ['th-skalierung'],
     },
     {
       id: 't-denken-harness', kind: 'thinking', title: 'Denken Harness',
       description: 'Wie soll der Harness aufgebaut sein?', notes: ['Skills', 'Workflow', 'Sprache'],
-      status: 'open', effortDays: 5,
-      layout: { x: 980, y: 180, width: 540, height: 180 },
+      priority: 3, durationDays: 10, bufferDays: 5, themes: ['th-skalierung'],
     },
     {
       id: 't-umsetzung-harness', kind: 'implementation', title: 'Umsetzung Harness',
-      description: '', notes: [], status: 'open', effortDays: 3,
-      layout: { x: 1560, y: 180, width: 240, height: 180 },
+      priority: 3, durationDays: 10, themes: ['th-skalierung'],
     },
     {
-      id: 't-denken-prozessdaten', kind: 'thinking', title: 'Denken Prozessdaten',
-      description: '', notes: ['Level 1', 'Level 2', 'Auswerten'], status: 'open', effortDays: 5,
-      layout: { x: 980, y: 420, width: 540, height: 180 },
-    },
-    {
-      id: 't-umsetzung-prozess', kind: 'implementation', title: 'Umsetzung Prozess',
-      description: '', notes: [], status: 'open', effortDays: 3,
-      layout: { x: 1560, y: 420, width: 240, height: 180 },
-    },
-    {
-      id: 't-lz', kind: 'thinking', title: 'LZ',
-      description: 'Grundlage für den Skalierungsblock', notes: [], status: 'open', effortDays: 4,
-      layout: { x: 920, y: 740, width: 500, height: 160 },
-    },
-    {
-      id: 't-ui-zielarchitektur', kind: 'thinking', title: 'UI-Zielarchitektur',
-      description: 'Fundament: Zielbild der UI-Architektur', notes: [], status: 'open', effortDays: 8,
-      layout: { x: 1480, y: 740, width: 760, height: 160 },
+      id: 't-logging', kind: 'implementation', title: 'Logging vereinheitlichen',
+      priority: 4, durationDays: 5,
     },
   ],
   dependencies: [
+    { id: 'd-ui-skalierung', from: 't-ui-zielarchitektur', fromIteration: 0, to: 'th-skalierung' },
+    { id: 'd-lz-skalierung', from: 't-lz', to: 'th-skalierung' },
+    { id: 'd-prozess-level1', from: 't-denken-prozessdaten', fromIteration: 0, to: 't-umsetzung-level1' },
+    { id: 'd-prozess-komplett', from: 't-denken-prozessdaten', to: 't-umsetzung-prozess' },
     { id: 'd-harness', from: 't-denken-harness', to: 't-umsetzung-harness' },
-    { id: 'd-prozess', from: 't-denken-prozessdaten', to: 't-umsetzung-prozess' },
-    { id: 'd-ui-skalierung', from: 't-ui-zielarchitektur', to: 'g-skalierung' },
-    { id: 'd-lz-skalierung', from: 't-lz', to: 'g-skalierung' },
+    { id: 'd-quickwin-logging', from: 't-quickwin-monitoring', to: 't-logging' },
   ],
 };

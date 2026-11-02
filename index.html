@@ -15,7 +15,7 @@
 
     <button class="btn primary thinking" id="addThinking" title="Analyse/Konzept – braucht Denkzeit"><span class="ib" data-icon="brain"></span>Denken</button>
     <button class="btn primary impl" id="addImplementation" title="Direkt umsetzbar"><span class="ib" data-icon="wrench"></span>Umsetzung</button>
-    <button class="btn primary grp" id="addGroup" title="Rahmen für zusammengehörige Themen (Abhängigkeitsblock)"><span class="ib" data-icon="group"></span>Gruppe</button>
+    <button class="btn primary grp" id="addTheme" title="Thema anlegen (fasst Aufgaben zusammen)"><span class="ib" data-icon="group"></span>Thema</button>
     <span class="sep"></span>
 
     <button class="btn icon" id="undo" title="Rückgängig (Strg+Z)">↶</button>
@@ -28,12 +28,11 @@
     <button class="btn" id="fit">Einpassen</button>
     <span class="sep"></span>
 
-    <div class="seg" id="focusMode" title="Fokus: hebt Blöcke auf dem Board hervor">
+    <div class="seg" id="focusMode" title="Fokus: hebt Balken hervor">
       <button data-focus="none" class="on">Aus</button>
       <button data-focus="ready">Jetzt startbar</button>
       <button data-focus="critical">Kritischer Pfad</button>
     </div>
-    <button class="btn on" id="priorityAxis" title="Prioritätsachse ein/aus">Prio-Achse</button>
 
     <span class="spacer"></span>
     <button class="btn warn" id="saveWarning" hidden title="Wird nicht im Browser gespeichert – Details">⚠<span class="long"> Nicht gespeichert</span></button>
@@ -52,15 +51,14 @@
 
   <div id="canvas">
     <div id="sizer">
-      <div id="world" class="pb-world">
-        <div id="zones" class="pb-zones"></div>
-        <svg id="links" class="pb-links" xmlns="http://www.w3.org/2000/svg">
-          <defs></defs>
-          <g id="linkLayer"></g>
-          <path id="draftLink" class="draft" d="" style="display:none"/>
-        </svg>
-      </div>
+      <div id="world" class="pb-world"></div>
     </div>
+  </div>
+
+  <div id="createMenu" class="create-menu" hidden>
+    <span>Neu an dieser Stelle:</span>
+    <button data-kind="thinking"><span class="dot thinking" data-icon="brain"></span>Denken</button>
+    <button data-kind="implementation"><span class="dot implementation" data-icon="wrench"></span>Umsetzung</button>
   </div>
 
   <aside>
@@ -77,6 +75,7 @@
   <!-- Reihenfolge = Abhängigkeiten der Module -->
   <script src="js/core/config.js"></script>
   <script src="js/core/util.js"></script>
+  <script src="js/core/calendar.js"></script>
   <script src="js/core/icons.js"></script>
   <script src="js/core/ui-state.js"></script>
   <script src="js/domain/model.js"></script>

@@ -1,30 +1,32 @@
 /**
- * Datenmodell des Boards: Zustand, Abfragen, Änderungen und Undo/Redo.
+ * Datenmodell: Zustand, Abfragen, Änderungen, Undo/Redo.
  *
- * Zustand (identisch mit dem Datenteil des JSON-Formats):
- *   { board: { title }, view: { zoom, showPriorityAxis },
- *     groups: [{ id, title, description, layout }],
- *     tasks:  [{ id, kind, title, description, notes[], status, effortDays, layout }],
- *     dependencies: [{ id, from, to }] }      // from muss vor to fertig sein
+ * Zustand (intern; Zeiten in Arbeitstagen ab heute, siehe calendar.js):
+ *   { board: { title }, view: { zoom },
+ *     themes: [{ id, title, color }],
+ *     tasks:  [{ id, kind, title, description, notes[], status, priority,
+ *                start, durationDays, bufferDays, intensity, ongoing,
+ *                iterations: [{ title, durationDays, done }], themes: [themeId] }],
+ *     dependencies: [{ id, from, to, fromIteration }] }   // from muss vor to fertig sein
  *
- * Gruppenzugehörigkeit wird NICHT gespeichert, sondern aus der Geometrie
- * abgeleitet: ein Element gehört zur kleinsten (grösseren) Gruppe, die seinen
- * Mittelpunkt enthält.
+ * from/to einer Abhängigkeit sind Aufgaben oder Themen (Thema = alle Aufgaben mit diesem Thema).
+ * fromIteration (Index oder null): Nachfolger braucht nur diese Iteration des Vorgängers.
  *
- * Änderungen melden sich über subscribe(fn) mit einem meta-Objekt { type, source }.
+ * Nach jeder Änderung sorgt schedule() dafür, dass kein Block vor dem Ende seiner
+ * Vorgänger beginnt (Nachfolger werden nach rechts geschoben, nie nach links).
  */
 PB.model = (() => {
   const C = PB.config;
   const U = PB.util;
 
   let state = createEmptyState();
-  let parents = new Map();
+  let gestureStarts = null;
   const past = [];
   const future = [];
   const listeners = new Set();
 
-  function createEmptyState(title = 'Prio-Board', view = { zoom: 1, showPriorityAxis: true }) {
-    return { board: { title }, view: { ...view }, groups: [], tasks: [], dependencies: [] };
+  function createEmptyState(title = 'Prio-Board', view = { zoom: 1 }) {
+    return { board: { title }, view: { ...view }, themes: [], tasks: [], dependencies: [] };
   }
 
   /* ---------- Ereignisse ---------- */
@@ -33,63 +35,61 @@ PB.model = (() => {
     listeners.add(fn);
     return () => listeners.delete(fn);
   }
-  function emit(meta) {
+
+  /** Zeitplan durchsetzen und Änderung melden. */
+  function commit(meta) {
+    schedule();
     listeners.forEach((fn) => fn(meta));
   }
 
   /* ---------- Abfragen ---------- */
 
   const getState = () => state;
-  const allNodes = () => [...state.groups, ...state.tasks];
-  const getNode = (id) => state.tasks.find((n) => n.id === id) || state.groups.find((n) => n.id === id) || null;
-  const isGroup = (id) => state.groups.some((g) => g.id === id);
+  const getTask = (id) => state.tasks.find((t) => t.id === id) || null;
+  const getTheme = (id) => state.themes.find((t) => t.id === id) || null;
+  const getNode = (id) => getTask(id) || getTheme(id);
+  const isTheme = (id) => state.themes.some((t) => t.id === id);
   const getDependency = (id) => state.dependencies.find((d) => d.id === id) || null;
+  const membersOf = (themeId) => state.tasks.filter((t) => t.themes.includes(themeId)).map((t) => t.id);
 
-  const parentOf = (id) => parents.get(id) ?? null;
-  const childrenOf = (id) => allNodes().filter((n) => parents.get(n.id) === id);
+  /** Aufgaben, für die ein Knoten steht (Aufgabe selbst oder alle Aufgaben eines Themas). */
+  const tasksOf = (id) => (isTheme(id) ? membersOf(id) : getTask(id) ? [id] : []);
 
-  function descendantsOf(id) {
-    const result = [];
-    const walk = (parentId) => childrenOf(parentId).forEach((child) => {
-      result.push(child.id);
-      walk(child.id);
-    });
-    walk(id);
-    return result;
+  /** Dauer: Summe der Iterationen, falls vorhanden, sonst durationDays. */
+  function durationOf(task) {
+    if (task.iterations.length) return task.iterations.reduce((sum, it) => sum + it.durationDays, 0);
+    return task.durationDays;
+  }
+  const endOf = (task) => task.start + durationOf(task);
+
+  /** Ende der Iteration index (inkl.); ohne gültige Iteration: Ende der Aufgabe. */
+  function iterationEnd(task, index) {
+    if (index === null || index === undefined || !task.iterations[index]) return endOf(task);
+    return task.start + task.iterations.slice(0, index + 1).reduce((sum, it) => sum + it.durationDays, 0);
   }
 
-  function ancestorsOf(id) {
-    const result = [];
-    for (let p = parentOf(id); p && !result.includes(p); p = parentOf(p)) result.push(p);
-    return result;
-  }
+  /* ---------- Zeitplan ---------- */
 
-  /** Alle Aufgaben-IDs, die ein Knoten repräsentiert (Aufgabe selbst oder Inhalt einer Gruppe). */
-  function tasksWithin(id) {
-    if (!isGroup(id)) return getNode(id) ? [id] : [];
-    return descendantsOf(id).filter((d) => !isGroup(d));
-  }
-
-  const areNested = (a, b) => ancestorsOf(a).includes(b) || ancestorsOf(b).includes(a);
-
-  /* ---------- Hierarchie ---------- */
-
-  function rebuildHierarchy() {
-    parents = new Map();
-    for (const node of allNodes()) {
-      const c = U.center(node.layout);
-      const ownArea = U.area(node.layout);
-      let best = null;
-      let bestArea = Infinity;
-      for (const group of state.groups) {
-        if (group.id === node.id) continue;
-        const a = U.area(group.layout);
-        if (a > ownArea && a < bestArea && U.containsPoint(group.layout, c)) {
-          best = group.id;
-          bestArea = a;
+  /**
+   * Schiebt Aufgaben, die vor dem Ende eines (nicht erledigten) Vorgängers beginnen, nach rechts.
+   * Zyklen sind ausgeschlossen (validateDependency), daher endet die Schleife.
+   */
+  function schedule() {
+    state.tasks.forEach((t) => { t.start = Math.max(0, Math.round(t.start)); });
+    const edges = PB.analysis.edges(api);
+    for (let pass = 0; pass <= state.tasks.length; pass++) {
+      let changed = false;
+      for (const edge of edges) {
+        const from = getTask(edge.from);
+        const to = getTask(edge.to);
+        if (from.status === 'done') continue;
+        const earliest = iterationEnd(from, edge.iteration);
+        if (to.start < earliest) {
+          to.start = earliest;
+          changed = true;
         }
       }
-      if (best) parents.set(node.id, best);
+      if (!changed) break;
     }
   }
 
@@ -104,8 +104,7 @@ PB.model = (() => {
     if (!from.length) return;
     to.push(JSON.stringify(state));
     state = JSON.parse(from.pop());
-    rebuildHierarchy();
-    emit({ type: 'history' });
+    commit({ type: 'history' });
   }
   const undo = () => restore(past, future);
   const redo = () => restore(future, past);
@@ -117,8 +116,7 @@ PB.model = (() => {
   /** Lädt einen Zustand ohne Historieneintrag (Programmstart). */
   function load(next) {
     state = next;
-    rebuildHierarchy();
-    emit({ type: 'load' });
+    commit({ type: 'load' });
   }
   /** Ersetzt den Zustand mit Historieneintrag (Import, Beispiel, Leeren). */
   function replace(next) {
@@ -132,42 +130,17 @@ PB.model = (() => {
     if (clean === state.board.title) return;
     checkpoint();
     state.board.title = clean;
-    emit({ type: 'board' });
+    commit({ type: 'board' });
   }
 
-  /** Ansichtseinstellungen (Zoom, Achse) – ohne Historie und ohne Ereignis. */
+  /** Ansichtseinstellungen (Zoom) – ohne Historie und ohne Ereignis. */
   function setView(patch) {
     Object.assign(state.view, patch);
   }
 
-  /* ---------- Knoten ---------- */
+  /* ---------- Aufgaben ---------- */
 
-  /** Nächster freier Platz (keine Überlappung mit Aufgaben) möglichst nahe an position. */
-  function placeAt(position, size) {
-    const STEP = C.GRID * 2;
-    const MAX_RADIUS = 30;
-    const origin = {
-      x: Math.max(0, U.snap(position.x - size.width / 2)),
-      y: Math.max(0, U.snap(position.y - size.height / 2)),
-    };
-    const margin = C.GRID;
-    const overlaps = (l) => state.tasks.some((t) =>
-      l.x < t.layout.x + t.layout.width + margin && l.x + l.width + margin > t.layout.x &&
-      l.y < t.layout.y + t.layout.height + margin && l.y + l.height + margin > t.layout.y);
-
-    for (let r = 0; r <= MAX_RADIUS; r++) {
-      for (let dy = -r; dy <= r; dy++) {
-        for (let dx = -r; dx <= r; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // nur der Ring mit Abstand r
-          const candidate = { x: origin.x + dx * STEP, y: origin.y + dy * STEP, ...size };
-          if (candidate.x >= 0 && candidate.y >= 0 && !overlaps(candidate)) return candidate;
-        }
-      }
-    }
-    return { ...origin, ...size };
-  }
-
-  function addTask(kind, position) {
+  function addTask(kind, { priority = 3, start = 0 } = {}) {
     const task = {
       id: U.uid('t'),
       kind,
@@ -175,92 +148,162 @@ PB.model = (() => {
       description: '',
       notes: [],
       status: 'open',
-      effortDays: C.DEFAULT_EFFORT[kind],
-      layout: placeAt(position, C.DEFAULT_SIZE[kind]),
+      priority: U.clamp(priority, 1, C.PRIORITY_LEVELS),
+      start: Math.max(0, Math.round(start)),
+      durationDays: C.DEFAULT_DURATION[kind],
+      bufferDays: 0,
+      intensity: 'focused',
+      ongoing: false,
+      iterations: [],
+      themes: [],
     };
     checkpoint();
     state.tasks.push(task);
-    rebuildHierarchy();
-    emit({ type: 'add', id: task.id });
+    commit({ type: 'add', id: task.id });
     return task.id;
   }
 
-  function addGroup(position) {
-    const group = {
-      id: U.uid('g'),
-      title: C.DEFAULT_TITLES.group,
-      description: '',
-      layout: placeAt(position, C.DEFAULT_SIZE.group),
-    };
-    checkpoint();
-    state.groups.push(group);
-    rebuildHierarchy();
-    emit({ type: 'add', id: group.id });
-    return group.id;
-  }
-
   /**
-   * Ändert Felder eines Knotens.
+   * Ändert Felder einer Aufgabe.
    * options.record=false: kein Historieneintrag (z. B. beim Tippen, siehe checkpoint()).
    * options.source: wird im Ereignis weitergegeben (z. B. 'sidebar').
    */
-  function updateNode(id, patch, { record = true, source } = {}) {
-    const node = getNode(id);
-    if (!node) return;
+  function updateTask(id, patch, { record = true, source } = {}) {
+    const task = getTask(id);
+    if (!task) return;
     if (record) checkpoint();
-    Object.assign(node, patch);
-    emit({ type: 'update', id, source });
+    Object.assign(task, patch);
+    if (task.kind !== 'thinking' && (task.iterations.length || task.ongoing)) {
+      // Nur Denk-Themen haben Iterationen: Pfeile „ab Iteration“ gelten dann für die ganze Aufgabe
+      if (task.iterations.length) task.durationDays = durationOf(task);
+      task.iterations = [];
+      task.ongoing = false;
+      state.dependencies.forEach((d) => { if (d.from === id) d.fromIteration = null; });
+    }
+    commit({ type: 'update', id, source });
   }
 
-  function removeNode(id) {
-    if (!getNode(id)) return;
+  function removeTask(id) {
+    if (!getTask(id)) return;
     checkpoint();
     state.tasks = state.tasks.filter((t) => t.id !== id);
-    state.groups = state.groups.filter((g) => g.id !== id);
     state.dependencies = state.dependencies.filter((d) => d.from !== id && d.to !== id);
-    rebuildHierarchy();
-    emit({ type: 'remove', id });
+    commit({ type: 'remove', id });
   }
 
   function duplicateTask(id) {
-    const task = state.tasks.find((t) => t.id === id);
+    const task = getTask(id);
     if (!task) return null;
-    const copy = {
-      ...JSON.parse(JSON.stringify(task)),
-      id: U.uid('t'),
-      title: `${task.title} (Kopie)`,
-      status: 'open',
-    };
-    copy.layout.x += C.GRID * 2;
-    copy.layout.y += C.GRID * 2;
+    const copy = { ...JSON.parse(JSON.stringify(task)), id: U.uid('t'), title: `${task.title} (Kopie)`, status: 'open' };
+    copy.iterations.forEach((it) => { it.done = false; });
     checkpoint();
     state.tasks.push(copy);
-    rebuildHierarchy();
-    emit({ type: 'add', id: copy.id });
+    commit({ type: 'add', id: copy.id });
     return copy.id;
+  }
+
+  /* ---------- Iterationen (nur Denken) ---------- */
+
+  function addIteration(taskId) {
+    const task = getTask(taskId);
+    if (!task || task.kind !== 'thinking') return;
+    checkpoint();
+    // Erste Iteration übernimmt die bisherige Dauer, weitere starten mit einer Woche
+    const durationDays = task.iterations.length ? 5 : task.durationDays;
+    task.iterations.push({ title: `Iteration ${task.iterations.length + 1}`, durationDays, done: false });
+    commit({ type: 'update', id: taskId });
+  }
+
+  function updateIteration(taskId, index, patch, { record = true, source } = {}) {
+    const iteration = getTask(taskId)?.iterations[index];
+    if (!iteration) return;
+    if (record) checkpoint();
+    Object.assign(iteration, patch);
+    iteration.durationDays = Math.max(1, Math.round(iteration.durationDays) || 1);
+    commit({ type: 'update', id: taskId, source });
+  }
+
+  function removeIteration(taskId, index) {
+    const task = getTask(taskId);
+    if (!task?.iterations[index]) return;
+    checkpoint();
+    if (task.iterations.length === 1) task.durationDays = task.iterations[0].durationDays;
+    task.iterations.splice(index, 1);
+    for (const dep of state.dependencies) {
+      if (dep.from !== taskId || dep.fromIteration === null) continue;
+      if (dep.fromIteration === index) dep.fromIteration = null;
+      else if (dep.fromIteration > index) dep.fromIteration -= 1;
+    }
+    commit({ type: 'update', id: taskId });
+  }
+
+  /* ---------- Themen ---------- */
+
+  function addTheme() {
+    const used = new Set(state.themes.map((t) => t.color));
+    const color = C.THEME_COLORS.find((c) => !used.has(c)) || C.THEME_COLORS[state.themes.length % C.THEME_COLORS.length];
+    const theme = { id: U.uid('th'), title: C.DEFAULT_TITLES.theme, color };
+    checkpoint();
+    state.themes.push(theme);
+    commit({ type: 'add', id: theme.id });
+    return theme.id;
+  }
+
+  function updateTheme(id, patch, { record = true, source } = {}) {
+    const theme = getTheme(id);
+    if (!theme) return;
+    if (record) checkpoint();
+    Object.assign(theme, patch);
+    commit({ type: 'update', id, source });
+  }
+
+  function removeTheme(id) {
+    if (!getTheme(id)) return;
+    checkpoint();
+    state.themes = state.themes.filter((t) => t.id !== id);
+    state.tasks.forEach((t) => { t.themes = t.themes.filter((th) => th !== id); });
+    state.dependencies = state.dependencies.filter((d) => d.from !== id && d.to !== id);
+    commit({ type: 'remove', id });
+  }
+
+  function toggleTaskTheme(taskId, themeId) {
+    const task = getTask(taskId);
+    if (!task || !getTheme(themeId)) return { ok: false };
+    const next = task.themes.includes(themeId) ? task.themes.filter((t) => t !== themeId) : [...task.themes, themeId];
+    const before = task.themes;
+    task.themes = next;
+    const cyclic = PB.analysis.hasCycle(PB.analysis.predecessorMap(api));
+    task.themes = before;
+    if (cyclic) return { ok: false, error: 'Nicht möglich – das Thema würde einen Kreis (Zyklus) erzeugen' };
+    checkpoint();
+    task.themes = next;
+    commit({ type: 'update', id: taskId });
+    return { ok: true };
   }
 
   /* ---------- Abhängigkeiten ---------- */
 
   /** Prüft, ob from → to erlaubt ist. Liefert null oder einen Fehlertext. */
-  function validateDependency(from, to) {
+  function validateDependency(from, to, dependencies = state.dependencies) {
     if (!getNode(from) || !getNode(to) || from === to) return 'Ungültige Abhängigkeit';
-    if (areNested(from, to)) return 'Eine Gruppe und ihr eigenes Element können nicht voneinander abhängen';
-    if (state.dependencies.some((d) => d.from === from && d.to === to)) return 'Diese Abhängigkeit existiert bereits';
-    const candidate = [...state.dependencies, { from, to }];
-    if (PB.analysis.hasCycle(PB.analysis.predecessorMap(api, candidate))) {
+    if ((isTheme(to) && membersOf(to).includes(from)) || (isTheme(from) && membersOf(from).includes(to))) {
+      return 'Ein Thema und eine Aufgabe darin können nicht voneinander abhängen';
+    }
+    if (dependencies.some((d) => d.from === from && d.to === to)) return 'Diese Abhängigkeit existiert bereits';
+    if (PB.analysis.hasCycle(PB.analysis.predecessorMap(api, [...dependencies, { from, to }]))) {
       return 'Nicht möglich – das würde einen Kreis (Zyklus) erzeugen';
     }
     return null;
   }
 
-  /** Legt from → to an. Liefert { ok, error? }. */
-  function addDependency(from, to) {
+  /** Legt from → to an (optional nur ab einer Iteration). Liefert { ok, error? }. */
+  function addDependency(from, to, fromIteration = null) {
     const error = validateDependency(from, to);
     if (error) return { ok: false, error };
+    const iteration = getTask(from)?.iterations[fromIteration] ? fromIteration : null;
     checkpoint();
-    state.dependencies.push({ id: U.uid('d'), from, to });
-    emit({ type: 'dependency' });
+    state.dependencies.push({ id: U.uid('d'), from, to, fromIteration: iteration });
+    commit({ type: 'dependency' });
     return { ok: true };
   }
 
@@ -268,52 +311,80 @@ PB.model = (() => {
     if (!getDependency(id)) return;
     checkpoint();
     state.dependencies = state.dependencies.filter((d) => d.id !== id);
-    emit({ type: 'dependency' });
+    commit({ type: 'dependency' });
+  }
+
+  function setDependencyIteration(id, fromIteration) {
+    const dep = getDependency(id);
+    const task = dep && getTask(dep.from);
+    if (!task) return;
+    checkpoint();
+    dep.fromIteration = task.iterations[fromIteration] ? fromIteration : null;
+    commit({ type: 'dependency' });
   }
 
   function reverseDependency(id) {
     const dep = getDependency(id);
     if (!dep) return { ok: false, error: 'Abhängigkeit nicht gefunden' };
     const others = state.dependencies.filter((d) => d.id !== id);
-    const reversed = [...others, { from: dep.to, to: dep.from }];
-    if (PB.analysis.hasCycle(PB.analysis.predecessorMap(api, reversed))) {
-      return { ok: false, error: 'Umkehren würde einen Zyklus erzeugen' };
-    }
+    const error = validateDependency(dep.to, dep.from, others);
+    if (error) return { ok: false, error: `Umkehren nicht möglich: ${error}` };
     checkpoint();
     [dep.from, dep.to] = [dep.to, dep.from];
-    emit({ type: 'dependency' });
+    dep.fromIteration = null;
+    commit({ type: 'dependency' });
     return { ok: true };
   }
 
-  /* ---------- Gesten (Verschieben / Grösse ändern) ---------- */
-  // Während einer Geste wird das Layout direkt geändert (ohne Ereignis),
-  // damit nur Positionen aktualisiert werden müssen. endGesture() meldet die Änderung.
+  /* ---------- Gesten (Ziehen von Balken) ---------- */
+  // Jede Bewegung wird vom Stand zu Gestenbeginn aus neu berechnet: Zieht man zurück,
+  // rutschen dabei geschobene Nachfolger wieder an ihren alten Platz.
 
-  const beginGesture = () => checkpoint();
-  function setLayout(id, patch) {
-    const node = getNode(id);
-    if (node) Object.assign(node.layout, patch);
+  function beginGesture() {
+    checkpoint();
+    gestureStarts = new Map(state.tasks.map((t) => [t.id, t.start]));
   }
+
+  /** Ändert Zeit/Priorität einer Aufgabe während einer Geste (ohne Ereignis). */
+  function previewTask(id, patch) {
+    const task = getTask(id);
+    if (!task || !gestureStarts) return;
+    state.tasks.forEach((t) => { t.start = gestureStarts.get(t.id) ?? t.start; });
+    Object.assign(task, patch);
+    schedule();
+  }
+
+  /** Iterationsdauer während einer Geste ändern (Grösse der letzten Iteration). */
+  function previewIteration(id, index, durationDays) {
+    const task = getTask(id);
+    if (!task?.iterations[index] || !gestureStarts) return;
+    state.tasks.forEach((t) => { t.start = gestureStarts.get(t.id) ?? t.start; });
+    task.iterations[index].durationDays = Math.max(1, durationDays);
+    schedule();
+  }
+
   function endGesture() {
-    rebuildHierarchy();
-    emit({ type: 'layout' });
+    gestureStarts = null;
+    commit({ type: 'layout' });
   }
 
   const api = {
     subscribe,
     // Abfragen
-    getState, allNodes, getNode, isGroup, getDependency,
-    parentOf, childrenOf, descendantsOf, ancestorsOf, tasksWithin, areNested,
+    getState, getTask, getTheme, getNode, isTheme, getDependency, membersOf, tasksOf,
+    durationOf, endOf, iterationEnd,
     // Historie
     checkpoint, undo, redo, canUndo, canRedo,
     // Board
     createEmptyState, load, replace, clear, setBoardTitle, setView,
-    // Knoten
-    addTask, addGroup, updateNode, removeNode, duplicateTask,
+    // Aufgaben & Iterationen
+    addTask, updateTask, removeTask, duplicateTask, addIteration, updateIteration, removeIteration,
+    // Themen
+    addTheme, updateTheme, removeTheme, toggleTaskTheme,
     // Abhängigkeiten
-    validateDependency, addDependency, removeDependency, reverseDependency,
+    validateDependency, addDependency, removeDependency, setDependencyIteration, reverseDependency,
     // Gesten
-    beginGesture, setLayout, endGesture,
+    beginGesture, previewTask, previewIteration, endGesture,
   };
   return api;
 })();

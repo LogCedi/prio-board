@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "prio-board.schema.json",
   "title": "Prio-Board",
-  "description": "Austauschformat des Prio-Boards: Themen (Denken/Umsetzung), Gruppen und Abhängigkeiten. Gruppenzugehörigkeit und Priorität ergeben sich aus dem Layout.",
+  "description": "Austauschformat des Prio-Boards (Version 2): Aufgaben (Denken/Umsetzung) auf einer Zeitachse mit Priorität, Dauer, Iterationen, Themen und Abhängigkeiten.",
   "type": "object",
-  "required": ["format", "version", "groups", "tasks", "dependencies"],
+  "required": ["format", "version", "tasks", "dependencies"],
   "properties": {
     "$schema": { "type": "string" },
     "format": { "const": "prio-board" },
-    "version": { "type": "integer", "const": 1 },
+    "version": { "const": 2 },
     "exportedAt": { "type": "string", "format": "date-time" },
     "board": {
       "type": "object",
@@ -17,23 +17,20 @@
     },
     "view": {
       "type": "object",
-      "properties": {
-        "zoom": { "type": "number", "minimum": 0.25, "maximum": 2 },
-        "showPriorityAxis": { "type": "boolean" }
-      },
+      "properties": { "zoom": { "type": "number", "minimum": 0.3, "maximum": 2 } },
       "additionalProperties": false
     },
-    "groups": {
-      "description": "Rahmen (Abhängigkeitsblöcke). Ein Element gehört zur kleinsten Gruppe, die seinen Mittelpunkt enthält.",
+    "themes": {
+      "description": "Themen fassen Aufgaben zusammen. Eine Abhängigkeit auf/von einem Thema gilt für alle Aufgaben darin.",
       "type": "array",
-      "items": { "$ref": "#/$defs/group" }
+      "items": { "$ref": "#/$defs/theme" }
     },
     "tasks": {
       "type": "array",
       "items": { "$ref": "#/$defs/task" }
     },
     "dependencies": {
-      "description": "\"from\" muss fertig sein, bevor \"to\" starten kann. Beide können Aufgaben oder Gruppen sein.",
+      "description": "\"from\" muss fertig sein (bzw. die Iteration \"fromIteration\"), bevor \"to\" startet. Beides: Aufgabe oder Thema.",
       "type": "array",
       "items": { "$ref": "#/$defs/dependency" }
     },
@@ -42,25 +39,28 @@
       "type": "object",
       "properties": {
         "note": { "type": "string" },
+        "planEnd": { "type": "string", "format": "date" },
         "tasks": {
           "type": "object",
           "additionalProperties": {
             "type": "object",
             "properties": {
-              "priority": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1 = sehr hoch (links) … 5 = sehr tief (rechts)" },
-              "group": { "type": ["string", "null"] },
+              "end": { "type": "string", "format": "date" },
+              "durationDays": { "type": "integer" },
               "wave": { "type": ["integer", "null"], "description": "Gleiche Welle = parallel bearbeitbar; null bei erledigt/Zyklus" },
               "state": { "enum": ["done", "cycle", "in_progress", "ready", "waiting"] },
+              "leverage": { "type": "integer", "description": "Anzahl offener Umsetzungen, die (indirekt) von dieser Aufgabe abhängen" },
               "blockedBy": { "type": "array", "items": { "type": "string" } }
             }
           }
         },
         "waves": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+        "importantThinking": { "type": "array", "items": { "type": "string" }, "description": "Offene Denk-Themen, sortiert nach Hebel × Dauer" },
         "criticalPath": {
           "type": "object",
           "properties": {
             "tasks": { "type": "array", "items": { "type": "string" } },
-            "effortDays": { "type": "number" }
+            "durationDays": { "type": "integer" }
           }
         }
       }
@@ -69,32 +69,30 @@
   "additionalProperties": false,
   "$defs": {
     "id": { "type": "string", "minLength": 1 },
-    "layout": {
-      "description": "Position und Grösse in Pixeln auf der Arbeitsfläche. x bestimmt die Priorität (Spalten à 480 px).",
+    "days": { "type": "integer", "minimum": 1, "description": "Arbeitstage (Mo–Fr); 5 = eine Woche" },
+    "theme": {
       "type": "object",
-      "required": ["x", "y", "width", "height"],
-      "properties": {
-        "x": { "type": "number" },
-        "y": { "type": "number" },
-        "width": { "type": "number", "exclusiveMinimum": 0 },
-        "height": { "type": "number", "exclusiveMinimum": 0 }
-      },
-      "additionalProperties": false
-    },
-    "group": {
-      "type": "object",
-      "required": ["id", "title", "layout"],
+      "required": ["id", "title"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "title": { "type": "string" },
-        "description": { "type": "string" },
-        "layout": { "$ref": "#/$defs/layout" }
+        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+      },
+      "additionalProperties": false
+    },
+    "iteration": {
+      "type": "object",
+      "required": ["title", "durationDays"],
+      "properties": {
+        "title": { "type": "string" },
+        "durationDays": { "$ref": "#/$defs/days" },
+        "done": { "type": "boolean" }
       },
       "additionalProperties": false
     },
     "task": {
       "type": "object",
-      "required": ["id", "kind", "title", "layout"],
+      "required": ["id", "kind", "title"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "kind": {
@@ -105,8 +103,14 @@
         "description": { "type": "string" },
         "notes": { "type": "array", "items": { "type": "string" }, "description": "Stichpunkte" },
         "status": { "enum": ["open", "in_progress", "done"], "default": "open" },
-        "effortDays": { "type": ["number", "null"], "minimum": 0, "description": "Aufwand in Personentagen" },
-        "layout": { "$ref": "#/$defs/layout" }
+        "priority": { "type": "integer", "minimum": 1, "maximum": 5, "default": 3, "description": "1 = sehr hoch (oben) … 5 = sehr tief" },
+        "start": { "type": "string", "format": "date", "description": "Starttag; Daten vor heute werden auf heute gesetzt" },
+        "durationDays": { "$ref": "#/$defs/days", "description": "Dauer in Arbeitstagen (bei Iterationen: Summe der Iterationen)" },
+        "bufferDays": { "type": "integer", "minimum": 0, "default": 0, "description": "Puffer/Unsicherheit in Arbeitstagen" },
+        "intensity": { "enum": ["focused", "background"], "default": "focused", "description": "focused = intensiv · background = nebenbei / reift" },
+        "ongoing": { "type": "boolean", "default": false, "description": "Nur Denken: läuft nach der Dauer weiter (∞)" },
+        "iterations": { "type": "array", "items": { "$ref": "#/$defs/iteration" }, "description": "Nur Denken: Schritte nacheinander" },
+        "themes": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }
       },
       "additionalProperties": false
     },
@@ -116,7 +120,12 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "from": { "$ref": "#/$defs/id" },
-        "to": { "$ref": "#/$defs/id" }
+        "to": { "$ref": "#/$defs/id" },
+        "fromIteration": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Index der Iteration von \"from\", die reicht (null = ganze Aufgabe)"
+        }
       },
       "additionalProperties": false
     }

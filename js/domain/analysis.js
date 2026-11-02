@@ -1,41 +1,29 @@
 /**
  * Abhängigkeitsanalyse (reine Funktionen über dem Modell).
  *
- * Effektive Vorgänger einer Aufgabe T:
- *   - alle Abhängigkeiten, die direkt auf T zeigen,
- *   - plus alle, die auf eine Gruppe zeigen, in der T liegt.
- *   Zeigt eine Abhängigkeit VON einer Gruppe weg, zählen alle Aufgaben darin.
+ * Kanten (edges) verbinden immer Aufgaben: Eine Abhängigkeit auf/von einem Thema
+ * wird zu Kanten auf/von allen Aufgaben dieses Themas aufgelöst.
  */
 PB.analysis = (() => {
-  const C = PB.config;
-  const U = PB.util;
-
-  /** Priorität aus der horizontalen Position: 1 (links, hoch) … PRIORITY_LEVELS (rechts, tief). */
-  function priorityOf(layout) {
-    const cx = layout.x + layout.width / 2;
-    return U.clamp(Math.floor(cx / C.ZONE_WIDTH) + 1, 1, C.PRIORITY_LEVELS);
-  }
-  const priorityLabel = (p) => C.PRIORITY_LABELS[p - 1];
-
-  /** Aufwand in Personentagen; fehlende Angaben zählen als 1. */
-  function effortOf(task) {
-    const n = Number(task.effortDays);
-    return Number.isFinite(n) && n > 0 ? n : 1;
-  }
-
-  /** Map<taskId, Set<taskId>> der effektiven Vorgänger. */
-  function predecessorMap(model, dependencies = model.getState().dependencies) {
-    const preds = new Map();
-    const tasks = model.getState().tasks;
-    tasks.forEach((t) => preds.set(t.id, new Set()));
-    for (const task of tasks) {
-      for (const scope of [task.id, ...model.ancestorsOf(task.id)]) {
-        for (const dep of dependencies) {
-          if (dep.to !== scope) continue;
-          for (const p of model.tasksWithin(dep.from)) if (p !== task.id) preds.get(task.id).add(p);
+  /** Alle Aufgaben-Kanten: { depId, from, to, iteration, viaTheme } */
+  function edges(model, dependencies = model.getState().dependencies) {
+    const result = [];
+    for (const dep of dependencies) {
+      const viaTheme = model.isTheme(dep.from) || model.isTheme(dep.to);
+      const iteration = model.isTheme(dep.from) ? null : dep.fromIteration ?? null;
+      for (const from of model.tasksOf(dep.from)) {
+        for (const to of model.tasksOf(dep.to)) {
+          if (from !== to) result.push({ depId: dep.id, from, to, iteration, viaTheme });
         }
       }
     }
+    return result;
+  }
+
+  /** Map<taskId, Set<taskId>> der Vorgänger. */
+  function predecessorMap(model, dependencies) {
+    const preds = new Map(model.getState().tasks.map((t) => [t.id, new Set()]));
+    for (const e of edges(model, dependencies)) preds.get(e.to)?.add(e.from);
     return preds;
   }
 
@@ -72,18 +60,25 @@ PB.analysis = (() => {
   }
 
   /**
-   * Vollständige Auswertung des Boards.
-   * Wellen: offene Aufgaben in topologischen Stufen – innerhalb einer Welle
-   * bestehen keine Abhängigkeiten, sie können parallel bearbeitet werden.
+   * Vollständige Auswertung:
+   *  - Wellen: offene Aufgaben in topologischen Stufen (gleiche Welle = parallel möglich)
+   *  - ready: alle Vorgänger erledigt
+   *  - leverage („Hebel“): Anzahl offener Umsetzungen, die eine Aufgabe (indirekt) freigibt
+   *  - kritischer Pfad: längste Kette nach Dauer über offene Aufgaben
+   *  - riskante Kanten: Nachfolger startet innerhalb des Puffers des Vorgängers
    */
   function analyze(model) {
-    const tasks = model.getState().tasks;
+    const { tasks } = model.getState();
     const byId = new Map(tasks.map((t) => [t.id, t]));
     const isDone = (id) => byId.get(id)?.status === 'done';
+    const allEdges = edges(model);
 
-    const predecessors = predecessorMap(model);
+    const predecessors = new Map(tasks.map((t) => [t.id, new Set()]));
     const successors = new Map(tasks.map((t) => [t.id, new Set()]));
-    predecessors.forEach((preds, id) => preds.forEach((p) => successors.get(p).add(id)));
+    for (const e of allEdges) {
+      predecessors.get(e.to).add(e.from);
+      successors.get(e.from).add(e.to);
+    }
 
     // Kahn-Algorithmus über offene Aufgaben
     const open = tasks.filter((t) => !isDone(t.id));
@@ -92,30 +87,29 @@ PB.analysis = (() => {
     const order = open.filter((t) => remaining.get(t.id) === 0).map((t) => t.id);
     order.forEach((id) => wave.set(id, 1));
     for (let i = 0; i < order.length; i++) {
-      const id = order[i];
-      for (const next of successors.get(id)) {
+      for (const next of successors.get(order[i])) {
         if (!remaining.has(next)) continue;
-        wave.set(next, Math.max(wave.get(next) || 1, wave.get(id) + 1));
+        wave.set(next, Math.max(wave.get(next) || 1, wave.get(order[i]) + 1));
         remaining.set(next, remaining.get(next) - 1);
         if (remaining.get(next) === 0) order.push(next);
       }
     }
     const inOrder = new Set(order);
     const cycle = new Set(open.filter((t) => !inOrder.has(t.id)).map((t) => t.id));
-    cycle.forEach((id) => wave.delete(id));
 
     const openPredecessors = (id) => [...(predecessors.get(id) || [])].filter((p) => !isDone(p));
     const ready = new Set(open.filter((t) => !cycle.has(t.id) && openPredecessors(t.id).length === 0).map((t) => t.id));
 
-    // Wellen als sortierte Listen (Priorität, dann Umsetzung vor Denken)
-    const priority = new Map(tasks.map((t) => [t.id, priorityOf(t.layout)]));
     const waves = [];
     wave.forEach((n, id) => (waves[n - 1] ||= []).push(id));
-    waves.forEach((list) => list.sort((a, b) =>
-      priority.get(a) - priority.get(b) ||
-      (byId.get(a).kind === 'implementation' ? -1 : 1) - (byId.get(b).kind === 'implementation' ? -1 : 1)));
+    const byPriorityThenStart = (a, b) => byId.get(a).priority - byId.get(b).priority || byId.get(a).start - byId.get(b).start;
+    waves.forEach((list) => list.sort(byPriorityThenStart));
 
-    // Kritischer Pfad: längste Kette nach Aufwand über offene Aufgaben
+    // Hebel
+    const leverage = new Map(tasks.map((t) => [t.id,
+      [...closure([t.id], successors)].filter((id) => byId.get(id).kind === 'implementation' && !isDone(id)).length]));
+
+    // Kritischer Pfad
     const finish = new Map();
     const via = new Map();
     for (const id of order) {
@@ -127,13 +121,30 @@ PB.analysis = (() => {
           bestPred = p;
         }
       }
-      finish.set(id, best + effortOf(byId.get(id)));
+      finish.set(id, best + model.durationOf(byId.get(id)));
       via.set(id, bestPred);
     }
     let end = null;
     finish.forEach((f, id) => { if (end === null || f > finish.get(end)) end = id; });
     const criticalPath = [];
     for (let id = end; id; id = via.get(id)) criticalPath.unshift(id);
+
+    // Riskante Kanten (Start im Puffer des Vorgängers)
+    const riskyDeps = new Set();
+    for (const e of allEdges) {
+      const from = byId.get(e.from);
+      if (from.status === 'done' || e.iteration !== null || !from.bufferDays) continue;
+      if (byId.get(e.to).start < model.endOf(from) + from.bufferDays) riskyDeps.add(`${e.from}→${e.to}`);
+    }
+
+    // Wichtigste Denk-Themen: viel Hebel × lange Dauer
+    const importantThinking = open
+      .filter((t) => t.kind === 'thinking')
+      .map((t) => ({ id: t.id, score: (leverage.get(t.id) + 1) * model.durationOf(t) }))
+      .sort((a, b) => b.score - a.score)
+      .map((x) => x.id);
+
+    const planEnd = open.reduce((max, t) => Math.max(max, model.endOf(t)), 0);
 
     /** 'done' | 'cycle' | 'in_progress' | 'ready' | 'waiting' */
     function stateOf(id) {
@@ -146,13 +157,14 @@ PB.analysis = (() => {
     }
 
     return {
-      predecessors, successors,
-      wave, waves, cycle, ready,
-      criticalPath, criticalEffort: end ? finish.get(end) : 0,
+      edges: allEdges, predecessors, successors,
+      wave, waves, cycle, ready, leverage,
+      criticalPath, criticalDays: end ? finish.get(end) : 0,
+      isRisky: (from, to) => riskyDeps.has(`${from}→${to}`),
+      importantThinking, planEnd,
       openPredecessors, stateOf,
-      priorityOf: (id) => priority.get(id) ?? priorityOf(model.getNode(id).layout),
     };
   }
 
-  return { priorityOf, priorityLabel, effortOf, predecessorMap, hasCycle, closure, analyze };
+  return { edges, predecessorMap, hasCycle, closure, analyze };
 })();

@@ -1,26 +1,19 @@
 {
   "$schema": "../schema/prio-board.schema.json",
   "format": "prio-board",
-  "version": 1,
-  "exportedAt": "2026-11-02T00:00:00.000Z",
+  "version": 2,
+  "exportedAt": "2026-11-02T12:11:54.142Z",
   "board": {
     "title": "IT-Priorisierung"
   },
   "view": {
-    "zoom": 1,
-    "showPriorityAxis": true
+    "zoom": 1
   },
-  "groups": [
+  "themes": [
     {
-      "id": "g-skalierung",
-      "title": "Skalierung – Abhängigkeitsblock",
-      "description": "Harness und Prozessdaten können parallel laufen",
-      "layout": {
-        "x": 920,
-        "y": 120,
-        "width": 920,
-        "height": 520
-      }
+      "id": "th-skalierung",
+      "title": "Skalierung",
+      "color": "#7b5ea7"
     }
   ],
   "tasks": [
@@ -31,28 +24,127 @@
       "description": "Keine Abhängigkeit – sofort machbar",
       "notes": [],
       "status": "open",
-      "effortDays": 1,
-      "layout": {
-        "x": 100,
-        "y": 180,
-        "width": 300,
-        "height": 140
-      }
+      "priority": 1,
+      "start": "2026-11-02",
+      "durationDays": 2,
+      "bufferDays": 0,
+      "intensity": "focused",
+      "ongoing": false,
+      "iterations": [],
+      "themes": []
     },
     {
-      "id": "t-logging",
-      "kind": "implementation",
-      "title": "Logging vereinheitlichen",
+      "id": "t-ui-zielarchitektur",
+      "kind": "thinking",
+      "title": "UI-Zielarchitektur",
+      "description": "Fundament: Zielbild der UI-Architektur – wird laufend weiterentwickelt",
+      "notes": [],
+      "status": "open",
+      "priority": 1,
+      "start": "2026-11-02",
+      "durationDays": 15,
+      "bufferDays": 0,
+      "intensity": "background",
+      "ongoing": true,
+      "iterations": [
+        {
+          "title": "Zielbild",
+          "durationDays": 10,
+          "done": false
+        },
+        {
+          "title": "Leitplanken",
+          "durationDays": 5,
+          "done": false
+        }
+      ],
+      "themes": []
+    },
+    {
+      "id": "t-lz",
+      "kind": "thinking",
+      "title": "LZ",
+      "description": "Grundlage für den Skalierungsblock",
+      "notes": [],
+      "status": "open",
+      "priority": 2,
+      "start": "2026-11-02",
+      "durationDays": 10,
+      "bufferDays": 5,
+      "intensity": "focused",
+      "ongoing": false,
+      "iterations": [],
+      "themes": []
+    },
+    {
+      "id": "t-denken-prozessdaten",
+      "kind": "thinking",
+      "title": "Denken Prozessdaten",
       "description": "",
       "notes": [],
       "status": "open",
-      "effortDays": 2,
-      "layout": {
-        "x": 120,
-        "y": 400,
-        "width": 260,
-        "height": 140
-      }
+      "priority": 2,
+      "start": "2026-11-16",
+      "durationDays": 10,
+      "bufferDays": 0,
+      "intensity": "background",
+      "ongoing": false,
+      "iterations": [
+        {
+          "title": "Level 1",
+          "durationDays": 5,
+          "done": false
+        },
+        {
+          "title": "Level 2",
+          "durationDays": 5,
+          "done": false
+        },
+        {
+          "title": "Auswerten",
+          "durationDays": 5,
+          "done": false
+        }
+      ],
+      "themes": [
+        "th-skalierung"
+      ]
+    },
+    {
+      "id": "t-umsetzung-level1",
+      "kind": "implementation",
+      "title": "Umsetzung Prozess Level 1",
+      "description": "",
+      "notes": [],
+      "status": "open",
+      "priority": 2,
+      "start": "2026-11-23",
+      "durationDays": 5,
+      "bufferDays": 0,
+      "intensity": "focused",
+      "ongoing": false,
+      "iterations": [],
+      "themes": [
+        "th-skalierung"
+      ]
+    },
+    {
+      "id": "t-umsetzung-prozess",
+      "kind": "implementation",
+      "title": "Umsetzung Prozess komplett",
+      "description": "",
+      "notes": [],
+      "status": "open",
+      "priority": 3,
+      "start": "2026-12-07",
+      "durationDays": 10,
+      "bufferDays": 5,
+      "intensity": "focused",
+      "ongoing": false,
+      "iterations": [],
+      "themes": [
+        "th-skalierung"
+      ]
     },
     {
       "id": "t-denken-harness",
@@ -65,13 +157,16 @@
         "Sprache"
       ],
       "status": "open",
-      "effortDays": 5,
-      "layout": {
-        "x": 980,
-        "y": 180,
-        "width": 540,
-        "height": 180
-      }
+      "priority": 3,
+      "start": "2026-11-16",
+      "durationDays": 10,
+      "bufferDays": 5,
+      "intensity": "focused",
+      "ongoing": false,
+      "iterations": [],
+      "themes": [
+        "th-skalierung"
+      ]
     },
     {
       "id": "t-umsetzung-harness",
@@ -80,99 +175,199 @@
       "description": "",
       "notes": [],
       "status": "open",
-      "effortDays": 3,
-      "layout": {
-        "x": 1560,
-        "y": 180,
-        "width": 240,
-        "height": 180
-      }
+      "priority": 3,
+      "start": "2026-11-30",
+      "durationDays": 10,
+      "bufferDays": 0,
+      "intensity": "focused",
+      "ongoing": false,
+      "iterations": [],
+      "themes": [
+        "th-skalierung"
+      ]
     },
     {
-      "id": "t-denken-prozessdaten",
-      "kind": "thinking",
-      "title": "Denken Prozessdaten",
-      "description": "",
-      "notes": [
-        "Level 1",
-        "Level 2",
-        "Auswerten"
-      ],
-      "status": "open",
-      "effortDays": 5,
-      "layout": {
-        "x": 980,
-        "y": 420,
-        "width": 540,
-        "height": 180
-      }
-    },
-    {
-      "id": "t-umsetzung-prozess",
+      "id": "t-logging",
       "kind": "implementation",
-      "title": "Umsetzung Prozess",
+      "title": "Logging vereinheitlichen",
       "description": "",
       "notes": [],
       "status": "open",
-      "effortDays": 3,
-      "layout": {
-        "x": 1560,
-        "y": 420,
-        "width": 240,
-        "height": 180
-      }
-    },
-    {
-      "id": "t-lz",
-      "kind": "thinking",
-      "title": "LZ",
-      "description": "Grundlage für den Skalierungsblock",
-      "notes": [],
-      "status": "open",
-      "effortDays": 4,
-      "layout": {
-        "x": 920,
-        "y": 740,
-        "width": 500,
-        "height": 160
-      }
-    },
-    {
-      "id": "t-ui-zielarchitektur",
-      "kind": "thinking",
-      "title": "UI-Zielarchitektur",
-      "description": "Fundament: Zielbild der UI-Architektur",
-      "notes": [],
-      "status": "open",
-      "effortDays": 8,
-      "layout": {
-        "x": 1480,
-        "y": 740,
-        "width": 760,
-        "height": 160
-      }
+      "priority": 4,
+      "start": "2026-11-04",
+      "durationDays": 5,
+      "bufferDays": 0,
+      "intensity": "focused",
+      "ongoing": false,
+      "iterations": [],
+      "themes": []
     }
   ],
   "dependencies": [
     {
-      "id": "d-harness",
-      "from": "t-denken-harness",
-      "to": "t-umsetzung-harness"
-    },
-    {
-      "id": "d-prozess",
-      "from": "t-denken-prozessdaten",
-      "to": "t-umsetzung-prozess"
-    },
-    {
       "id": "d-ui-skalierung",
       "from": "t-ui-zielarchitektur",
-      "to": "g-skalierung"
+      "to": "th-skalierung",
+      "fromIteration": 0
     },
     {
       "id": "d-lz-skalierung",
       "from": "t-lz",
-      "to": "g-skalierung"
+      "to": "th-skalierung",
+      "fromIteration": null
+    },
+    {
+      "id": "d-prozess-level1",
+      "from": "t-denken-prozessdaten",
+      "to": "t-umsetzung-level1",
+      "fromIteration": 0
+    },
+    {
+      "id": "d-prozess-komplett",
+      "from": "t-denken-prozessdaten",
+      "to": "t-umsetzung-prozess",
+      "fromIteration": null
+    },
+    {
+      "id": "d-harness",
+      "from": "t-denken-harness",
+      "to": "t-umsetzung-harness",
+      "fromIteration": null
+    },
+    {
+      "id": "d-quickwin-logging",
+      "from": "t-quickwin-monitoring",
+      "to": "t-logging",
+      "fromIteration": null
     }
-  ]
+  ],
+  "analysis": {
+    "note": "Beim Export berechnet – wird beim Import ignoriert.",
+    "planEnd": "2026-12-21",
+    "tasks": {
+      "t-quickwin-monitoring": {
+        "end": "2026-11-04",
+        "durationDays": 2,
+        "wave": 1,
+        "state": "ready",
+        "leverage": 1,
+        "blockedBy": []
+      },
+      "t-ui-zielarchitektur": {
+        "end": "2026-11-23",
+        "durationDays": 15,
+        "wave": 1,
+        "state": "ready",
+        "leverage": 3,
+        "blockedBy": []
+      },
+      "t-lz": {
+        "end": "2026-11-16",
+        "durationDays": 10,
+        "wave": 1,
+        "state": "ready",
+        "leverage": 3,
+        "blockedBy": []
+      },
+      "t-denken-prozessdaten": {
+        "end": "2026-12-07",
+        "durationDays": 15,
+        "wave": 2,
+        "state": "waiting",
+        "leverage": 2,
+        "blockedBy": [
+          "t-ui-zielarchitektur",
+          "t-lz"
+        ]
+      },
+      "t-umsetzung-level1": {
+        "end": "2026-11-30",
+        "durationDays": 5,
+        "wave": 3,
+        "state": "waiting",
+        "leverage": 0,
+        "blockedBy": [
+          "t-ui-zielarchitektur",
+          "t-lz",
+          "t-denken-prozessdaten"
+        ]
+      },
+      "t-umsetzung-prozess": {
+        "end": "2026-12-21",
+        "durationDays": 10,
+        "wave": 3,
+        "state": "waiting",
+        "leverage": 0,
+        "blockedBy": [
+          "t-ui-zielarchitektur",
+          "t-lz",
+          "t-denken-prozessdaten"
+        ]
+      },
+      "t-denken-harness": {
+        "end": "2026-11-30",
+        "durationDays": 10,
+        "wave": 2,
+        "state": "waiting",
+        "leverage": 1,
+        "blockedBy": [
+          "t-ui-zielarchitektur",
+          "t-lz"
+        ]
+      },
+      "t-umsetzung-harness": {
+        "end": "2026-12-14",
+        "durationDays": 10,
+        "wave": 3,
+        "state": "waiting",
+        "leverage": 0,
+        "blockedBy": [
+          "t-ui-zielarchitektur",
+          "t-lz",
+          "t-denken-harness"
+        ]
+      },
+      "t-logging": {
+        "end": "2026-11-11",
+        "durationDays": 5,
+        "wave": 2,
+        "state": "waiting",
+        "leverage": 0,
+        "blockedBy": [
+          "t-quickwin-monitoring"
+        ]
+      }
+    },
+    "waves": [
+      [
+        "t-quickwin-monitoring",
+        "t-ui-zielarchitektur",
+        "t-lz"
+      ],
+      [
+        "t-denken-prozessdaten",
+        "t-denken-harness",
+        "t-logging"
+      ],
+      [
+        "t-umsetzung-level1",
+        "t-umsetzung-harness",
+        "t-umsetzung-prozess"
+      ]
+    ],
+    "importantThinking": [
+      "t-ui-zielarchitektur",
+      "t-denken-prozessdaten",
+      "t-lz",
+      "t-denken-harness"
+    ],
+    "criticalPath": {
+      "tasks": [
+        "t-ui-zielarchitektur",
+        "t-denken-prozessdaten",
+        "t-umsetzung-prozess"
+      ],
+      "durationDays": 40
+    }
+  }
 }

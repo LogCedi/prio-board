@@ -6,9 +6,9 @@
 PB.staticExport = (() => {
   const U = PB.util;
   const I = PB.icons;
+  const CAL = PB.calendar;
   const model = PB.model;
   const DATA_ELEMENT_ID = 'prio-board-data';
-  const PADDING = 40;
 
   const PAGE_CSS = `
 *{box-sizing:border-box}
@@ -24,7 +24,6 @@ body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Sour
 .page-legend span{display:inline-flex;align-items:center;gap:8px}
 .page-legend .dot{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-size:12px}
 .page-legend .dot.thinking{background:var(--thinking)} .page-legend .dot.implementation{background:var(--impl)}
-.page-legend .dot.group{border:2px dashed var(--group)}
 .page-legend .ico{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media print{
   @page{size:landscape;margin:10mm}
@@ -42,30 +41,22 @@ body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Sour
   addEventListener('afterprint',fit);fit();
 })();`;
 
-  /** Ausschnitt: alle Blöcke plus Rand; mit Prioritätsachse immer ab der linken oberen Ecke. */
-  function viewport(showAxis) {
-    const box = U.bounds(model.allNodes().map((n) => n.layout)) || { x: 0, y: 0, width: 400, height: 200 };
-    const x = showAxis ? 0 : Math.max(0, box.x - PADDING);
-    const y = showAxis ? 0 : Math.max(0, box.y - PADDING);
-    return { x, y, width: box.x + box.width + PADDING - x, height: box.y + box.height + PADDING - y };
-  }
-
   function summary(analysis) {
     const { tasks } = model.getState();
     const done = tasks.filter((t) => t.status === 'done').length;
-    const date = new Date().toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    return `Stand ${date} · ${tasks.length} Aufgaben · ${analysis.ready.size} startbar · ${done} erledigt` +
-      (analysis.criticalPath.length ? ` · kritischer Pfad ${U.formatNumber(analysis.criticalEffort)} PT` : '');
+    const end = CAL.dateOf(analysis.planEnd);
+    return `Stand ${CAL.longDate(CAL.dateOf(0))} · ${tasks.length} Aufgaben · ${analysis.ready.size} startbar · ` +
+      `${done} erledigt · Plan-Ende KW ${CAL.weekNumber(end)} (${CAL.shortDate(end)})`;
   }
 
   function legend() {
     return `<footer class="page-legend">
       <span><span class="dot thinking">${I.svg('brain')}</span>Denken – Analyse, braucht Zeit</span>
       <span><span class="dot implementation">${I.svg('wrench')}</span>Umsetzung – direkt machbar</span>
-      <span><span class="dot group"></span>Gruppe / Abhängigkeitsblock</span>
-      <span>A → B: A muss vor B fertig sein</span>
-      <span>W1, W2 …: Wellen – gleiche Welle = parallel möglich</span>
-      <span>Priorität: links hoch, rechts tief</span>
+      <span>Länge = Dauer · gestrichelt = Puffer · ∞ = läuft weiter</span>
+      <span>Voll = intensiv · schraffiert = nebenbei / reift</span>
+      <span>🔓 n = gibt n Umsetzungen frei</span>
+      <span>A → B: A muss vor B fertig sein · orange = riskant</span>
     </footer>`;
   }
 
@@ -75,9 +66,7 @@ body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Sour
   function build(analysis) {
     const state = model.getState();
     const esc = U.escapeHtml;
-    const showAxis = state.view.showPriorityAxis;
     const m = PB.board.markup(analysis, { interactive: false });
-    const vp = viewport(showAxis);
     const doc = PB.format.serialize(state, { model, analysis });
 
     return `<!doctype html>
@@ -98,14 +87,8 @@ ${PB.diagramStyles.CSS}
 <body>
 <header class="page-head"><h1>${esc(state.board.title)}</h1><p>${esc(summary(analysis))}</p></header>
 <main class="stage-wrap">
-  <div class="stage" style="width:${vp.width}px;height:${vp.height}px">
-    <div class="pb-world" style="left:${-vp.x}px;top:${-vp.y}px;width:${m.size.width}px;height:${m.size.height}px">
-      ${showAxis ? `<div class="pb-zones">${m.zones}</div>` : ''}
-      <svg class="pb-links" width="${m.size.width}" height="${m.size.height}" xmlns="http://www.w3.org/2000/svg">
-        <defs>${PB.diagramStyles.markerDefs()}</defs>${m.links}
-      </svg>
-      ${m.nodes}
-    </div>
+  <div class="stage" style="width:${m.width}px;height:${m.height}px">
+    <div class="pb-world" style="width:${m.width}px;height:${m.height}px">${m.html}</div>
   </div>
 </main>
 ${legend()}
