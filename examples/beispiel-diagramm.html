@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="Prio-Board">
+<title>IT-Priorisierung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0b2d55;
+  --accent:#009fe3;
+  --bg:#f3f6fa;
+  --ink:#0b2d55;
+  --text:#24364f;
+  --muted:#62738a;
+  --line:#dbe3ee;
+  --thinking:#009fe3;
+  --thinking-bg:#eaf7fd;
+  --thinking-line:#9bd8f3;
+  --impl:#1f9a6b;
+  --impl-bg:#eaf7f1;
+  --impl-line:#a6dcc6;
+  --group:#8a9ab0;
+  --ok:#1a7f4e;
+  --ok-bg:#dcf3e7;
+  --wait:#9a5b00;
+  --wait-bg:#fff1d6;
+  --bad:#c62828;
+  --bad-bg:#fde4e4;
+  --run:#0b5cad;
+  --run-bg:#dcecfb;
+  --link:#7f90a8;
+  --link-done:#9ccfb6;
+  --up:#f29200;
+  --down:#0b5cad;
+  --crit:#d6336c;
+  --sel:#009fe3;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(11,45,85,.06),0 4px 14px rgba(11,45,85,.06);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Source Sans Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.page-head{background:var(--navy);color:#fff;padding:18px 28px;display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+.page-head h1{margin:0;font-size:22px;display:flex;align-items:center;gap:10px}
+.page-head h1::before{content:"";width:10px;height:24px;border-radius:3px;background:var(--accent)}
+.page-head p{margin:0;opacity:.8}
+.stage-wrap{padding:24px 28px;overflow:hidden}
+.stage{position:relative;overflow:hidden;transform-origin:0 0;border-radius:var(--radius);box-shadow:var(--shadow);background:var(--bg)}
+.page-legend{display:flex;flex-wrap:wrap;gap:8px 22px;padding:0 28px 28px;font-size:13.5px;color:var(--muted)}
+.page-legend span{display:inline-flex;align-items:center;gap:8px}
+.page-legend .dot{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-size:12px}
+.page-legend .dot.thinking{background:var(--thinking)} .page-legend .dot.implementation{background:var(--impl)}
+.page-legend .dot.group{border:2px dashed var(--group)}
+.page-legend .ico{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@media print{
+  @page{size:landscape;margin:10mm}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .stage-wrap{padding:12px 0}
+  .stage{box-shadow:none}
+}
+
+.pb-world{position:absolute;left:0;top:0;transform-origin:0 0;background-color:var(--bg);
+  background-image:radial-gradient(circle,#c9d4e2 1.1px,transparent 1.3px);background-size:20px 20px}
+.pb-world .ico{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Prioritätsachse */
+.pb-zones{position:absolute;left:0;top:0;height:100%;display:flex;pointer-events:none}
+.pb-zones .z{height:100%;border-right:1px solid #e1e8f1;position:relative}
+.pb-zones .z span{position:absolute;top:12px;left:14px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  padding:3px 10px;border-radius:999px;background:#fff;color:var(--ink);box-shadow:var(--shadow)}
+.pb-zones .axis{position:absolute;top:50px;left:14px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;font-weight:600}
+.pb-zones .axis i{display:block;height:3px;width:220px;border-radius:3px;background:linear-gradient(90deg,var(--navy),#c9d4e2)}
+.pb-zones.off{display:none}
+
+/* Blöcke */
+.block{position:absolute;border-radius:var(--radius)}
+.block.task{z-index:1000;background:#fff;box-shadow:var(--shadow);border:1.5px solid var(--line)}
+.block.task::before{content:"";position:absolute;left:-1.5px;top:-1.5px;bottom:-1.5px;width:6px;border-radius:var(--radius) 0 0 var(--radius)}
+.block.task.thinking{background:var(--thinking-bg);border-color:var(--thinking-line)}
+.block.task.thinking::before{background:var(--thinking)}
+.block.task.implementation{background:var(--impl-bg);border-color:var(--impl-line)}
+.block.task.implementation::before{background:var(--impl)}
+.block.group{border:2px dashed var(--group);background:rgba(255,255,255,.55)}
+.block.st-done{opacity:.55}
+.block.st-done .title{text-decoration:line-through}
+.inner{position:absolute;inset:0;padding:12px 14px 30px 14px;overflow:hidden;border-radius:calc(var(--radius) - 2px)}
+.thead{display:flex;align-items:center;gap:10px;margin-bottom:4px;padding-right:34px}
+.tico{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;flex:none;font-size:20px}
+.thinking .tico{background:var(--thinking);box-shadow:0 0 0 4px rgba(0,159,227,.18)}
+.implementation .tico{background:var(--impl);box-shadow:0 0 0 4px rgba(31,154,107,.16)}
+.tkind{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.thinking .tkind{color:var(--thinking)}
+.implementation .tkind{color:var(--impl)}
+.title{font-weight:700;font-size:16px;color:var(--ink);line-height:1.25;word-break:break-word}
+.notes{margin:4px 0 0;padding-left:18px;font-size:13.5px;color:var(--text)}
+.notes li::marker{color:var(--muted)}
+.desc{font-size:13px;color:var(--muted);margin-top:4px;white-space:pre-wrap;word-break:break-word}
+.foot{position:absolute;left:14px;right:10px;bottom:7px;display:flex;gap:6px;align-items:center;font-size:12px;white-space:nowrap;overflow:hidden}
+.badge{padding:1px 8px;border-radius:999px;font-weight:700}
+.badge.ready{background:var(--ok-bg);color:var(--ok)}
+.badge.waiting{background:var(--wait-bg);color:var(--wait)}
+.badge.cycle{background:var(--bad-bg);color:var(--bad)}
+.badge.in_progress{background:var(--run-bg);color:var(--run)}
+.badge.done{background:#e3e8ef;color:#4e5d70}
+.meta{color:var(--muted)}
+.wave{position:absolute;top:10px;right:10px;font-size:11.5px;font-weight:700;color:#fff;background:var(--navy);border-radius:999px;padding:1px 8px}
+
+/* Gruppen */
+.ghead{position:absolute;left:14px;top:-15px;display:flex;gap:8px;align-items:center;background:var(--navy);color:#fff;
+  border-radius:999px;padding:3px 12px;max-width:calc(100% - 28px);white-space:nowrap;overflow:hidden;box-shadow:var(--shadow)}
+.gtitle{font-weight:700;overflow:hidden;text-overflow:ellipsis}
+.gmeta{font-size:12px;opacity:.75}
+.gdesc{position:absolute;left:16px;bottom:8px;right:16px;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Pfeile */
+.pb-links{position:absolute;left:0;top:0;z-index:500;pointer-events:none;overflow:visible}
+.pb-links .vis{fill:none;stroke:var(--link);stroke-width:2.2;marker-end:url(#m-def)}
+.pb-links .link.done .vis{stroke:var(--link-done);stroke-dasharray:5 4;marker-end:url(#m-done)}
+.pb-links .link.bad .vis{stroke:var(--bad);marker-end:url(#m-bad)}
+
+</style>
+</head>
+<body>
+<header class="page-head"><h1>IT-Priorisierung</h1><p>Stand 02.11.2026 · 8 Aufgaben · 4 startbar · 0 erledigt · kritischer Pfad 16 PT</p></header>
+<main class="stage-wrap">
+  <div class="stage" style="width:2280px;height:940px">
+    <div class="pb-world" style="left:0px;top:0px;width:2640px;height:1400px">
+      <div class="pb-zones"><div class="z" style="width:480px"><span>Prio 1 · sehr hoch</span></div><div class="z" style="width:480px"><span>Prio 2 · hoch</span></div><div class="z" style="width:480px"><span>Prio 3 · mittel</span></div><div class="z" style="width:480px"><span>Prio 4 · tief</span></div><div class="z" style="width:480px"><span>Prio 5 · sehr tief</span></div><div class="axis">Priorität hoch <i></i> tief</div></div>
+      <svg class="pb-links" width="2640" height="1400" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="m-def" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--link)"/></marker><marker id="m-done" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--link-done)"/></marker><marker id="m-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--bad)"/></marker><marker id="m-up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--up)"/></marker><marker id="m-down" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--down)"/></marker><marker id="m-crit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--crit)"/></marker><marker id="m-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sel)"/></marker></defs><g class="link" data-dep="d-harness"><path class="vis" d="M1520,270 C1560,270 1518,270 1558,270"/></g><g class="link" data-dep="d-prozess"><path class="vis" d="M1520,510 C1560,510 1518,510 1558,510"/></g><g class="link" data-dep="d-ui-skalierung"><path class="vis" d="M1860,740 C1860,691 1380,691 1380,642"/></g><g class="link" data-dep="d-lz-skalierung"><path class="vis" d="M1170,740 C1170,691 1380,691 1380,642"/></g>
+      </svg>
+      <div class="block group" data-id="g-skalierung" style="left:920px;top:120px;width:920px;height:520px;z-index:10"><div class="ghead"><span class="gtitle">Skalierung – Abhängigkeitsblock</span>
+        <span class="gmeta">0/4 fertig</span></div>
+      <div class="gdesc">Harness und Prozessdaten können parallel laufen</div></div><div class="block task implementation st-open" data-id="t-quickwin-monitoring" style="left:100px;top:180px;width:300px;height:140px"><div class="inner">
+      <span class="wave" title="Welle 1">W1</span>
+      <div class="thead">
+        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+        <div><div class="tkind">Umsetzung</div><div class="title">Quick Win: Monitoring-Alerts anpassen</div></div>
+      </div>
+      
+      <div class="desc">Keine Abhängigkeit – sofort machbar</div>
+      <div class="foot"><span class="badge ready">▶ startbar</span><span class="meta">1 PT</span><span class="meta">· Prio 1</span></div>
+    </div></div><div class="block task implementation st-open" data-id="t-logging" style="left:120px;top:400px;width:260px;height:140px"><div class="inner">
+      <span class="wave" title="Welle 1">W1</span>
+      <div class="thead">
+        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+        <div><div class="tkind">Umsetzung</div><div class="title">Logging vereinheitlichen</div></div>
+      </div>
+      
+      
+      <div class="foot"><span class="badge ready">▶ startbar</span><span class="meta">2 PT</span><span class="meta">· Prio 1</span></div>
+    </div></div><div class="block task thinking st-open" data-id="t-denken-harness" style="left:980px;top:180px;width:540px;height:180px"><div class="inner">
+      <span class="wave" title="Welle 2">W2</span>
+      <div class="thead">
+        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
+        <div><div class="tkind">Denken · Analyse</div><div class="title">Denken Harness</div></div>
+      </div>
+      <ul class="notes"><li>Skills</li><li>Workflow</li><li>Sprache</li></ul>
+      <div class="desc">Wie soll der Harness aufgebaut sein?</div>
+      <div class="foot"><span class="badge waiting">⏸ wartet auf 2</span><span class="meta">5 PT</span><span class="meta">· Prio 3</span></div>
+    </div></div><div class="block task implementation st-open" data-id="t-umsetzung-harness" style="left:1560px;top:180px;width:240px;height:180px"><div class="inner">
+      <span class="wave" title="Welle 3">W3</span>
+      <div class="thead">
+        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+        <div><div class="tkind">Umsetzung</div><div class="title">Umsetzung Harness</div></div>
+      </div>
+      
+      
+      <div class="foot"><span class="badge waiting">⏸ wartet auf 3</span><span class="meta">3 PT</span><span class="meta">· Prio 4</span></div>
+    </div></div><div class="block task thinking st-open" data-id="t-denken-prozessdaten" style="left:980px;top:420px;width:540px;height:180px"><div class="inner">
+      <span class="wave" title="Welle 2">W2</span>
+      <div class="thead">
+        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
+        <div><div class="tkind">Denken · Analyse</div><div class="title">Denken Prozessdaten</div></div>
+      </div>
+      <ul class="notes"><li>Level 1</li><li>Level 2</li><li>Auswerten</li></ul>
+      
+      <div class="foot"><span class="badge waiting">⏸ wartet auf 2</span><span class="meta">5 PT</span><span class="meta">· Prio 3</span></div>
+    </div></div><div class="block task implementation st-open" data-id="t-umsetzung-prozess" style="left:1560px;top:420px;width:240px;height:180px"><div class="inner">
+      <span class="wave" title="Welle 3">W3</span>
+      <div class="thead">
+        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+        <div><div class="tkind">Umsetzung</div><div class="title">Umsetzung Prozess</div></div>
+      </div>
+      
+      
+      <div class="foot"><span class="badge waiting">⏸ wartet auf 3</span><span class="meta">3 PT</span><span class="meta">· Prio 4</span></div>
+    </div></div><div class="block task thinking st-open" data-id="t-lz" style="left:920px;top:740px;width:500px;height:160px"><div class="inner">
+      <span class="wave" title="Welle 1">W1</span>
+      <div class="thead">
+        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
+        <div><div class="tkind">Denken · Analyse</div><div class="title">LZ</div></div>
+      </div>
+      
+      <div class="desc">Grundlage für den Skalierungsblock</div>
+      <div class="foot"><span class="badge ready">▶ startbar</span><span class="meta">4 PT</span><span class="meta">· Prio 3</span></div>
+    </div></div><div class="block task thinking st-open" data-id="t-ui-zielarchitektur" style="left:1480px;top:740px;width:760px;height:160px"><div class="inner">
+      <span class="wave" title="Welle 1">W1</span>
+      <div class="thead">
+        <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>
+        <div><div class="tkind">Denken · Analyse</div><div class="title">UI-Zielarchitektur</div></div>
+      </div>
+      
+      <div class="desc">Fundament: Zielbild der UI-Architektur</div>
+      <div class="foot"><span class="badge ready">▶ startbar</span><span class="meta">8 PT</span><span class="meta">· Prio 4</span></div>
+    </div></div>
+    </div>
+  </div>
+</main>
+<footer class="page-legend">
+      <span><span class="dot thinking"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span>Denken – Analyse, braucht Zeit</span>
+      <span><span class="dot implementation"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>Umsetzung – direkt machbar</span>
+      <span><span class="dot group"></span>Gruppe / Abhängigkeitsblock</span>
+      <span>A → B: A muss vor B fertig sein</span>
+      <span>W1, W2 …: Wellen – gleiche Welle = parallel möglich</span>
+      <span>Priorität: links hoch, rechts tief</span>
+    </footer>
+<script type="application/json" id="prio-board-data">{"format":"prio-board","version":1,"exportedAt":"2026-11-02T08:55:03.018Z","board":{"title":"IT-Priorisierung"},"view":{"zoom":0.47368421052631576,"showPriorityAxis":true},"groups":[{"id":"g-skalierung","title":"Skalierung – Abhängigkeitsblock","description":"Harness und Prozessdaten können parallel laufen","layout":{"x":920,"y":120,"width":920,"height":520}}],"tasks":[{"id":"t-quickwin-monitoring","kind":"implementation","title":"Quick Win: Monitoring-Alerts anpassen","description":"Keine Abhängigkeit – sofort machbar","notes":[],"status":"open","effortDays":1,"layout":{"x":100,"y":180,"width":300,"height":140}},{"id":"t-logging","kind":"implementation","title":"Logging vereinheitlichen","description":"","notes":[],"status":"open","effortDays":2,"layout":{"x":120,"y":400,"width":260,"height":140}},{"id":"t-denken-harness","kind":"thinking","title":"Denken Harness","description":"Wie soll der Harness aufgebaut sein?","notes":["Skills","Workflow","Sprache"],"status":"open","effortDays":5,"layout":{"x":980,"y":180,"width":540,"height":180}},{"id":"t-umsetzung-harness","kind":"implementation","title":"Umsetzung Harness","description":"","notes":[],"status":"open","effortDays":3,"layout":{"x":1560,"y":180,"width":240,"height":180}},{"id":"t-denken-prozessdaten","kind":"thinking","title":"Denken Prozessdaten","description":"","notes":["Level 1","Level 2","Auswerten"],"status":"open","effortDays":5,"layout":{"x":980,"y":420,"width":540,"height":180}},{"id":"t-umsetzung-prozess","kind":"implementation","title":"Umsetzung Prozess","description":"","notes":[],"status":"open","effortDays":3,"layout":{"x":1560,"y":420,"width":240,"height":180}},{"id":"t-lz","kind":"thinking","title":"LZ","description":"Grundlage für den Skalierungsblock","notes":[],"status":"open","effortDays":4,"layout":{"x":920,"y":740,"width":500,"height":160}},{"id":"t-ui-zielarchitektur","kind":"thinking","title":"UI-Zielarchitektur","description":"Fundament: Zielbild der UI-Architektur","notes":[],"status":"open","effortDays":8,"layout":{"x":1480,"y":740,"width":760,"height":160}}],"dependencies":[{"id":"d-harness","from":"t-denken-harness","to":"t-umsetzung-harness"},{"id":"d-prozess","from":"t-denken-prozessdaten","to":"t-umsetzung-prozess"},{"id":"d-ui-skalierung","from":"t-ui-zielarchitektur","to":"g-skalierung"},{"id":"d-lz-skalierung","from":"t-lz","to":"g-skalierung"}],"analysis":{"note":"Beim Export berechnet – wird beim Import ignoriert.","tasks":{"t-quickwin-monitoring":{"priority":1,"group":null,"wave":1,"state":"ready","blockedBy":[]},"t-logging":{"priority":1,"group":null,"wave":1,"state":"ready","blockedBy":[]},"t-denken-harness":{"priority":3,"group":"g-skalierung","wave":2,"state":"waiting","blockedBy":["t-ui-zielarchitektur","t-lz"]},"t-umsetzung-harness":{"priority":4,"group":"g-skalierung","wave":3,"state":"waiting","blockedBy":["t-denken-harness","t-ui-zielarchitektur","t-lz"]},"t-denken-prozessdaten":{"priority":3,"group":"g-skalierung","wave":2,"state":"waiting","blockedBy":["t-ui-zielarchitektur","t-lz"]},"t-umsetzung-prozess":{"priority":4,"group":"g-skalierung","wave":3,"state":"waiting","blockedBy":["t-denken-prozessdaten","t-ui-zielarchitektur","t-lz"]},"t-lz":{"priority":3,"group":null,"wave":1,"state":"ready","blockedBy":[]},"t-ui-zielarchitektur":{"priority":4,"group":null,"wave":1,"state":"ready","blockedBy":[]}},"waves":[["t-quickwin-monitoring","t-logging","t-lz","t-ui-zielarchitektur"],["t-denken-harness","t-denken-prozessdaten"],["t-umsetzung-harness","t-umsetzung-prozess"]],"criticalPath":{"tasks":["t-ui-zielarchitektur","t-denken-harness","t-umsetzung-harness"],"effortDays":16}}}</script>
+<script>(function(){
+  var wrap=document.querySelector('.stage-wrap'),stage=document.querySelector('.stage');
+  var w=stage.offsetWidth,h=stage.offsetHeight;
+  function fit(){var s=Math.min(1,(wrap.clientWidth-56)/w);stage.style.transform='scale('+s+')';wrap.style.height=(h*s+48)+'px';}
+  addEventListener('resize',fit);addEventListener('beforeprint',function(){stage.style.transform='';wrap.style.height='';});
+  addEventListener('afterprint',fit);fit();
+})();</script>
+</body>
+</html>

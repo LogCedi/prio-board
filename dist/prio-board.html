@@ -1,0 +1,2898 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prio-Board</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+/* css/theme.css */
+/*
+ * Prio-Board – Design-Tokens
+ * Farben, Schrift und Radien zentral anpassen (z. B. an das CSS-Corporate-Design).
+ */
+:root{
+  --navy:#0b2d55; --navy-2:#173f72; --navy-soft:#e9eff7;
+  --accent:#009fe3;
+  --bg:#f3f6fa; --panel:#ffffff; --ink:#0b2d55; --text:#24364f; --muted:#62738a; --line:#dbe3ee; --soft:#eef3f9;
+  --thinking:#009fe3; --thinking-bg:#eaf7fd; --thinking-line:#9bd8f3;
+  --impl:#1f9a6b; --impl-bg:#eaf7f1; --impl-line:#a6dcc6;
+  --group:#8a9ab0;
+  --ok:#1a7f4e; --ok-bg:#dcf3e7; --wait:#9a5b00; --wait-bg:#fff1d6; --bad:#c62828; --bad-bg:#fde4e4;
+  --run:#0b5cad; --run-bg:#dcecfb;
+  --link:#7f90a8; --link-done:#9ccfb6;
+  --up:#f29200; --down:#0b5cad; --crit:#d6336c; --sel:#009fe3;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(11,45,85,.06),0 4px 14px rgba(11,45,85,.06);
+}
+</style>
+  <style>
+/* css/app.css */
+/* Prio-Board – Layout & Komponenten (nutzt die Tokens aus theme.css) */
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Source Sans Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr 360px;height:100vh;overflow:hidden}
+button,select,input,textarea{font:inherit;color:inherit}
+.ico{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- Kopfzeile ---------- */
+header{grid-column:1/-1;display:flex;gap:6px;align-items:center;padding:9px 16px;font-size:14px;background:var(--navy);color:#fff;flex-wrap:wrap}
+header h1{font-size:17px;margin:0 8px 0 0;white-space:nowrap;font-weight:700;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
+#boardTitle{outline:none;border-radius:6px;padding:1px 6px;margin-left:-6px;cursor:text;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#boardTitle:hover{background:rgba(255,255,255,.1)}
+#boardTitle:focus{background:rgba(255,255,255,.16);text-overflow:clip}
+header h1 .mark{width:10px;height:22px;border-radius:3px;background:var(--accent)}
+.sep{width:1px;height:24px;background:rgba(255,255,255,.2);margin:0 2px}
+.btn{border:1.5px solid rgba(255,255,255,.35);background:transparent;color:#fff;border-radius:999px;padding:4px 12px;cursor:pointer;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:6px;font-weight:600;transition:background .15s,border-color .15s}
+.btn:hover{background:rgba(255,255,255,.12);border-color:#fff}
+.btn.on{background:#fff;color:var(--navy);border-color:#fff}
+.btn.primary{background:#fff;color:var(--navy);border-color:#fff}
+.btn.primary:hover{background:var(--navy-soft)}
+.btn.primary .ib{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-size:13px}
+.btn.thinking .ib{background:var(--thinking)}
+.btn.impl .ib{background:var(--impl)}
+.btn.grp .ib{background:var(--group)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn.icon{padding:4px 9px}
+#zoomLabel{min-width:40px;text-align:center;opacity:.8;font-variant-numeric:tabular-nums}
+.seg{display:inline-flex;border:1.5px solid rgba(255,255,255,.35);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:transparent;color:#fff;padding:4px 10px;cursor:pointer;font-weight:600}
+.seg button.on{background:#fff;color:var(--navy)}
+.lbl{opacity:.75;font-size:13px;margin-left:4px}
+.spacer{flex:1}
+.menu{position:relative}
+.menu-panel{display:none;position:absolute;right:0;top:calc(100% + 8px);z-index:3000;min-width:270px;background:#fff;color:var(--text);
+  border-radius:12px;box-shadow:0 10px 30px rgba(11,45,85,.22);padding:6px}
+.menu.open .menu-panel{display:block}
+.menu-panel button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;color:var(--ink)}
+.menu-panel button:hover{background:var(--soft)}
+.menu-panel button small{display:block;color:var(--muted);font-size:12.5px}
+.menu-panel button.danger b{color:var(--bad)}
+.menu-panel hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
+
+/* panel buttons (light surface) */
+aside .btn{color:var(--navy);border-color:var(--line);background:#fff}
+aside .btn:hover{background:var(--soft);border-color:var(--navy)}
+aside .btn.danger{color:var(--bad);border-color:#f2c4c4}
+
+/* ---------- Arbeitsfläche (Diagramm-Stile: js/render/diagram-styles.js) ---------- */
+#canvas{position:relative;overflow:auto;cursor:grab}
+#canvas.panning{cursor:grabbing}
+#sizer{position:relative}
+#world .block{user-select:none;cursor:move;transition:opacity .15s,box-shadow .15s}
+#world .block.selected{outline:3px solid var(--sel);outline-offset:3px}
+.port{position:absolute;right:-9px;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:#fff;
+  border:2.5px solid var(--navy);cursor:crosshair;opacity:0;z-index:5;transition:opacity .12s}
+.group>.port{top:24px}
+.block:hover>.port,.linking .port{opacity:1}
+.port:hover{background:var(--accent);border-color:var(--accent)}
+.rs{position:absolute;right:3px;bottom:3px;width:14px;height:14px;cursor:nwse-resize;z-index:5;opacity:.35;
+  background:linear-gradient(135deg,transparent 0 55%,var(--navy) 55% 62%,transparent 62% 75%,var(--navy) 75% 82%,transparent 82%)}
+.block:hover>.rs{opacity:.8}
+.linking .block.task:hover,.linking .block.group:hover{outline:3px dashed var(--sel);outline-offset:3px}
+
+/* Hervorhebungen (#world-Präfix, damit sie die Diagramm-Stile überschreiben) */
+#world .block.dim{opacity:.2}
+#world .block.hl{box-shadow:0 0 0 4px rgba(11,45,85,.3),var(--shadow)}
+#world .block.up{box-shadow:0 0 0 4px var(--up)}
+#world .block.down{box-shadow:0 0 0 4px var(--down)}
+#world .block.crit{box-shadow:0 0 0 4px var(--crit)}
+#world .block.ready-hl{box-shadow:0 0 0 4px var(--ok)}
+
+
+/* ---------- Pfeile (interaktiv) ---------- */
+#links .hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer}
+#links .link.up .vis{stroke:var(--up);stroke-width:3.2;marker-end:url(#m-up)}
+#links .link.down .vis{stroke:var(--down);stroke-width:3.2;marker-end:url(#m-down)}
+#links .link.crit .vis{stroke:var(--crit);stroke-width:3.2;marker-end:url(#m-crit)}
+#links .link.sel .vis{stroke:var(--sel);stroke-width:3.6;marker-end:url(#m-sel)}
+#links .link.dim .vis{opacity:.15}
+#links .link:hover .vis{stroke-width:3.6}
+#links .draft{fill:none;stroke:var(--sel);stroke-width:2.5;stroke-dasharray:6 5;marker-end:url(#m-sel)}
+
+/* ---------- Seitenleiste ---------- */
+aside{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;padding:0 10px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;background:none;padding:13px 8px 11px;cursor:pointer;font-weight:700;color:var(--muted);border-bottom:3px solid transparent}
+.tabs button.on{color:var(--navy);border-bottom-color:var(--accent)}
+#sideBody{overflow:auto;padding:18px;flex:1}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:700;color:var(--navy);margin-bottom:5px}
+.field input,.field select,.field textarea,select.adddep{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff;color:var(--text)}
+.field input:focus,.field select:focus,.field textarea:focus,select.adddep:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,159,227,.15)}
+.field input:disabled{background:var(--soft);color:var(--muted)}
+.field textarea{resize:vertical;min-height:64px}
+.row{display:flex;gap:10px}
+.row>.field{flex:1}
+.hint{font-size:13px;color:var(--muted)}
+h3{font-size:12px;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.8px;color:var(--navy)}
+h3:first-child{margin-top:0}
+ul.help{padding-left:18px;margin:0 0 10px}
+ul.help li{margin-bottom:4px}
+ul.list{list-style:none;margin:0 0 8px;padding:0}
+ul.list li{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;cursor:pointer}
+ul.list li:hover{background:var(--soft)}
+ul.list li .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+ul.list li .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:0 4px}
+ul.list li .x:hover{color:var(--bad)}
+.dot{width:20px;height:20px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-size:12px}
+.dot.thinking{background:var(--thinking)}
+.dot.implementation{background:var(--impl)}
+.dot.group{border:2px dashed var(--group)}
+.small{font-size:12px;color:var(--muted);white-space:nowrap}
+.wavebox{border:1.5px solid var(--line);border-radius:var(--radius);padding:10px 8px 4px;margin-bottom:12px}
+.wavebox .wh{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;color:var(--navy);margin:0 6px 4px}
+.wavebox.now{border-color:var(--ok);background:#f5fbf8}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
+.stat{background:var(--soft);border-radius:12px;padding:10px 12px}
+.stat b{display:block;font-size:22px;color:var(--navy)}
+.stat span{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.stat.thinking b{color:var(--thinking)} .stat.impl b{color:var(--impl)}
+.warn{background:var(--bad-bg);color:var(--bad);border-radius:12px;padding:10px;margin-bottom:12px;font-size:14px}
+.legend{display:grid;gap:8px;font-size:13.5px}
+.legend div{display:flex;gap:10px;align-items:center}
+.sw{width:32px;height:20px;border-radius:6px;flex:none}
+.sw.g{border:2px dashed var(--group)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;
+  padding:10px 18px;border-radius:999px;opacity:0;pointer-events:none;transition:.2s;z-index:9999;font-size:14px;box-shadow:var(--shadow)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:820px){
+  body{grid-template-columns:1fr;grid-template-rows:auto 1fr 42vh}
+  aside{border-left:0;border-top:1px solid var(--line)}
+}
+@media print{
+  header,aside{display:none}
+  body{display:block;height:auto}
+  #canvas{overflow:visible}
+}
+
+/* ---------- Dialoge (js/ui/dialog.js) ---------- */
+.pb-dialog{border:0;border-radius:16px;padding:0;width:min(640px,calc(100vw - 32px));box-shadow:0 20px 60px rgba(11,45,85,.3);color:var(--text)}
+.pb-dialog::backdrop{background:rgba(11,45,85,.45)}
+.pb-dialog-body{padding:22px 24px 18px}
+.pb-dialog h2{margin:0 0 10px;font-size:19px;color:var(--ink)}
+.pb-dialog-text p{margin:0 0 6px}
+.pb-dialog-hint{margin:0 0 10px;color:var(--muted);font-size:14px}
+.pb-dialog-hint.small{font-size:13px;margin-top:8px}
+.pb-dialog-code{width:100%;height:180px;border:1.5px solid var(--line);border-radius:10px;padding:10px;resize:vertical;
+  font:12.5px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--text);background:var(--soft)}
+.pb-dialog-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:14px;flex-wrap:wrap}
+.pb-dialog-status{flex:1;font-size:13px;color:var(--ok)}
+.pb-dialog .btn{color:var(--navy);border-color:var(--line);background:#fff}
+.pb-dialog .btn:hover{background:var(--soft);border-color:var(--navy)}
+.pb-dialog .btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.pb-dialog .btn.primary:hover{background:var(--navy-2)}
+.pb-dialog .btn.primary.danger{background:var(--bad);border-color:var(--bad)}
+.pb-file{margin-bottom:12px}
+header .btn.warn{background:#fff1d6;color:#7a4700;border-color:#fff1d6;line-height:1.2;height:30px}
+
+/* Schmalere Fenster (z. B. eingebettete Vorschau): Kopfzeile kompakter, damit sie einzeilig bleibt */
+@media (max-width:1500px){
+  header{gap:4px;padding:8px 12px}
+  header .btn{padding:4px 9px}
+  .seg button{padding:4px 8px}
+  #boardTitle{max-width:150px}
+  #saveWarning .long{display:none}
+}
+@media (max-width:1250px){
+  #addThinking,#addImplementation,#addGroup{font-size:0;gap:0;padding:4px}
+  #addThinking .ib,#addImplementation .ib,#addGroup .ib{font-size:13px}
+  #fit,#zoomLabel,.sep{display:none}
+}
+</style>
+</head>
+<body>
+  <header>
+    <h1><span class="mark"></span><span id="boardTitle" contenteditable="plaintext-only" spellcheck="false" title="Titel bearbeiten">Prio-Board</span></h1>
+
+    <button class="btn primary thinking" id="addThinking" title="Analyse/Konzept – braucht Denkzeit"><span class="ib" data-icon="brain"></span>Denken</button>
+    <button class="btn primary impl" id="addImplementation" title="Direkt umsetzbar"><span class="ib" data-icon="wrench"></span>Umsetzung</button>
+    <button class="btn primary grp" id="addGroup" title="Rahmen für zusammengehörige Themen (Abhängigkeitsblock)"><span class="ib" data-icon="group"></span>Gruppe</button>
+    <span class="sep"></span>
+
+    <button class="btn icon" id="undo" title="Rückgängig (Strg+Z)">↶</button>
+    <button class="btn icon" id="redo" title="Wiederholen (Strg+Y)">↷</button>
+    <span class="sep"></span>
+
+    <button class="btn icon" id="zoomOut" title="Verkleinern">−</button>
+    <span id="zoomLabel">100%</span>
+    <button class="btn icon" id="zoomIn" title="Vergrössern">+</button>
+    <button class="btn" id="fit">Einpassen</button>
+    <span class="sep"></span>
+
+    <div class="seg" id="focusMode" title="Fokus: hebt Blöcke auf dem Board hervor">
+      <button data-focus="none" class="on">Aus</button>
+      <button data-focus="ready">Jetzt startbar</button>
+      <button data-focus="critical">Kritischer Pfad</button>
+    </div>
+    <button class="btn on" id="priorityAxis" title="Prioritätsachse ein/aus">Prio-Achse</button>
+
+    <span class="spacer"></span>
+    <button class="btn warn" id="saveWarning" hidden title="Wird nicht im Browser gespeichert – Details">⚠<span class="long"> Nicht gespeichert</span></button>
+    <div class="menu" id="fileMenu">
+      <button class="btn" id="fileMenuButton" aria-haspopup="true" aria-expanded="false">Datei ▾</button>
+      <div class="menu-panel" role="menu">
+        <button role="menuitem" id="exportHtml"><b>Als HTML</b><small>Statische Seite nur mit dem Diagramm</small></button>
+        <button role="menuitem" id="exportJson"><b>Export (JSON)</b><small>Board als Datei speichern</small></button>
+        <button role="menuitem" id="importJson"><b>Import</b><small>JSON oder exportierte HTML-Seite laden</small></button>
+        <hr>
+        <button role="menuitem" id="loadExample"><b>Beispiel laden</b></button>
+        <button role="menuitem" id="clearBoard" class="danger"><b>Board leeren</b></button>
+      </div>
+    </div>
+  </header>
+
+  <div id="canvas">
+    <div id="sizer">
+      <div id="world" class="pb-world">
+        <div id="zones" class="pb-zones"></div>
+        <svg id="links" class="pb-links" xmlns="http://www.w3.org/2000/svg">
+          <defs></defs>
+          <g id="linkLayer"></g>
+          <path id="draftLink" class="draft" d="" style="display:none"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <aside>
+    <nav class="tabs" id="sideTabs">
+      <button data-tab="details">Details</button>
+      <button data-tab="plan">Ablauf</button>
+      <button data-tab="help">Hilfe</button>
+    </nav>
+    <div id="sideBody"></div>
+  </aside>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Reihenfolge = Abhängigkeiten der Module -->
+  <script>
+/* js/core/config.js */
+/**
+ * Prio-Board – zentrale Konfiguration.
+ * Alle Module hängen am globalen Namensraum `PB` (klassische Skripte,
+ * damit das Tool auch per Doppelklick über file:// funktioniert).
+ */
+window.PB = window.PB || {};
+
+PB.config = Object.freeze({
+  /** Rasterweite in Pixeln; Positionen und Grössen rasten darauf ein. */
+  GRID: 20,
+
+  /** Breite einer Prioritätsspalte. Spalte 1 (links) = höchste Priorität. */
+  ZONE_WIDTH: 480,
+  PRIORITY_LEVELS: 5,
+  PRIORITY_LABELS: ['sehr hoch', 'hoch', 'mittel', 'tief', 'sehr tief'],
+
+  KIND_LABELS: { thinking: 'Denken', implementation: 'Umsetzung' },
+  KIND_SUBTITLES: { thinking: 'Denken · Analyse', implementation: 'Umsetzung' },
+  STATUS_LABELS: { open: 'Offen', in_progress: 'Läuft', done: 'Fertig' },
+
+  DEFAULT_TITLES: { thinking: 'Neues Denk-Thema', implementation: 'Neue Umsetzung', group: 'Neue Gruppe' },
+  DEFAULT_SIZE: {
+    thinking: { width: 340, height: 150 },
+    implementation: { width: 240, height: 130 },
+    group: { width: 560, height: 340 },
+  },
+  DEFAULT_EFFORT: { thinking: 3, implementation: 1 },
+  MIN_SIZE: {
+    task: { width: 120, height: 80 },
+    group: { width: 200, height: 120 },
+  },
+
+  /** fitMin: „Einpassen“ zoomt nie kleiner, damit Text lesbar bleibt (Rest per Scrollen). */
+  ZOOM: { min: 0.25, max: 2, step: 1.2, fitMin: 0.7 },
+  HISTORY_LIMIT: 100,
+
+  /** Dateiformat für Import/Export (siehe schema/prio-board.schema.json). */
+  FORMAT: { name: 'prio-board', version: 1 },
+
+  STORAGE_KEY: 'prioBoard.document',
+  /** Ältere Speicherstände: v1 hatte „hohe Prio rechts“ und wird gespiegelt. */
+  LEGACY_STORAGE: [
+    { key: 'prioBoard.v2', mirror: false },
+    { key: 'prioBoard.v1', mirror: true },
+  ],
+});
+</script>
+  <script>
+/* js/core/util.js */
+/** Kleine, zustandslose Hilfsfunktionen. */
+PB.util = (() => {
+  const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  const NUMBER = new Intl.NumberFormat('de-CH', { maximumFractionDigits: 1 });
+
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ESCAPES[c]);
+  const uid = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+  const snap = (value) => Math.round(value / PB.config.GRID) * PB.config.GRID;
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const formatNumber = (n) => NUMBER.format(n);
+
+  /** Geometrie auf Layout-Objekten { x, y, width, height }. */
+  const center = (l) => ({ x: l.x + l.width / 2, y: l.y + l.height / 2 });
+  const area = (l) => l.width * l.height;
+  const containsPoint = (l, p) => p.x > l.x && p.x < l.x + l.width && p.y > l.y && p.y < l.y + l.height;
+
+  /** Bounding-Box über mehrere Layouts. */
+  function bounds(layouts) {
+    if (!layouts.length) return null;
+    const box = { x: Infinity, y: Infinity, right: -Infinity, bottom: -Infinity };
+    for (const l of layouts) {
+      box.x = Math.min(box.x, l.x);
+      box.y = Math.min(box.y, l.y);
+      box.right = Math.max(box.right, l.x + l.width);
+      box.bottom = Math.max(box.bottom, l.y + l.height);
+    }
+    return { x: box.x, y: box.y, width: box.right - box.x, height: box.bottom - box.y };
+  }
+
+  /** "2,5" → 2.5; leer/ungültig → null */
+  function parseNumber(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const n = Number(String(value).trim().replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function slugify(text) {
+    return String(text || 'prio-board')
+      .toLowerCase()
+      .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'prio-board';
+  }
+
+  const today = () => new Date().toISOString().slice(0, 10);
+
+  return { escapeHtml, uid, snap, clamp, formatNumber, center, area, containsPoint, bounds, parseNumber, slugify, today };
+})();
+</script>
+  <script>
+/* js/core/icons.js */
+/** SVG-Icons (Pfade nach Lucide, ISC-Lizenz). */
+PB.icons = (() => {
+  const PATHS = {
+    brain:
+      '<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>' +
+      '<path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>' +
+      '<path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/>' +
+      '<path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>' +
+      '<path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/>' +
+      '<path d="M19.967 17.484A4 4 0 0 1 18 18"/>',
+    wrench:
+      '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91' +
+      'a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+    group: '<rect x="3" y="3" width="18" height="18" rx="3" stroke-dasharray="4 3"/>',
+  };
+  const KIND_ICON = { thinking: 'brain', implementation: 'wrench', group: 'group' };
+
+  const svg = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name] || ''}</svg>`;
+  const forKind = (kind) => svg(KIND_ICON[kind]);
+
+  /** Füllt alle Elemente mit data-icon="name". */
+  function hydrate(root = document) {
+    root.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = svg(el.dataset.icon); });
+  }
+
+  return { svg, forKind, hydrate };
+})();
+</script>
+  <script>
+/* js/core/ui-state.js */
+/**
+ * Flüchtiger UI-Zustand (nicht gespeichert, nicht in der Historie).
+ * Wird von Renderern gelesen und von app.js geändert.
+ */
+PB.ui = {
+  /** { type: 'node' | 'dependency' | null, id } */
+  selection: { type: null, id: null },
+  hoverId: null,
+  tab: 'plan',            // 'details' | 'plan' | 'help'
+  focusMode: 'none',      // 'none' | 'ready' | 'critical'
+  dragging: false,
+};
+</script>
+  <script>
+/* js/domain/model.js */
+/**
+ * Datenmodell des Boards: Zustand, Abfragen, Änderungen und Undo/Redo.
+ *
+ * Zustand (identisch mit dem Datenteil des JSON-Formats):
+ *   { board: { title }, view: { zoom, showPriorityAxis },
+ *     groups: [{ id, title, description, layout }],
+ *     tasks:  [{ id, kind, title, description, notes[], status, effortDays, layout }],
+ *     dependencies: [{ id, from, to }] }      // from muss vor to fertig sein
+ *
+ * Gruppenzugehörigkeit wird NICHT gespeichert, sondern aus der Geometrie
+ * abgeleitet: ein Element gehört zur kleinsten (grösseren) Gruppe, die seinen
+ * Mittelpunkt enthält.
+ *
+ * Änderungen melden sich über subscribe(fn) mit einem meta-Objekt { type, source }.
+ */
+PB.model = (() => {
+  const C = PB.config;
+  const U = PB.util;
+
+  let state = createEmptyState();
+  let parents = new Map();
+  const past = [];
+  const future = [];
+  const listeners = new Set();
+
+  function createEmptyState(title = 'Prio-Board', view = { zoom: 1, showPriorityAxis: true }) {
+    return { board: { title }, view: { ...view }, groups: [], tasks: [], dependencies: [] };
+  }
+
+  /* ---------- Ereignisse ---------- */
+
+  function subscribe(fn) {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  }
+  function emit(meta) {
+    listeners.forEach((fn) => fn(meta));
+  }
+
+  /* ---------- Abfragen ---------- */
+
+  const getState = () => state;
+  const allNodes = () => [...state.groups, ...state.tasks];
+  const getNode = (id) => state.tasks.find((n) => n.id === id) || state.groups.find((n) => n.id === id) || null;
+  const isGroup = (id) => state.groups.some((g) => g.id === id);
+  const getDependency = (id) => state.dependencies.find((d) => d.id === id) || null;
+
+  const parentOf = (id) => parents.get(id) ?? null;
+  const childrenOf = (id) => allNodes().filter((n) => parents.get(n.id) === id);
+
+  function descendantsOf(id) {
+    const result = [];
+    const walk = (parentId) => childrenOf(parentId).forEach((child) => {
+      result.push(child.id);
+      walk(child.id);
+    });
+    walk(id);
+    return result;
+  }
+
+  function ancestorsOf(id) {
+    const result = [];
+    for (let p = parentOf(id); p && !result.includes(p); p = parentOf(p)) result.push(p);
+    return result;
+  }
+
+  /** Alle Aufgaben-IDs, die ein Knoten repräsentiert (Aufgabe selbst oder Inhalt einer Gruppe). */
+  function tasksWithin(id) {
+    if (!isGroup(id)) return getNode(id) ? [id] : [];
+    return descendantsOf(id).filter((d) => !isGroup(d));
+  }
+
+  const areNested = (a, b) => ancestorsOf(a).includes(b) || ancestorsOf(b).includes(a);
+
+  /* ---------- Hierarchie ---------- */
+
+  function rebuildHierarchy() {
+    parents = new Map();
+    for (const node of allNodes()) {
+      const c = U.center(node.layout);
+      const ownArea = U.area(node.layout);
+      let best = null;
+      let bestArea = Infinity;
+      for (const group of state.groups) {
+        if (group.id === node.id) continue;
+        const a = U.area(group.layout);
+        if (a > ownArea && a < bestArea && U.containsPoint(group.layout, c)) {
+          best = group.id;
+          bestArea = a;
+        }
+      }
+      if (best) parents.set(node.id, best);
+    }
+  }
+
+  /* ---------- Historie ---------- */
+
+  function checkpoint() {
+    past.push(JSON.stringify(state));
+    if (past.length > C.HISTORY_LIMIT) past.shift();
+    future.length = 0;
+  }
+  function restore(from, to) {
+    if (!from.length) return;
+    to.push(JSON.stringify(state));
+    state = JSON.parse(from.pop());
+    rebuildHierarchy();
+    emit({ type: 'history' });
+  }
+  const undo = () => restore(past, future);
+  const redo = () => restore(future, past);
+  const canUndo = () => past.length > 0;
+  const canRedo = () => future.length > 0;
+
+  /* ---------- Ganzes Board ---------- */
+
+  /** Lädt einen Zustand ohne Historieneintrag (Programmstart). */
+  function load(next) {
+    state = next;
+    rebuildHierarchy();
+    emit({ type: 'load' });
+  }
+  /** Ersetzt den Zustand mit Historieneintrag (Import, Beispiel, Leeren). */
+  function replace(next) {
+    checkpoint();
+    load(next);
+  }
+  const clear = () => replace(createEmptyState(state.board.title, state.view));
+
+  function setBoardTitle(title) {
+    const clean = String(title).trim() || 'Prio-Board';
+    if (clean === state.board.title) return;
+    checkpoint();
+    state.board.title = clean;
+    emit({ type: 'board' });
+  }
+
+  /** Ansichtseinstellungen (Zoom, Achse) – ohne Historie und ohne Ereignis. */
+  function setView(patch) {
+    Object.assign(state.view, patch);
+  }
+
+  /* ---------- Knoten ---------- */
+
+  /** Nächster freier Platz (keine Überlappung mit Aufgaben) möglichst nahe an position. */
+  function placeAt(position, size) {
+    const STEP = C.GRID * 2;
+    const MAX_RADIUS = 30;
+    const origin = {
+      x: Math.max(0, U.snap(position.x - size.width / 2)),
+      y: Math.max(0, U.snap(position.y - size.height / 2)),
+    };
+    const margin = C.GRID;
+    const overlaps = (l) => state.tasks.some((t) =>
+      l.x < t.layout.x + t.layout.width + margin && l.x + l.width + margin > t.layout.x &&
+      l.y < t.layout.y + t.layout.height + margin && l.y + l.height + margin > t.layout.y);
+
+    for (let r = 0; r <= MAX_RADIUS; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // nur der Ring mit Abstand r
+          const candidate = { x: origin.x + dx * STEP, y: origin.y + dy * STEP, ...size };
+          if (candidate.x >= 0 && candidate.y >= 0 && !overlaps(candidate)) return candidate;
+        }
+      }
+    }
+    return { ...origin, ...size };
+  }
+
+  function addTask(kind, position) {
+    const task = {
+      id: U.uid('t'),
+      kind,
+      title: C.DEFAULT_TITLES[kind],
+      description: '',
+      notes: [],
+      status: 'open',
+      effortDays: C.DEFAULT_EFFORT[kind],
+      layout: placeAt(position, C.DEFAULT_SIZE[kind]),
+    };
+    checkpoint();
+    state.tasks.push(task);
+    rebuildHierarchy();
+    emit({ type: 'add', id: task.id });
+    return task.id;
+  }
+
+  function addGroup(position) {
+    const group = {
+      id: U.uid('g'),
+      title: C.DEFAULT_TITLES.group,
+      description: '',
+      layout: placeAt(position, C.DEFAULT_SIZE.group),
+    };
+    checkpoint();
+    state.groups.push(group);
+    rebuildHierarchy();
+    emit({ type: 'add', id: group.id });
+    return group.id;
+  }
+
+  /**
+   * Ändert Felder eines Knotens.
+   * options.record=false: kein Historieneintrag (z. B. beim Tippen, siehe checkpoint()).
+   * options.source: wird im Ereignis weitergegeben (z. B. 'sidebar').
+   */
+  function updateNode(id, patch, { record = true, source } = {}) {
+    const node = getNode(id);
+    if (!node) return;
+    if (record) checkpoint();
+    Object.assign(node, patch);
+    emit({ type: 'update', id, source });
+  }
+
+  function removeNode(id) {
+    if (!getNode(id)) return;
+    checkpoint();
+    state.tasks = state.tasks.filter((t) => t.id !== id);
+    state.groups = state.groups.filter((g) => g.id !== id);
+    state.dependencies = state.dependencies.filter((d) => d.from !== id && d.to !== id);
+    rebuildHierarchy();
+    emit({ type: 'remove', id });
+  }
+
+  function duplicateTask(id) {
+    const task = state.tasks.find((t) => t.id === id);
+    if (!task) return null;
+    const copy = {
+      ...JSON.parse(JSON.stringify(task)),
+      id: U.uid('t'),
+      title: `${task.title} (Kopie)`,
+      status: 'open',
+    };
+    copy.layout.x += C.GRID * 2;
+    copy.layout.y += C.GRID * 2;
+    checkpoint();
+    state.tasks.push(copy);
+    rebuildHierarchy();
+    emit({ type: 'add', id: copy.id });
+    return copy.id;
+  }
+
+  /* ---------- Abhängigkeiten ---------- */
+
+  /** Prüft, ob from → to erlaubt ist. Liefert null oder einen Fehlertext. */
+  function validateDependency(from, to) {
+    if (!getNode(from) || !getNode(to) || from === to) return 'Ungültige Abhängigkeit';
+    if (areNested(from, to)) return 'Eine Gruppe und ihr eigenes Element können nicht voneinander abhängen';
+    if (state.dependencies.some((d) => d.from === from && d.to === to)) return 'Diese Abhängigkeit existiert bereits';
+    const candidate = [...state.dependencies, { from, to }];
+    if (PB.analysis.hasCycle(PB.analysis.predecessorMap(api, candidate))) {
+      return 'Nicht möglich – das würde einen Kreis (Zyklus) erzeugen';
+    }
+    return null;
+  }
+
+  /** Legt from → to an. Liefert { ok, error? }. */
+  function addDependency(from, to) {
+    const error = validateDependency(from, to);
+    if (error) return { ok: false, error };
+    checkpoint();
+    state.dependencies.push({ id: U.uid('d'), from, to });
+    emit({ type: 'dependency' });
+    return { ok: true };
+  }
+
+  function removeDependency(id) {
+    if (!getDependency(id)) return;
+    checkpoint();
+    state.dependencies = state.dependencies.filter((d) => d.id !== id);
+    emit({ type: 'dependency' });
+  }
+
+  function reverseDependency(id) {
+    const dep = getDependency(id);
+    if (!dep) return { ok: false, error: 'Abhängigkeit nicht gefunden' };
+    const others = state.dependencies.filter((d) => d.id !== id);
+    const reversed = [...others, { from: dep.to, to: dep.from }];
+    if (PB.analysis.hasCycle(PB.analysis.predecessorMap(api, reversed))) {
+      return { ok: false, error: 'Umkehren würde einen Zyklus erzeugen' };
+    }
+    checkpoint();
+    [dep.from, dep.to] = [dep.to, dep.from];
+    emit({ type: 'dependency' });
+    return { ok: true };
+  }
+
+  /* ---------- Gesten (Verschieben / Grösse ändern) ---------- */
+  // Während einer Geste wird das Layout direkt geändert (ohne Ereignis),
+  // damit nur Positionen aktualisiert werden müssen. endGesture() meldet die Änderung.
+
+  const beginGesture = () => checkpoint();
+  function setLayout(id, patch) {
+    const node = getNode(id);
+    if (node) Object.assign(node.layout, patch);
+  }
+  function endGesture() {
+    rebuildHierarchy();
+    emit({ type: 'layout' });
+  }
+
+  const api = {
+    subscribe,
+    // Abfragen
+    getState, allNodes, getNode, isGroup, getDependency,
+    parentOf, childrenOf, descendantsOf, ancestorsOf, tasksWithin, areNested,
+    // Historie
+    checkpoint, undo, redo, canUndo, canRedo,
+    // Board
+    createEmptyState, load, replace, clear, setBoardTitle, setView,
+    // Knoten
+    addTask, addGroup, updateNode, removeNode, duplicateTask,
+    // Abhängigkeiten
+    validateDependency, addDependency, removeDependency, reverseDependency,
+    // Gesten
+    beginGesture, setLayout, endGesture,
+  };
+  return api;
+})();
+</script>
+  <script>
+/* js/domain/analysis.js */
+/**
+ * Abhängigkeitsanalyse (reine Funktionen über dem Modell).
+ *
+ * Effektive Vorgänger einer Aufgabe T:
+ *   - alle Abhängigkeiten, die direkt auf T zeigen,
+ *   - plus alle, die auf eine Gruppe zeigen, in der T liegt.
+ *   Zeigt eine Abhängigkeit VON einer Gruppe weg, zählen alle Aufgaben darin.
+ */
+PB.analysis = (() => {
+  const C = PB.config;
+  const U = PB.util;
+
+  /** Priorität aus der horizontalen Position: 1 (links, hoch) … PRIORITY_LEVELS (rechts, tief). */
+  function priorityOf(layout) {
+    const cx = layout.x + layout.width / 2;
+    return U.clamp(Math.floor(cx / C.ZONE_WIDTH) + 1, 1, C.PRIORITY_LEVELS);
+  }
+  const priorityLabel = (p) => C.PRIORITY_LABELS[p - 1];
+
+  /** Aufwand in Personentagen; fehlende Angaben zählen als 1. */
+  function effortOf(task) {
+    const n = Number(task.effortDays);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  }
+
+  /** Map<taskId, Set<taskId>> der effektiven Vorgänger. */
+  function predecessorMap(model, dependencies = model.getState().dependencies) {
+    const preds = new Map();
+    const tasks = model.getState().tasks;
+    tasks.forEach((t) => preds.set(t.id, new Set()));
+    for (const task of tasks) {
+      for (const scope of [task.id, ...model.ancestorsOf(task.id)]) {
+        for (const dep of dependencies) {
+          if (dep.to !== scope) continue;
+          for (const p of model.tasksWithin(dep.from)) if (p !== task.id) preds.get(task.id).add(p);
+        }
+      }
+    }
+    return preds;
+  }
+
+  function hasCycle(preds) {
+    const VISITING = 1;
+    const DONE = 2;
+    const mark = new Map();
+    const visit = (node) => {
+      mark.set(node, VISITING);
+      for (const p of preds.get(node) || []) {
+        if (mark.get(p) === VISITING) return true;
+        if (!mark.has(p) && visit(p)) return true;
+      }
+      mark.set(node, DONE);
+      return false;
+    };
+    for (const node of preds.keys()) if (!mark.has(node) && visit(node)) return true;
+    return false;
+  }
+
+  /** Transitive Hülle ausgehend von start über map (Vorgänger oder Nachfolger). */
+  function closure(start, map) {
+    const result = new Set();
+    const stack = [...start];
+    while (stack.length) {
+      for (const next of map.get(stack.pop()) || []) {
+        if (!result.has(next)) {
+          result.add(next);
+          stack.push(next);
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Vollständige Auswertung des Boards.
+   * Wellen: offene Aufgaben in topologischen Stufen – innerhalb einer Welle
+   * bestehen keine Abhängigkeiten, sie können parallel bearbeitet werden.
+   */
+  function analyze(model) {
+    const tasks = model.getState().tasks;
+    const byId = new Map(tasks.map((t) => [t.id, t]));
+    const isDone = (id) => byId.get(id)?.status === 'done';
+
+    const predecessors = predecessorMap(model);
+    const successors = new Map(tasks.map((t) => [t.id, new Set()]));
+    predecessors.forEach((preds, id) => preds.forEach((p) => successors.get(p).add(id)));
+
+    // Kahn-Algorithmus über offene Aufgaben
+    const open = tasks.filter((t) => !isDone(t.id));
+    const remaining = new Map(open.map((t) => [t.id, [...predecessors.get(t.id)].filter((p) => !isDone(p)).length]));
+    const wave = new Map();
+    const order = open.filter((t) => remaining.get(t.id) === 0).map((t) => t.id);
+    order.forEach((id) => wave.set(id, 1));
+    for (let i = 0; i < order.length; i++) {
+      const id = order[i];
+      for (const next of successors.get(id)) {
+        if (!remaining.has(next)) continue;
+        wave.set(next, Math.max(wave.get(next) || 1, wave.get(id) + 1));
+        remaining.set(next, remaining.get(next) - 1);
+        if (remaining.get(next) === 0) order.push(next);
+      }
+    }
+    const inOrder = new Set(order);
+    const cycle = new Set(open.filter((t) => !inOrder.has(t.id)).map((t) => t.id));
+    cycle.forEach((id) => wave.delete(id));
+
+    const openPredecessors = (id) => [...(predecessors.get(id) || [])].filter((p) => !isDone(p));
+    const ready = new Set(open.filter((t) => !cycle.has(t.id) && openPredecessors(t.id).length === 0).map((t) => t.id));
+
+    // Wellen als sortierte Listen (Priorität, dann Umsetzung vor Denken)
+    const priority = new Map(tasks.map((t) => [t.id, priorityOf(t.layout)]));
+    const waves = [];
+    wave.forEach((n, id) => (waves[n - 1] ||= []).push(id));
+    waves.forEach((list) => list.sort((a, b) =>
+      priority.get(a) - priority.get(b) ||
+      (byId.get(a).kind === 'implementation' ? -1 : 1) - (byId.get(b).kind === 'implementation' ? -1 : 1)));
+
+    // Kritischer Pfad: längste Kette nach Aufwand über offene Aufgaben
+    const finish = new Map();
+    const via = new Map();
+    for (const id of order) {
+      let best = 0;
+      let bestPred = null;
+      for (const p of predecessors.get(id)) {
+        if (finish.has(p) && finish.get(p) > best) {
+          best = finish.get(p);
+          bestPred = p;
+        }
+      }
+      finish.set(id, best + effortOf(byId.get(id)));
+      via.set(id, bestPred);
+    }
+    let end = null;
+    finish.forEach((f, id) => { if (end === null || f > finish.get(end)) end = id; });
+    const criticalPath = [];
+    for (let id = end; id; id = via.get(id)) criticalPath.unshift(id);
+
+    /** 'done' | 'cycle' | 'in_progress' | 'ready' | 'waiting' */
+    function stateOf(id) {
+      const task = byId.get(id);
+      if (!task) return null;
+      if (task.status === 'done') return 'done';
+      if (cycle.has(id)) return 'cycle';
+      if (task.status === 'in_progress') return 'in_progress';
+      return ready.has(id) ? 'ready' : 'waiting';
+    }
+
+    return {
+      predecessors, successors,
+      wave, waves, cycle, ready,
+      criticalPath, criticalEffort: end ? finish.get(end) : 0,
+      openPredecessors, stateOf,
+      priorityOf: (id) => priority.get(id) ?? priorityOf(model.getNode(id).layout),
+    };
+  }
+
+  return { priorityOf, priorityLabel, effortOf, predecessorMap, hasCycle, closure, analyze };
+})();
+</script>
+  <script>
+/* js/io/format.js */
+/**
+ * JSON-Dateiformat „prio-board“ (Version 1) – Export, Import, Validierung, Migration.
+ * Beschreibung: schema/prio-board.schema.json und README.md.
+ *
+ *   {
+ *     "format": "prio-board", "version": 1, "exportedAt": "…",
+ *     "board": { "title": "…" },
+ *     "view": { "zoom": 1, "showPriorityAxis": true },
+ *     "groups": [ { "id", "title", "description", "layout": { "x", "y", "width", "height" } } ],
+ *     "tasks": [ { "id", "kind": "thinking|implementation", "title", "description",
+ *                  "notes": ["…"], "status": "open|in_progress|done", "effortDays": 3, "layout": {…} } ],
+ *     "dependencies": [ { "id", "from", "to" } ],      // from muss vor to fertig sein
+ *     "analysis": { … }                                 // nur Export, wird beim Import ignoriert
+ *   }
+ */
+PB.format = (() => {
+  const C = PB.config;
+  const U = PB.util;
+  const KINDS = ['thinking', 'implementation'];
+  const STATUSES = ['open', 'in_progress', 'done'];
+
+  class FormatError extends Error {
+    constructor(problems) {
+      super(`Datei ungültig:\n• ${problems.slice(0, 8).join('\n• ')}${problems.length > 8 ? `\n• … (+${problems.length - 8})` : ''}`);
+      this.name = 'FormatError';
+      this.problems = problems;
+    }
+  }
+
+  /* ---------- Export ---------- */
+
+  const layoutOut = (l) => ({ x: l.x, y: l.y, width: l.width, height: l.height });
+
+  /**
+   * Zustand → Dokument. Mit { model, analysis } wird zusätzlich ein
+   * berechneter "analysis"-Block angehängt (für Auswertungen ausserhalb des Tools).
+   */
+  function serialize(state, { model, analysis, exportedAt = new Date().toISOString() } = {}) {
+    const doc = {
+      format: C.FORMAT.name,
+      version: C.FORMAT.version,
+      exportedAt,
+      board: { title: state.board.title },
+      view: { zoom: state.view.zoom, showPriorityAxis: state.view.showPriorityAxis },
+      groups: state.groups.map((g) => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        layout: layoutOut(g.layout),
+      })),
+      tasks: state.tasks.map((t) => ({
+        id: t.id,
+        kind: t.kind,
+        title: t.title,
+        description: t.description,
+        notes: [...t.notes],
+        status: t.status,
+        effortDays: t.effortDays ?? null,
+        layout: layoutOut(t.layout),
+      })),
+      dependencies: state.dependencies.map((d) => ({ id: d.id, from: d.from, to: d.to })),
+    };
+    if (model && analysis) doc.analysis = buildAnalysis(state, model, analysis);
+    return doc;
+  }
+
+  function buildAnalysis(state, model, a) {
+    return {
+      note: 'Beim Export berechnet – wird beim Import ignoriert.',
+      tasks: Object.fromEntries(state.tasks.map((t) => [t.id, {
+        priority: a.priorityOf(t.id),
+        group: model.parentOf(t.id),
+        wave: a.wave.get(t.id) ?? null,
+        state: a.stateOf(t.id),
+        blockedBy: a.openPredecessors(t.id),
+      }])),
+      waves: a.waves,
+      criticalPath: { tasks: a.criticalPath, effortDays: a.criticalEffort },
+    };
+  }
+
+  /* ---------- Import ---------- */
+
+  /**
+   * String oder Objekt → normalisierter Zustand.
+   * Standard (Import): streng – wirft FormatError mit allen Problemen.
+   * { repair: true } (eigener gespeicherter Stand): repariert stattdessen, was geht
+   *   (ungültige Werte → Standardwerte, kaputte Pfeile entfernt, doppelte IDs umbenannt)
+   *   und meldet jede Reparatur über onWarning(message).
+   */
+  function parse(input, { repair = false, onWarning = () => {} } = {}) {
+    let raw = input;
+    if (typeof input === 'string') {
+      try {
+        raw = JSON.parse(input);
+      } catch (e) {
+        throw new FormatError([`Kein gültiges JSON (${e.message})`]);
+      }
+    }
+    if (isLegacy(raw)) raw = migrateLegacy(raw);
+    return normalize(raw, { repair, onWarning });
+  }
+
+  function normalize(raw, { repair, onWarning }) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new FormatError(['Inhalt ist kein JSON-Objekt']);
+
+    // Grundstruktur ist nie reparierbar
+    const fatal = [];
+    if (raw.format !== C.FORMAT.name) fatal.push(`"format" muss "${C.FORMAT.name}" sein`);
+    if (!Number.isInteger(raw.version) || raw.version < 1 || raw.version > C.FORMAT.version) {
+      fatal.push(`"version" ${JSON.stringify(raw.version)} wird nicht unterstützt (1–${C.FORMAT.version})`);
+    }
+    for (const key of ['groups', 'tasks', 'dependencies']) {
+      if (!Array.isArray(raw[key])) fatal.push(`"${key}" muss eine Liste sein`);
+    }
+    if (fatal.length) throw new FormatError(fatal);
+
+    // Alles Weitere: im Reparaturmodus Hinweis + Standardwert, sonst Fehler
+    const problems = [];
+    const report = (message) => (repair ? onWarning(message) : problems.push(message));
+    const text = (v) => (typeof v === 'string' ? v : '');
+
+    const nodeIds = new Set();
+    const readId = (id, where) => {
+      if (typeof id !== 'string' || !id.trim()) {
+        report(`${where}: "id" fehlt`);
+        id = U.uid('n');
+      } else if (nodeIds.has(id)) {
+        report(`${where}: doppelte id "${id}"`);
+        id = U.uid('n');
+      }
+      nodeIds.add(id);
+      return id;
+    };
+    const DEFAULT_LAYOUT = { x: 0, y: 0, width: 240, height: 130 };
+    const readLayout = (l, where) => {
+      const out = {};
+      for (const k of ['x', 'y', 'width', 'height']) {
+        let v = Number(l?.[k]);
+        const invalid = !Number.isFinite(v) || ((k === 'width' || k === 'height') && v <= 0);
+        if (invalid) {
+          report(`${where}: "layout.${k}" fehlt oder ist ungültig`);
+          v = DEFAULT_LAYOUT[k];
+        }
+        out[k] = v;
+      }
+      return out;
+    };
+
+    const groups = raw.groups.map((g, i) => {
+      const where = `groups[${i}]`;
+      return {
+        id: readId(g?.id, where),
+        title: text(g?.title) || 'Gruppe',
+        description: text(g?.description),
+        layout: readLayout(g?.layout, where),
+      };
+    });
+
+    const tasks = raw.tasks.map((t, i) => {
+      const where = `tasks[${i}]`;
+      let kind = t?.kind;
+      if (!KINDS.includes(kind)) {
+        report(`${where}: "kind" muss "thinking" oder "implementation" sein`);
+        kind = 'thinking';
+      }
+      let status = t?.status ?? 'open';
+      if (!STATUSES.includes(status)) {
+        report(`${where}: unbekannter "status" "${status}"`);
+        status = 'open';
+      }
+      let effort = t?.effortDays === null || t?.effortDays === undefined || t?.effortDays === '' ? null : Number(t.effortDays);
+      if (effort !== null && !(effort >= 0)) {
+        report(`${where}: "effortDays" muss eine Zahl ≥ 0 oder null sein`);
+        effort = null;
+      }
+      return {
+        id: readId(t?.id, where),
+        kind,
+        title: text(t?.title) || 'Ohne Titel',
+        description: text(t?.description),
+        notes: Array.isArray(t?.notes) ? t.notes.filter((n) => typeof n === 'string' && n.trim()) : [],
+        status,
+        effortDays: effort,
+        layout: readLayout(t?.layout, where),
+      };
+    });
+
+    const dependencies = [];
+    const depIds = new Set();
+    const pairs = new Set();
+    raw.dependencies.forEach((d, i) => {
+      const where = `dependencies[${i}]`;
+      const broken = [];
+      if (!nodeIds.has(d?.from)) broken.push(`"from" verweist auf unbekannte id "${d?.from}"`);
+      if (!nodeIds.has(d?.to)) broken.push(`"to" verweist auf unbekannte id "${d?.to}"`);
+      if (d?.from === d?.to) broken.push('"from" und "to" sind identisch');
+      if (broken.length) {
+        broken.forEach((b) => report(`${where}: ${b}${repair ? ' – entfernt' : ''}`));
+        return;
+      }
+      const pair = `${d.from}→${d.to}`;
+      if (pairs.has(pair)) return; // Duplikate still ignorieren
+      pairs.add(pair);
+      const id = typeof d.id === 'string' && d.id && !depIds.has(d.id) ? d.id : U.uid('d');
+      depIds.add(id);
+      dependencies.push({ id, from: d.from, to: d.to });
+    });
+
+    if (problems.length) throw new FormatError(problems);
+
+    return {
+      board: { title: text(raw.board?.title).trim() || 'Prio-Board' },
+      view: {
+        zoom: U.clamp(Number(raw.view?.zoom) || 1, C.ZOOM.min, C.ZOOM.max),
+        showPriorityAxis: raw.view?.showPriorityAxis !== false,
+      },
+      groups,
+      tasks,
+      dependencies,
+    };
+  }
+
+  /* ---------- Migration älterer Stände ---------- */
+
+  /** Interner Speicherstand der ersten Versionen: { blocks: [...], deps: [...] } */
+  const isLegacy = (o) => o && !o.format && Array.isArray(o.blocks) && Array.isArray(o.deps);
+
+  /** mirror=true: Version mit „hohe Priorität rechts“ → horizontal spiegeln. */
+  function migrateLegacy(old, { mirror = false } = {}) {
+    const KIND = { denken: 'thinking', umsetzung: 'implementation' };
+    const STATUS = { offen: 'open', laeuft: 'in_progress', fertig: 'done' };
+    const axisWidth = C.ZONE_WIDTH * C.PRIORITY_LEVELS;
+    const layoutOf = (b) => ({
+      x: mirror ? Math.max(0, axisWidth - b.x - b.w) : b.x,
+      y: b.y,
+      width: b.w,
+      height: b.h,
+    });
+    const isGroupBlock = (b) => b.type === 'gruppe';
+    return {
+      format: C.FORMAT.name,
+      version: C.FORMAT.version,
+      board: { title: 'Prio-Board' },
+      view: { zoom: old.view?.scale ?? 1, showPriorityAxis: old.view?.prio !== false },
+      groups: old.blocks.filter(isGroupBlock).map((b) => ({
+        id: b.id, title: b.title, description: b.desc || '', layout: layoutOf(b),
+      })),
+      tasks: old.blocks.filter((b) => !isGroupBlock(b)).map((b) => ({
+        id: b.id,
+        kind: KIND[b.type] || 'thinking',
+        title: b.title,
+        description: b.desc || '',
+        notes: String(b.notes || '').split('\n').map((s) => s.trim()).filter(Boolean),
+        status: STATUS[b.status] || 'open',
+        effortDays: U.parseNumber(b.aufwand),
+        layout: layoutOf(b),
+      })),
+      dependencies: old.deps.map((d) => ({ id: d.id, from: d.from, to: d.to })),
+    };
+  }
+
+  return { serialize, parse, migrateLegacy, FormatError };
+})();
+</script>
+  <script>
+/* js/io/storage.js */
+/** Persistenz: Browser-Speicher (automatisch) und Dateien (Import/Export). */
+PB.storage = (() => {
+  const C = PB.config;
+  const F = PB.format;
+
+  function read(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  function write(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Letzten Stand laden; ältere Speicherstände werden migriert, kleine Schäden repariert.
+   * Liefert { state, repairs[], backupKey } oder null, wenn nichts Brauchbares gespeichert ist.
+   * Vor jeder Reparatur wird das Original unter einem Sicherungs-Key abgelegt.
+   */
+  function loadLocal() {
+    const candidates = [
+      { key: C.STORAGE_KEY, convert: (o) => o },
+      ...C.LEGACY_STORAGE.map((l) => ({ key: l.key, convert: (o) => F.migrateLegacy(o, { mirror: l.mirror }) })),
+    ];
+    for (const { key, convert } of candidates) {
+      const text = read(key);
+      if (!text) continue;
+      try {
+        const repairs = [];
+        const state = F.parse(convert(JSON.parse(text)), { repair: true, onWarning: (m) => repairs.push(m) });
+        let backupKey = null;
+        if (repairs.length) {
+          backupKey = `${C.STORAGE_KEY}.backup-${new Date().toISOString()}`;
+          write(backupKey, text);
+        }
+        return { state, repairs, backupKey };
+      } catch (e) {
+        console.warn(`Gespeicherter Stand ${key} nicht lesbar:`, e);
+        write(`${key}.unreadable-${new Date().toISOString()}`, text);
+      }
+    }
+    return null;
+  }
+
+  /** Liefert false, wenn der Browser-Speicher nicht verfügbar ist (z. B. Sandbox, privates Fenster). */
+  function saveLocal(state) {
+    return write(C.STORAGE_KEY, JSON.stringify(F.serialize(state)));
+  }
+
+  function download(content, filename, type) {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const link = Object.assign(document.createElement('a'), { href: url, download: filename });
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  return { loadLocal, saveLocal, downloadText: download };
+})();
+</script>
+  <script>
+/* js/io/example.js */
+/**
+ * Beispiel-Board (nach der Skizze). Gleicher Inhalt wie examples/beispiel.json –
+ * hier als Skript eingebettet, weil Browser über file:// keine JSON-Dateien nachladen dürfen.
+ */
+PB.example = {
+  format: 'prio-board',
+  version: 1,
+  board: { title: 'IT-Priorisierung' },
+  view: { zoom: 1, showPriorityAxis: true },
+  groups: [
+    {
+      id: 'g-skalierung',
+      title: 'Skalierung – Abhängigkeitsblock',
+      description: 'Harness und Prozessdaten können parallel laufen',
+      layout: { x: 920, y: 120, width: 920, height: 520 },
+    },
+  ],
+  tasks: [
+    {
+      id: 't-quickwin-monitoring', kind: 'implementation', title: 'Quick Win: Monitoring-Alerts anpassen',
+      description: 'Keine Abhängigkeit – sofort machbar', notes: [], status: 'open', effortDays: 1,
+      layout: { x: 100, y: 180, width: 300, height: 140 },
+    },
+    {
+      id: 't-logging', kind: 'implementation', title: 'Logging vereinheitlichen',
+      description: '', notes: [], status: 'open', effortDays: 2,
+      layout: { x: 120, y: 400, width: 260, height: 140 },
+    },
+    {
+      id: 't-denken-harness', kind: 'thinking', title: 'Denken Harness',
+      description: 'Wie soll der Harness aufgebaut sein?', notes: ['Skills', 'Workflow', 'Sprache'],
+      status: 'open', effortDays: 5,
+      layout: { x: 980, y: 180, width: 540, height: 180 },
+    },
+    {
+      id: 't-umsetzung-harness', kind: 'implementation', title: 'Umsetzung Harness',
+      description: '', notes: [], status: 'open', effortDays: 3,
+      layout: { x: 1560, y: 180, width: 240, height: 180 },
+    },
+    {
+      id: 't-denken-prozessdaten', kind: 'thinking', title: 'Denken Prozessdaten',
+      description: '', notes: ['Level 1', 'Level 2', 'Auswerten'], status: 'open', effortDays: 5,
+      layout: { x: 980, y: 420, width: 540, height: 180 },
+    },
+    {
+      id: 't-umsetzung-prozess', kind: 'implementation', title: 'Umsetzung Prozess',
+      description: '', notes: [], status: 'open', effortDays: 3,
+      layout: { x: 1560, y: 420, width: 240, height: 180 },
+    },
+    {
+      id: 't-lz', kind: 'thinking', title: 'LZ',
+      description: 'Grundlage für den Skalierungsblock', notes: [], status: 'open', effortDays: 4,
+      layout: { x: 920, y: 740, width: 500, height: 160 },
+    },
+    {
+      id: 't-ui-zielarchitektur', kind: 'thinking', title: 'UI-Zielarchitektur',
+      description: 'Fundament: Zielbild der UI-Architektur', notes: [], status: 'open', effortDays: 8,
+      layout: { x: 1480, y: 740, width: 760, height: 160 },
+    },
+  ],
+  dependencies: [
+    { id: 'd-harness', from: 't-denken-harness', to: 't-umsetzung-harness' },
+    { id: 'd-prozess', from: 't-denken-prozessdaten', to: 't-umsetzung-prozess' },
+    { id: 'd-ui-skalierung', from: 't-ui-zielarchitektur', to: 'g-skalierung' },
+    { id: 'd-lz-skalierung', from: 't-lz', to: 'g-skalierung' },
+  ],
+};
+</script>
+  <script>
+/* js/render/diagram-styles.js */
+/**
+ * Darstellung des Diagramms (Blöcke, Gruppen, Pfeile, Prioritätsachse).
+ *
+ * Bewusst als JS-Modul statt .css-Datei: Dieselben Regeln werden
+ *   1) beim Start in die App eingefügt und
+ *   2) in die exportierte statische HTML-Seite geschrieben.
+ * Browser verbieten unter file:// das Auslesen von Stylesheets, daher eine gemeinsame Quelle hier.
+ * Farben kommen als CSS-Variablen aus css/theme.css.
+ */
+PB.diagramStyles = (() => {
+  /** Tokens aus theme.css, die das Diagramm benötigt (werden beim Export mitkopiert). */
+  const TOKENS = [
+    '--navy', '--accent', '--bg', '--ink', '--text', '--muted', '--line',
+    '--thinking', '--thinking-bg', '--thinking-line', '--impl', '--impl-bg', '--impl-line', '--group',
+    '--ok', '--ok-bg', '--wait', '--wait-bg', '--bad', '--bad-bg', '--run', '--run-bg',
+    '--link', '--link-done', '--up', '--down', '--crit', '--sel', '--radius', '--shadow',
+  ];
+
+  /** Pfeilspitzen je Zustand → Token. */
+  const MARKERS = {
+    def: '--link', done: '--link-done', bad: '--bad', up: '--up', down: '--down', crit: '--crit', sel: '--sel',
+  };
+
+  const CSS = `
+.pb-world{position:absolute;left:0;top:0;transform-origin:0 0;background-color:var(--bg);
+  background-image:radial-gradient(circle,#c9d4e2 1.1px,transparent 1.3px);background-size:20px 20px}
+.pb-world .ico{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Prioritätsachse */
+.pb-zones{position:absolute;left:0;top:0;height:100%;display:flex;pointer-events:none}
+.pb-zones .z{height:100%;border-right:1px solid #e1e8f1;position:relative}
+.pb-zones .z span{position:absolute;top:12px;left:14px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  padding:3px 10px;border-radius:999px;background:#fff;color:var(--ink);box-shadow:var(--shadow)}
+.pb-zones .axis{position:absolute;top:50px;left:14px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;font-weight:600}
+.pb-zones .axis i{display:block;height:3px;width:220px;border-radius:3px;background:linear-gradient(90deg,var(--navy),#c9d4e2)}
+.pb-zones.off{display:none}
+
+/* Blöcke */
+.block{position:absolute;border-radius:var(--radius)}
+.block.task{z-index:1000;background:#fff;box-shadow:var(--shadow);border:1.5px solid var(--line)}
+.block.task::before{content:"";position:absolute;left:-1.5px;top:-1.5px;bottom:-1.5px;width:6px;border-radius:var(--radius) 0 0 var(--radius)}
+.block.task.thinking{background:var(--thinking-bg);border-color:var(--thinking-line)}
+.block.task.thinking::before{background:var(--thinking)}
+.block.task.implementation{background:var(--impl-bg);border-color:var(--impl-line)}
+.block.task.implementation::before{background:var(--impl)}
+.block.group{border:2px dashed var(--group);background:rgba(255,255,255,.55)}
+.block.st-done{opacity:.55}
+.block.st-done .title{text-decoration:line-through}
+.inner{position:absolute;inset:0;padding:12px 14px 30px 14px;overflow:hidden;border-radius:calc(var(--radius) - 2px)}
+.thead{display:flex;align-items:center;gap:10px;margin-bottom:4px;padding-right:34px}
+.tico{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;flex:none;font-size:20px}
+.thinking .tico{background:var(--thinking);box-shadow:0 0 0 4px rgba(0,159,227,.18)}
+.implementation .tico{background:var(--impl);box-shadow:0 0 0 4px rgba(31,154,107,.16)}
+.tkind{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.thinking .tkind{color:var(--thinking)}
+.implementation .tkind{color:var(--impl)}
+.title{font-weight:700;font-size:16px;color:var(--ink);line-height:1.25;word-break:break-word}
+.notes{margin:4px 0 0;padding-left:18px;font-size:13.5px;color:var(--text)}
+.notes li::marker{color:var(--muted)}
+.desc{font-size:13px;color:var(--muted);margin-top:4px;white-space:pre-wrap;word-break:break-word}
+.foot{position:absolute;left:14px;right:10px;bottom:7px;display:flex;gap:6px;align-items:center;font-size:12px;white-space:nowrap;overflow:hidden}
+.badge{padding:1px 8px;border-radius:999px;font-weight:700}
+.badge.ready{background:var(--ok-bg);color:var(--ok)}
+.badge.waiting{background:var(--wait-bg);color:var(--wait)}
+.badge.cycle{background:var(--bad-bg);color:var(--bad)}
+.badge.in_progress{background:var(--run-bg);color:var(--run)}
+.badge.done{background:#e3e8ef;color:#4e5d70}
+.meta{color:var(--muted)}
+.wave{position:absolute;top:10px;right:10px;font-size:11.5px;font-weight:700;color:#fff;background:var(--navy);border-radius:999px;padding:1px 8px}
+
+/* Gruppen */
+.ghead{position:absolute;left:14px;top:-15px;display:flex;gap:8px;align-items:center;background:var(--navy);color:#fff;
+  border-radius:999px;padding:3px 12px;max-width:calc(100% - 28px);white-space:nowrap;overflow:hidden;box-shadow:var(--shadow)}
+.gtitle{font-weight:700;overflow:hidden;text-overflow:ellipsis}
+.gmeta{font-size:12px;opacity:.75}
+.gdesc{position:absolute;left:16px;bottom:8px;right:16px;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Pfeile */
+.pb-links{position:absolute;left:0;top:0;z-index:500;pointer-events:none;overflow:visible}
+.pb-links .vis{fill:none;stroke:var(--link);stroke-width:2.2;marker-end:url(#m-def)}
+.pb-links .link.done .vis{stroke:var(--link-done);stroke-dasharray:5 4;marker-end:url(#m-done)}
+.pb-links .link.bad .vis{stroke:var(--bad);marker-end:url(#m-bad)}
+`;
+
+  /** <defs> mit den Pfeilspitzen für ein SVG. */
+  function markerDefs() {
+    return Object.entries(MARKERS).map(([name, token]) =>
+      `<marker id="m-${name}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">` +
+      `<path d="M0,0 L10,5 L0,10 z" style="fill:var(${token})"/></marker>`).join('');
+  }
+
+  /** Aktuelle Werte der Tokens als :root-Regel (für den Export). */
+  function themeVariables() {
+    const computed = getComputedStyle(document.documentElement);
+    const lines = TOKENS.map((t) => `  ${t}:${computed.getPropertyValue(t).trim()};`);
+    return `:root{\n${lines.join('\n')}\n}`;
+  }
+
+  function inject() {
+    const style = document.createElement('style');
+    style.id = 'pb-diagram-styles';
+    style.textContent = CSS;
+    document.head.appendChild(style);
+  }
+
+  return { CSS, inject, markerDefs, themeVariables };
+})();
+</script>
+  <script>
+/* js/render/board.js */
+/**
+ * Darstellung des Boards.
+ *  - markup(): reines HTML/SVG des Diagramms – wird auch vom statischen Export genutzt.
+ *  - render() & Co.: Live-Board mit Zoom, Auswahl, Hervorhebungen.
+ */
+PB.board = (() => {
+  const C = PB.config;
+  const U = PB.util;
+  const I = PB.icons;
+  const A = PB.analysis;
+  const model = PB.model;
+  const ui = PB.ui;
+
+  let dom = null;
+  let analysis = null;
+
+  /* =====================================================================
+   * Markup (zustandslos)
+   * ===================================================================== */
+
+  function zonesHtml() {
+    const zones = C.PRIORITY_LABELS.map((label, i) =>
+      `<div class="z" style="width:${C.ZONE_WIDTH}px"><span>Prio ${i + 1} · ${label}</span></div>`).join('');
+    return `${zones}<div class="axis">Priorität hoch <i></i> tief</div>`;
+  }
+
+  function statusBadge(task, a) {
+    const state = a.stateOf(task.id);
+    const text = {
+      done: '✓ fertig',
+      cycle: '⟳ Zyklus',
+      in_progress: '● läuft',
+      ready: '▶ startbar',
+      waiting: `⏸ wartet auf ${a.openPredecessors(task.id).length}`,
+    }[state];
+    return `<span class="badge ${state}">${text}</span>`;
+  }
+
+  function taskHtml(task, a, showPriority) {
+    const esc = U.escapeHtml;
+    const wave = a.wave.get(task.id);
+    const notes = task.notes.length ? `<ul class="notes">${task.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : '';
+    const effort = task.effortDays != null ? `<span class="meta">${U.formatNumber(task.effortDays)} PT</span>` : '';
+    const priority = showPriority ? `<span class="meta">· Prio ${a.priorityOf(task.id)}</span>` : '';
+    return `<div class="inner">
+      ${wave ? `<span class="wave" title="Welle ${wave}">W${wave}</span>` : ''}
+      <div class="thead">
+        <span class="tico">${I.forKind(task.kind)}</span>
+        <div><div class="tkind">${C.KIND_SUBTITLES[task.kind]}</div><div class="title">${esc(task.title || 'Ohne Titel')}</div></div>
+      </div>
+      ${notes}
+      ${task.description ? `<div class="desc">${esc(task.description)}</div>` : ''}
+      <div class="foot">${statusBadge(task, a)}${effort}${priority}</div>
+    </div>`;
+  }
+
+  function groupHtml(group, a) {
+    const esc = U.escapeHtml;
+    const tasks = model.tasksWithin(group.id);
+    const done = tasks.filter((id) => a.stateOf(id) === 'done').length;
+    const ready = tasks.filter((id) => a.ready.has(id)).length;
+    return `<div class="ghead"><span class="gtitle">${esc(group.title || 'Gruppe')}</span>
+        <span class="gmeta">${done}/${tasks.length} fertig${ready ? ` · ${ready} startbar` : ''}</span></div>
+      ${group.description ? `<div class="gdesc">${esc(group.description)}</div>` : ''}`;
+  }
+
+  const HANDLES = '<div class="port" title="Ziehen: Pfeil zu einem Block, der hiervon abhängt"></div>' +
+    '<div class="rs" title="Grösse ändern"></div>';
+
+  function nodeHtml(node, a, { interactive, showPriority, zIndex }) {
+    const isGroup = model.isGroup(node.id);
+    const classes = isGroup ? 'block group' : `block task ${node.kind} st-${node.status}`;
+    const { x, y, width, height } = node.layout;
+    const style = `left:${x}px;top:${y}px;width:${width}px;height:${height}px${zIndex ? `;z-index:${zIndex}` : ''}`;
+    const body = isGroup ? groupHtml(node, a) : taskHtml(node, a, showPriority);
+    return `<div class="${classes}" data-id="${U.escapeHtml(node.id)}" style="${style}">${body}${interactive ? HANDLES : ''}</div>`;
+  }
+
+  /** Gruppen zuerst (grosse hinten), dann Aufgaben. */
+  function orderedNodes() {
+    const { groups, tasks } = model.getState();
+    const sortedGroups = [...groups].sort((a, b) => U.area(b.layout) - U.area(a.layout));
+    return [
+      ...sortedGroups.map((g, i) => ({ node: g, zIndex: 10 + i })),
+      ...tasks.map((t) => ({ node: t, zIndex: null })),
+    ];
+  }
+
+  /** Kubische Kurve zwischen zwei Rechtecken, an der Seite mit dem grösseren Abstand. */
+  function linkPath(from, to) {
+    const a = U.center(from);
+    const b = U.center(to);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const gapX = Math.abs(dx) - (from.width + to.width) / 2;
+    const gapY = Math.abs(dy) - (from.height + to.height) / 2;
+    let start, end, c1, c2;
+    if (gapX >= gapY) {
+      const dir = dx >= 0 ? 1 : -1;
+      start = { x: dir > 0 ? from.x + from.width : from.x, y: a.y };
+      end = { x: dir > 0 ? to.x - 2 : to.x + to.width + 2, y: b.y };
+      const k = Math.max(40, Math.abs(end.x - start.x) / 2) * dir;
+      c1 = { x: start.x + k, y: start.y };
+      c2 = { x: end.x - k, y: end.y };
+    } else {
+      const dir = dy >= 0 ? 1 : -1;
+      start = { x: a.x, y: dir > 0 ? from.y + from.height : from.y };
+      end = { x: b.x, y: dir > 0 ? to.y - 2 : to.y + to.height + 2 };
+      const k = Math.max(40, Math.abs(end.y - start.y) / 2) * dir;
+      c1 = { x: start.x, y: start.y + k };
+      c2 = { x: end.x, y: end.y - k };
+    }
+    return `M${start.x},${start.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${end.x},${end.y}`;
+  }
+
+  function linkClasses(dep, a) {
+    const fromTasks = model.tasksWithin(dep.from);
+    const toTasks = model.tasksWithin(dep.to);
+    const classes = ['link'];
+    if (fromTasks.length && fromTasks.every((id) => a.stateOf(id) === 'done')) classes.push('done');
+    if (fromTasks.some((id) => a.cycle.has(id)) && toTasks.some((id) => a.cycle.has(id))) classes.push('bad');
+    return classes.join(' ');
+  }
+
+  function linksHtml(a, { interactive }) {
+    return model.getState().dependencies.map((dep) => {
+      const from = model.getNode(dep.from);
+      const to = model.getNode(dep.to);
+      if (!from || !to) return '';
+      const d = linkPath(from.layout, to.layout);
+      const hit = interactive ? `<path class="hit" d="${d}"/>` : '';
+      return `<g class="${linkClasses(dep, a)}" data-dep="${U.escapeHtml(dep.id)}">${hit}<path class="vis" d="${d}"/></g>`;
+    }).join('');
+  }
+
+  /** Benötigte Fläche (mindestens die ganze Prioritätsachse). */
+  function contentSize() {
+    let width = C.ZONE_WIDTH * C.PRIORITY_LEVELS;
+    let height = 1400;
+    for (const n of model.allNodes()) {
+      width = Math.max(width, n.layout.x + n.layout.width + 400);
+      height = Math.max(height, n.layout.y + n.layout.height + 400);
+    }
+    return { width, height };
+  }
+
+  /** Vollständiges Diagramm-Markup. */
+  function markup(a, { interactive = false } = {}) {
+    const showPriority = model.getState().view.showPriorityAxis;
+    return {
+      zones: zonesHtml(),
+      nodes: orderedNodes().map(({ node, zIndex }) => nodeHtml(node, a, { interactive, showPriority, zIndex })).join(''),
+      links: linksHtml(a, { interactive }),
+      size: contentSize(),
+    };
+  }
+
+  /* =====================================================================
+   * Live-Board
+   * ===================================================================== */
+
+  function init(elements) {
+    dom = elements;
+    dom.links.querySelector('defs').innerHTML = PB.diagramStyles.markerDefs();
+    dom.zones.innerHTML = zonesHtml();
+  }
+
+  const elementOf = (id) => dom.world.querySelector(`.block[data-id="${CSS.escape(id)}"]`);
+
+  function render(a) {
+    analysis = a;
+    const m = markup(a, { interactive: true });
+    dom.world.querySelectorAll('.block').forEach((el) => el.remove());
+    dom.world.insertAdjacentHTML('beforeend', m.nodes);
+    dom.linkLayer.innerHTML = m.links;
+    applyView();
+    applySelection();
+    applyHighlight();
+  }
+
+  function applyView() {
+    const { view } = model.getState();
+    const { width, height } = contentSize();
+    Object.assign(dom.world.style, { width: `${width}px`, height: `${height}px`, transform: `scale(${view.zoom})` });
+    Object.assign(dom.sizer.style, { width: `${width * view.zoom}px`, height: `${height * view.zoom}px` });
+    dom.links.setAttribute('width', width);
+    dom.links.setAttribute('height', height);
+    dom.zones.classList.toggle('off', !view.showPriorityAxis);
+  }
+
+  /** Positionen während einer Geste aktualisieren (ohne komplettes Neuzeichnen). */
+  function refreshLayout(ids) {
+    for (const id of ids) {
+      const el = elementOf(id);
+      const node = model.getNode(id);
+      if (!el || !node) continue;
+      const { x, y, width, height } = node.layout;
+      Object.assign(el.style, { left: `${x}px`, top: `${y}px`, width: `${width}px`, height: `${height}px` });
+    }
+    dom.linkLayer.querySelectorAll('.link').forEach((g) => {
+      const dep = model.getDependency(g.dataset.dep);
+      if (!dep) return;
+      const d = linkPath(model.getNode(dep.from).layout, model.getNode(dep.to).layout);
+      g.querySelectorAll('path').forEach((p) => p.setAttribute('d', d));
+    });
+  }
+
+  function showDraftLink(fromId, point) {
+    const from = model.getNode(fromId);
+    dom.draft.style.display = '';
+    dom.draft.setAttribute('d', linkPath(from.layout, { x: point.x, y: point.y, width: 1, height: 1 }));
+  }
+  function hideDraftLink() {
+    dom.draft.style.display = 'none';
+    dom.draft.setAttribute('d', '');
+  }
+
+  function applySelection() {
+    const { type, id } = ui.selection;
+    dom.world.querySelectorAll('.block').forEach((el) =>
+      el.classList.toggle('selected', type === 'node' && el.dataset.id === id));
+    dom.linkLayer.querySelectorAll('.link').forEach((el) =>
+      el.classList.toggle('sel', type === 'dependency' && el.dataset.dep === id));
+  }
+
+  /**
+   * Hervorhebung: Hover (vorher nötig / blockiert) hat Vorrang vor dem Fokusmodus.
+   * taskClass(id) → CSS-Klasse oder null (= abgedunkelt); linkClass(fromTasks, toTasks) analog.
+   */
+  function applyHighlight() {
+    const CLASSES = ['dim', 'hl', 'up', 'down', 'crit', 'ready-hl'];
+    const blocks = [...dom.world.querySelectorAll('.block')];
+    const links = [...dom.linkLayer.querySelectorAll('.link')];
+    blocks.forEach((el) => el.classList.remove(...CLASSES));
+    links.forEach((el) => el.classList.remove(...CLASSES));
+    if (!analysis || ui.dragging) return;
+
+    const rule = highlightRule();
+    if (!rule) return;
+    blocks.forEach((el) => {
+      const id = el.dataset.id;
+      if (model.isGroup(id)) {
+        if (!model.tasksWithin(id).some(rule.taskClass)) el.classList.add('dim');
+      } else {
+        el.classList.add(rule.taskClass(id) || 'dim');
+      }
+    });
+    links.forEach((el) => {
+      const dep = model.getDependency(el.dataset.dep);
+      if (dep) el.classList.add(rule.linkClass(model.tasksWithin(dep.from), model.tasksWithin(dep.to)) || 'dim');
+    });
+  }
+
+  function highlightRule() {
+    const any = (list, set) => list.some((x) => set.has(x));
+    if (ui.hoverId && model.getNode(ui.hoverId)) {
+      const focus = new Set(model.tasksWithin(ui.hoverId));
+      const up = A.closure(focus, analysis.predecessors);
+      const down = A.closure(focus, analysis.successors);
+      return {
+        taskClass: (id) => (focus.has(id) ? 'hl' : up.has(id) ? 'up' : down.has(id) ? 'down' : null),
+        linkClass: (from, to) => {
+          if (any(from, up) && (any(to, up) || any(to, focus))) return 'up';
+          if ((any(from, focus) || any(from, down)) && any(to, down)) return 'down';
+          return null;
+        },
+      };
+    }
+    if (ui.focusMode === 'ready') {
+      return { taskClass: (id) => (analysis.ready.has(id) ? 'ready-hl' : null), linkClass: () => null };
+    }
+    if (ui.focusMode === 'critical') {
+      const index = new Map(analysis.criticalPath.map((id, i) => [id, i]));
+      return {
+        taskClass: (id) => (index.has(id) ? 'crit' : null),
+        linkClass: (from, to) => (from.some((f) => index.has(f) && to.some((t) => index.get(t) === index.get(f) + 1)) ? 'crit' : null),
+      };
+    }
+    return null;
+  }
+
+  /* ---------- Koordinaten, Zoom, Scrollen ---------- */
+
+  function toWorld(clientX, clientY) {
+    const rect = dom.world.getBoundingClientRect();
+    const zoom = model.getState().view.zoom;
+    return { x: (clientX - rect.left) / zoom, y: (clientY - rect.top) / zoom };
+  }
+
+  function viewportCenter() {
+    const zoom = model.getState().view.zoom;
+    const c = dom.canvas;
+    return { x: (c.scrollLeft + c.clientWidth / 2) / zoom, y: (c.scrollTop + c.clientHeight / 2) / zoom };
+  }
+
+  /** Zoomen um einen Ankerpunkt (Pixel relativ zur Arbeitsfläche), Standard: Mitte. */
+  function setZoom(zoom, anchor) {
+    const c = dom.canvas;
+    const old = model.getState().view.zoom;
+    const next = U.clamp(zoom, C.ZOOM.min, C.ZOOM.max);
+    const p = anchor || { x: c.clientWidth / 2, y: c.clientHeight / 2 };
+    const wx = (c.scrollLeft + p.x) / old;
+    const wy = (c.scrollTop + p.y) / old;
+    model.setView({ zoom: next });
+    applyView();
+    c.scrollLeft = wx * next - p.x;
+    c.scrollTop = wy * next - p.y;
+  }
+
+  /** Alles sichtbar machen (inkl. Prioritätsachse oben links). */
+  function fit() {
+    const box = U.bounds(model.allNodes().map((n) => n.layout));
+    if (!box) return;
+    const c = dom.canvas;
+    const x0 = Math.min(0, box.x - 40);
+    const y0 = 0;
+    const w = box.x + box.width + 40 - x0;
+    const h = box.y + box.height + 40 - y0;
+    const zoom = U.clamp(Math.min(c.clientWidth / w, c.clientHeight / h, 1.25), C.ZOOM.fitMin, C.ZOOM.max);
+    model.setView({ zoom });
+    applyView();
+    // Passt alles hinein → zentrieren, sonst oben links (hohe Priorität) beginnen
+    c.scrollLeft = x0 * zoom - Math.max(0, (c.clientWidth - w * zoom) / 2);
+    c.scrollTop = y0 * zoom - Math.max(0, (c.clientHeight - h * zoom) / 2);
+  }
+
+  function scrollTo(id) {
+    const node = model.getNode(id);
+    if (!node) return;
+    const zoom = model.getState().view.zoom;
+    const center = U.center(node.layout);
+    dom.canvas.scrollTo({
+      left: center.x * zoom - dom.canvas.clientWidth / 2,
+      top: center.y * zoom - dom.canvas.clientHeight / 2,
+      behavior: 'smooth',
+    });
+  }
+
+  return {
+    markup, linkPath,
+    init, render, applyView, refreshLayout, showDraftLink, hideDraftLink, applySelection, applyHighlight,
+    toWorld, viewportCenter, setZoom, fit, scrollTo,
+  };
+})();
+</script>
+  <script>
+/* js/render/sidebar.js */
+/**
+ * Seitenleiste: Tabs „Details“ (Bearbeiten), „Ablauf“ (Wellen, kritischer Pfad) und „Hilfe“.
+ * Ändert das Modell direkt; Navigation/Meldungen laufen über die bei init() übergebenen actions.
+ */
+PB.sidebar = (() => {
+  const C = PB.config;
+  const U = PB.util;
+  const I = PB.icons;
+  const A = PB.analysis;
+  const model = PB.model;
+  const ui = PB.ui;
+  const esc = U.escapeHtml;
+
+  let dom = null;
+  let actions = null;
+  let analysis = null;
+  let editCheckpointPending = false;
+
+  function init(elements, callbacks) {
+    dom = elements;
+    actions = callbacks;
+    dom.tabs.addEventListener('click', onTabClick);
+    dom.body.addEventListener('focusin', () => { editCheckpointPending = true; });
+    dom.body.addEventListener('input', onInput);
+    dom.body.addEventListener('change', onChange);
+    dom.body.addEventListener('click', onClick);
+    dom.body.addEventListener('mouseover', onHover);
+    dom.body.addEventListener('mouseleave', () => actions.hover(null));
+  }
+
+  function render(a) {
+    analysis = a;
+    dom.tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.tab === ui.tab));
+    const views = { details: detailsView, plan: planView, help: helpView };
+    dom.body.innerHTML = views[ui.tab]();
+  }
+
+  /* =====================================================================
+   * Bausteine
+   * ===================================================================== */
+
+  function kindDot(node) {
+    if (model.isGroup(node.id)) return '<span class="dot group"></span>';
+    return `<span class="dot ${node.kind}">${I.forKind(node.kind)}</span>`;
+  }
+
+  function listItem(node, { meta = '', removeDep = null } = {}) {
+    const remove = removeDep ? `<button class="x" data-remove-dep="${esc(removeDep)}" title="Entfernen">×</button>` : '';
+    return `<li data-goto="${esc(node.id)}">${kindDot(node)}<span class="t">${esc(node.title || 'Ohne Titel')}</span>${meta}${remove}</li>`;
+  }
+
+  const list = (items, empty = '– nichts –') =>
+    `<ul class="list">${items.join('') || `<li class="hint">${empty}</li>`}</ul>`;
+
+  function field(label, control) {
+    return `<div class="field"><label>${label}</label>${control}</div>`;
+  }
+
+  function select(name, options, current) {
+    const opts = Object.entries(options)
+      .map(([value, label]) => `<option value="${value}"${value === current ? ' selected' : ''}>${label}</option>`).join('');
+    return `<select data-field="${name}">${opts}</select>`;
+  }
+
+  /** Mögliche Partner für eine neue Abhängigkeit (ohne Duplikate, ohne Verschachtelte). */
+  function dependencyOptions(id, direction) {
+    const deps = model.getState().dependencies;
+    const used = new Set(direction === 'incoming'
+      ? deps.filter((d) => d.to === id).map((d) => d.from)
+      : deps.filter((d) => d.from === id).map((d) => d.to));
+    return model.allNodes()
+      .filter((n) => n.id !== id && !used.has(n.id) && !model.areNested(n.id, id))
+      .sort((a, b) => a.title.localeCompare(b.title, 'de'))
+      .map((n) => {
+        const kind = model.isGroup(n.id) ? 'Gruppe' : C.KIND_LABELS[n.kind];
+        return `<option value="${esc(n.id)}">${kind}: ${esc(n.title || 'Ohne Titel')}</option>`;
+      }).join('');
+  }
+
+  function legend() {
+    const arrow = (color, dash = '') =>
+      `<svg width="32" height="12"><path d="M1,6 H25" stroke="var(${color})" stroke-width="2" ${dash}/>` +
+      `<path d="M23,1 L31,6 L23,11z" fill="var(${color})"/></svg>`;
+    return `<h3>Legende</h3><div class="legend">
+      <div><span class="dot thinking">${I.svg('brain')}</span><span><b>Denken</b> – Analyse, Konzept, braucht Zeit</span></div>
+      <div><span class="dot implementation">${I.svg('wrench')}</span><span><b>Umsetzung</b> – direkt machbar</span></div>
+      <div><span class="dot group"></span><span><b>Gruppe</b> – Abhängigkeitsblock / Rahmen</span></div>
+      <div>${arrow('--link')}<span>A → B: A muss vor B fertig sein</span></div>
+      <div>${arrow('--link-done', 'stroke-dasharray="4 3"')}<span>Voraussetzung erfüllt</span></div>
+      <div><span class="sw" style="box-shadow:0 0 0 3px var(--up)"></span><span>Beim Hovern: wird vorher benötigt</span></div>
+      <div><span class="sw" style="box-shadow:0 0 0 3px var(--down)"></span><span>Beim Hovern: wird dadurch blockiert</span></div>
+    </div>`;
+  }
+
+  /* =====================================================================
+   * Tab „Details“
+   * ===================================================================== */
+
+  function detailsView() {
+    if (ui.selection.type === 'dependency') return dependencyDetails(model.getDependency(ui.selection.id));
+    const node = ui.selection.type === 'node' && model.getNode(ui.selection.id);
+    if (!node) return `<p class="hint">Wähle einen Block auf dem Board aus, um ihn zu beschreiben.</p>${legend()}`;
+    return model.isGroup(node.id) ? groupDetails(node) : taskDetails(node);
+  }
+
+  function dependencyDetails(dep) {
+    if (!dep) return '';
+    return `<h3>Abhängigkeit</h3>
+      ${list([listItem(model.getNode(dep.from), { meta: '<span class="small">zuerst</span>' })])}
+      <div class="hint" style="margin:0 8px 6px">↓ muss fertig sein, bevor</div>
+      ${list([listItem(model.getNode(dep.to), { meta: '<span class="small">danach</span>' })])}
+      <div class="btnrow">
+        <button class="btn" data-action="reverse-dependency">Richtung umkehren</button>
+        <button class="btn danger" data-action="delete">Löschen</button>
+      </div>`;
+  }
+
+  function taskDetails(task) {
+    const priority = analysis.priorityOf(task.id);
+    const notes = task.notes.join('\n');
+    return `
+      ${field('Titel', `<input data-field="title" value="${esc(task.title)}">`)}
+      <div class="row">
+        ${field('Art', select('kind', { thinking: 'Denken (Analyse)', implementation: 'Umsetzung' }, task.kind))}
+        ${field('Status', select('status', C.STATUS_LABELS, task.status))}
+      </div>
+      <div class="row">
+        ${field('Aufwand (Personentage)', `<input data-field="effortDays" inputmode="decimal" value="${task.effortDays ?? ''}">`)}
+        ${field('Priorität (Position)', `<input disabled value="${priority} – ${A.priorityLabel(priority)}">`)}
+      </div>
+      ${field('Stichpunkte (eine Zeile = ein Punkt)', `<textarea data-field="notes" rows="3">${esc(notes)}</textarea>`)}
+      ${field('Beschreibung', `<textarea data-field="description" rows="4">${esc(task.description)}</textarea>`)}
+      <p class="hint">${taskStateText(task)}</p>
+      ${blockedBySection(task)}
+      ${dependencySections(task.id)}
+      <div class="btnrow">
+        <button class="btn" data-action="duplicate">Duplizieren</button>
+        <button class="btn danger" data-action="delete">Löschen</button>
+      </div>`;
+  }
+
+  function taskStateText(task) {
+    const wave = analysis.wave.get(task.id);
+    switch (analysis.stateOf(task.id)) {
+      case 'done': return 'Erledigt.';
+      case 'cycle': return '⚠ Teil eines Zyklus – Abhängigkeiten prüfen.';
+      case 'ready': return `✓ Kann jetzt gestartet werden (Welle ${wave}).`;
+      case 'in_progress': return `In Arbeit (Welle ${wave}).`;
+      default: return `Wartet auf ${analysis.openPredecessors(task.id).length} offene Aufgabe(n) – Welle ${wave}.`;
+    }
+  }
+
+  function blockedBySection(task) {
+    const open = analysis.openPredecessors(task.id);
+    if (!open.length) return '';
+    return `<h3>Effektiv blockiert durch</h3>
+      ${list(open.map((id) => listItem(model.getNode(id))))}
+      <p class="hint" style="margin-top:-4px">inkl. Abhängigkeiten der umgebenden Gruppe(n)</p>`;
+  }
+
+  function groupDetails(group) {
+    const children = model.childrenOf(group.id);
+    return `
+      ${field('Titel', `<input data-field="title" value="${esc(group.title)}">`)}
+      ${field('Beschreibung', `<textarea data-field="description" rows="3">${esc(group.description)}</textarea>`)}
+      <h3>Enthält (${children.length})</h3>
+      ${list(children.map((c) => listItem(c)), 'Blöcke in den Rahmen ziehen')}
+      ${dependencySections(group.id)}
+      <div class="btnrow"><button class="btn danger" data-action="delete">Löschen</button></div>`;
+  }
+
+  function dependencySections(id) {
+    const deps = model.getState().dependencies;
+    const incoming = deps.filter((d) => d.to === id).map((d) => listItem(model.getNode(d.from), { removeDep: d.id }));
+    const outgoing = deps.filter((d) => d.from === id).map((d) => listItem(model.getNode(d.to), { removeDep: d.id }));
+    return `
+      <h3>Hängt ab von</h3>${list(incoming)}
+      <select class="adddep" data-add-dependency="incoming">
+        <option value="">+ Voraussetzung hinzufügen…</option>${dependencyOptions(id, 'incoming')}</select>
+      <h3>Ist Voraussetzung für</h3>${list(outgoing)}
+      <select class="adddep" data-add-dependency="outgoing">
+        <option value="">+ abhängigen Block hinzufügen…</option>${dependencyOptions(id, 'outgoing')}</select>`;
+  }
+
+  /* =====================================================================
+   * Tab „Ablauf“
+   * ===================================================================== */
+
+  function planView() {
+    const { tasks } = model.getState();
+    if (!tasks.length) return '<p class="hint">Noch keine Aufgaben. Lege oben mit „Denken“ oder „Umsetzung“ los.</p>';
+    const a = analysis;
+    const byId = (id) => model.getNode(id);
+    const openEffort = (kind) => tasks
+      .filter((t) => t.kind === kind && t.status !== 'done')
+      .reduce((sum, t) => sum + A.effortOf(t), 0);
+    const done = tasks.filter((t) => t.status === 'done');
+    const blocked = tasks.length - done.length - a.ready.size;
+
+    const stats = `<div class="stats">
+      <div class="stat"><b>${a.ready.size}</b><span>jetzt parallel startbar</span></div>
+      <div class="stat"><b>${blocked}</b><span>blockiert / laufend</span></div>
+      <div class="stat thinking"><b>${U.formatNumber(openEffort('thinking'))} PT</b><span>${I.svg('brain')} Denken offen</span></div>
+      <div class="stat impl"><b>${U.formatNumber(openEffort('implementation'))} PT</b><span>${I.svg('wrench')} Umsetzung offen</span></div>
+    </div>`;
+
+    const warning = a.cycle.size
+      ? `<div class="warn">⚠ Zyklische Abhängigkeit zwischen: ${[...a.cycle].map((id) => esc(byId(id).title)).join(', ')}</div>`
+      : '';
+
+    const waves = a.waves.map((ids, i) => {
+      const effort = ids.reduce((sum, id) => sum + A.effortOf(byId(id)), 0);
+      const items = ids.map((id) => {
+        const t = byId(id);
+        const running = t.status === 'in_progress' ? '● läuft · ' : '';
+        return listItem(t, { meta: `<span class="small">${running}P${a.priorityOf(id)} · ${U.formatNumber(A.effortOf(t))} PT</span>` });
+      });
+      return `<div class="wavebox${i === 0 ? ' now' : ''}">
+        <div class="wh"><span>Welle ${i + 1}${i === 0 ? ' – jetzt' : ''}</span>
+        <span class="small">${ids.length} Aufgaben · ${U.formatNumber(effort)} PT</span></div>${list(items)}</div>`;
+    }).join('');
+
+    const critical = a.criticalPath.length ? `
+      <h3>Kritischer Pfad · ${U.formatNumber(a.criticalEffort)} PT</h3>
+      <p class="hint">Längste Kette nacheinander abhängiger Aufgaben – bestimmt die minimale Gesamtdauer.</p>
+      ${list(a.criticalPath.map((id, i) => listItem(byId(id), {
+        meta: `<span class="small">${i ? '↳ ' : ''}${U.formatNumber(A.effortOf(byId(id)))} PT</span>`,
+      })))}` : '';
+
+    const finished = done.length
+      ? `<h3>Erledigt (${done.length})</h3>${list(done.map((t) => listItem(t, { meta: '<span class="small">✓</span>' })))}`
+      : '';
+
+    return `${stats}${warning}
+      <p class="hint">Alles in einer Welle hat keine Abhängigkeit untereinander und kann <b>parallel</b> bearbeitet werden. Sortiert nach Priorität.</p>
+      ${waves}${critical}${finished}`;
+  }
+
+  /* =====================================================================
+   * Tab „Hilfe“
+   * ===================================================================== */
+
+  function helpView() {
+    return `<h3>So funktioniert's</h3>
+    <ul class="help">
+      <li><b>Blöcke anlegen</b> mit „Denken“, „Umsetzung“ oder „Gruppe“.</li>
+      <li><b>Verschieben</b>: Block ziehen. <b>Grösse</b>: Ecke unten rechts ziehen.</li>
+      <li><b>Abhängigkeit</b>: am runden Punkt rechts am Block ziehen und auf dem Block loslassen, der davon abhängt – oder im Detail-Panel wählen.</li>
+      <li><b>Gruppen</b>: Blöcke in einen Rahmen ziehen. Hängt eine Gruppe von etwas ab, gilt das für alle Blöcke darin.</li>
+      <li><b>Priorität</b> ergibt sich aus der Position: links hoch, rechts tief.</li>
+      <li><b>Hover</b> zeigt, was vorher nötig ist (orange) und was blockiert wird (blau).</li>
+      <li><b>Ablauf</b>: Wellen paralleler Arbeit, offener Aufwand, kritischer Pfad.</li>
+    </ul>
+    <h3>Tastatur</h3>
+    <ul class="help">
+      <li><b>Entf</b> löschen · <b>Strg+D</b> duplizieren · <b>Esc</b> Auswahl aufheben</li>
+      <li><b>Strg+Z / Strg+Y</b> rückgängig / wiederholen</li>
+      <li><b>Strg + Mausrad</b> zoomen · leere Fläche ziehen = verschieben</li>
+    </ul>
+    <h3>Speichern & Teilen</h3>
+    <ul class="help">
+      <li>Alles wird automatisch im Browser gespeichert.</li>
+      <li><b>Export</b> speichert das Board als JSON-Datei (Format „prio-board“, siehe README), <b>Import</b> lädt sie wieder.</li>
+      <li><b>Als HTML</b> erzeugt eine statische Seite nur mit dem Diagramm – zum Verschicken oder Ablegen.</li>
+    </ul>
+    ${legend()}`;
+  }
+
+  /* =====================================================================
+   * Ereignisse
+   * ===================================================================== */
+
+  const selectedNode = () => (ui.selection.type === 'node' ? model.getNode(ui.selection.id) : null);
+
+  function onTabClick(event) {
+    const button = event.target.closest('button[data-tab]');
+    if (!button) return;
+    ui.tab = button.dataset.tab;
+    render(analysis);
+  }
+
+  /** Text-Eingaben: ein Historieneintrag pro Fokus, Seitenleiste wird nicht neu gezeichnet. */
+  function onInput(event) {
+    const name = event.target.dataset.field;
+    const node = selectedNode();
+    if (!name || !node || event.target.tagName === 'SELECT') return;
+    if (editCheckpointPending) {
+      model.checkpoint();
+      editCheckpointPending = false;
+    }
+    model.updateNode(node.id, { [name]: readField(name, event.target.value) }, { record: false, source: 'sidebar' });
+  }
+
+  function readField(name, value) {
+    if (name === 'notes') return value.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (name === 'effortDays') return U.parseNumber(value);
+    return value;
+  }
+
+  function onChange(event) {
+    const target = event.target;
+    const node = selectedNode();
+    if (!node) return;
+    if (target.tagName === 'SELECT' && target.dataset.field) {
+      model.updateNode(node.id, { [target.dataset.field]: target.value });
+    } else if (target.dataset.addDependency && target.value) {
+      const [from, to] = target.dataset.addDependency === 'incoming' ? [target.value, node.id] : [node.id, target.value];
+      actions.addDependency(from, to);
+    }
+  }
+
+  function onClick(event) {
+    const remove = event.target.closest('[data-remove-dep]');
+    if (remove) {
+      event.stopPropagation();
+      model.removeDependency(remove.dataset.removeDep);
+      return;
+    }
+    const action = event.target.closest('[data-action]');
+    if (action) {
+      actions.run(action.dataset.action);
+      return;
+    }
+    const item = event.target.closest('[data-goto]');
+    if (item) actions.goTo(item.dataset.goto);
+  }
+
+  function onHover(event) {
+    const item = event.target.closest('[data-goto]');
+    actions.hover(item ? item.dataset.goto : null);
+  }
+
+  return { init, render };
+})();
+</script>
+  <script>
+/* js/io/static-export.js */
+/**
+ * Statische HTML-Seite, die nur das Diagramm zeigt (ohne Bedienelemente).
+ * Die Seite ist eigenständig (CSS inline) und enthält zusätzlich die Board-Daten
+ * als <script type="application/json" id="prio-board-data"> – so kann sie wieder importiert werden.
+ */
+PB.staticExport = (() => {
+  const U = PB.util;
+  const I = PB.icons;
+  const model = PB.model;
+  const DATA_ELEMENT_ID = 'prio-board-data';
+  const PADDING = 40;
+
+  const PAGE_CSS = `
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.45 "Source Sans 3","Source Sans Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.page-head{background:var(--navy);color:#fff;padding:18px 28px;display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+.page-head h1{margin:0;font-size:22px;display:flex;align-items:center;gap:10px}
+.page-head h1::before{content:"";width:10px;height:24px;border-radius:3px;background:var(--accent)}
+.page-head p{margin:0;opacity:.8}
+.stage-wrap{padding:24px 28px;overflow:hidden}
+.stage{position:relative;overflow:hidden;transform-origin:0 0;border-radius:var(--radius);box-shadow:var(--shadow);background:var(--bg)}
+.page-legend{display:flex;flex-wrap:wrap;gap:8px 22px;padding:0 28px 28px;font-size:13.5px;color:var(--muted)}
+.page-legend span{display:inline-flex;align-items:center;gap:8px}
+.page-legend .dot{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-size:12px}
+.page-legend .dot.thinking{background:var(--thinking)} .page-legend .dot.implementation{background:var(--impl)}
+.page-legend .dot.group{border:2px dashed var(--group)}
+.page-legend .ico{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@media print{
+  @page{size:landscape;margin:10mm}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .stage-wrap{padding:12px 0}
+  .stage{box-shadow:none}
+}`;
+
+  /** Passt das Diagramm an die Fensterbreite an (funktioniert auch ohne – dann scrollbar). */
+  const FIT_SCRIPT = `(function(){
+  var wrap=document.querySelector('.stage-wrap'),stage=document.querySelector('.stage');
+  var w=stage.offsetWidth,h=stage.offsetHeight;
+  function fit(){var s=Math.min(1,(wrap.clientWidth-56)/w);stage.style.transform='scale('+s+')';wrap.style.height=(h*s+48)+'px';}
+  addEventListener('resize',fit);addEventListener('beforeprint',function(){stage.style.transform='';wrap.style.height='';});
+  addEventListener('afterprint',fit);fit();
+})();`;
+
+  /** Ausschnitt: alle Blöcke plus Rand; mit Prioritätsachse immer ab der linken oberen Ecke. */
+  function viewport(showAxis) {
+    const box = U.bounds(model.allNodes().map((n) => n.layout)) || { x: 0, y: 0, width: 400, height: 200 };
+    const x = showAxis ? 0 : Math.max(0, box.x - PADDING);
+    const y = showAxis ? 0 : Math.max(0, box.y - PADDING);
+    return { x, y, width: box.x + box.width + PADDING - x, height: box.y + box.height + PADDING - y };
+  }
+
+  function summary(analysis) {
+    const { tasks } = model.getState();
+    const done = tasks.filter((t) => t.status === 'done').length;
+    const date = new Date().toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return `Stand ${date} · ${tasks.length} Aufgaben · ${analysis.ready.size} startbar · ${done} erledigt` +
+      (analysis.criticalPath.length ? ` · kritischer Pfad ${U.formatNumber(analysis.criticalEffort)} PT` : '');
+  }
+
+  function legend() {
+    return `<footer class="page-legend">
+      <span><span class="dot thinking">${I.svg('brain')}</span>Denken – Analyse, braucht Zeit</span>
+      <span><span class="dot implementation">${I.svg('wrench')}</span>Umsetzung – direkt machbar</span>
+      <span><span class="dot group"></span>Gruppe / Abhängigkeitsblock</span>
+      <span>A → B: A muss vor B fertig sein</span>
+      <span>W1, W2 …: Wellen – gleiche Welle = parallel möglich</span>
+      <span>Priorität: links hoch, rechts tief</span>
+    </footer>`;
+  }
+
+  /** JSON sicher in ein <script> einbetten. */
+  const embedJson = (doc) => JSON.stringify(doc).replace(/</g, '\\u003c');
+
+  function build(analysis) {
+    const state = model.getState();
+    const esc = U.escapeHtml;
+    const showAxis = state.view.showPriorityAxis;
+    const m = PB.board.markup(analysis, { interactive: false });
+    const vp = viewport(showAxis);
+    const doc = PB.format.serialize(state, { model, analysis });
+
+    return `<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="Prio-Board">
+<title>${esc(state.board.title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+${PB.diagramStyles.themeVariables()}
+${PAGE_CSS}
+${PB.diagramStyles.CSS}
+</style>
+</head>
+<body>
+<header class="page-head"><h1>${esc(state.board.title)}</h1><p>${esc(summary(analysis))}</p></header>
+<main class="stage-wrap">
+  <div class="stage" style="width:${vp.width}px;height:${vp.height}px">
+    <div class="pb-world" style="left:${-vp.x}px;top:${-vp.y}px;width:${m.size.width}px;height:${m.size.height}px">
+      ${showAxis ? `<div class="pb-zones">${m.zones}</div>` : ''}
+      <svg class="pb-links" width="${m.size.width}" height="${m.size.height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>${PB.diagramStyles.markerDefs()}</defs>${m.links}
+      </svg>
+      ${m.nodes}
+    </div>
+  </div>
+</main>
+${legend()}
+<script type="application/json" id="${DATA_ELEMENT_ID}">${embedJson(doc)}<\/script>
+<script>${FIT_SCRIPT}<\/script>
+</body>
+</html>
+`;
+  }
+
+  /** Liest die eingebetteten Board-Daten aus einer exportierten HTML-Seite (oder null). */
+  function extractData(html) {
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    const el = page.getElementById(DATA_ELEMENT_ID);
+    return el ? el.textContent : null;
+  }
+
+  return { build, extractData };
+})();
+</script>
+  <script>
+/* js/ui/dialog.js */
+/**
+ * Eigene Dialoge statt alert()/confirm() und Datei-Download-Fallback.
+ *
+ * Grund: In eingebetteten Vorschauen (sandboxed iframes) werden alert/confirm ignoriert
+ * und Downloads still blockiert. Diese Dialoge funktionieren überall; Exporte bieten
+ * zusätzlich „In Zwischenablage kopieren“, Importe „JSON einfügen“.
+ */
+PB.dialog = (() => {
+  const esc = PB.util.escapeHtml;
+  let dialog = null;
+
+  function ensure() {
+    if (dialog) return dialog;
+    dialog = document.createElement('dialog');
+    dialog.className = 'pb-dialog';
+    document.body.appendChild(dialog);
+    return dialog;
+  }
+
+  /** Öffnet einen Dialog; resolve(value) schliesst ihn. */
+  function open(html, setup) {
+    const d = ensure();
+    d.innerHTML = `<form method="dialog" class="pb-dialog-body">${html}</form>`;
+    return new Promise((resolve) => {
+      const finish = (value) => {
+        d.close();
+        resolve(value);
+      };
+      d.onclose = () => resolve(undefined);
+      d.querySelectorAll('[data-result]').forEach((b) => b.addEventListener('click', (e) => {
+        e.preventDefault();
+        finish(b.dataset.result === 'true');
+      }));
+      setup?.(d, finish);
+      d.showModal();
+    });
+  }
+
+  const paragraphs = (text) => esc(text).split('\n').map((line) => `<p>${line}</p>`).join('');
+
+  /** Ja/Nein-Frage. Liefert true/false. */
+  async function confirm(message, { okLabel = 'OK', danger = false } = {}) {
+    const result = await open(`
+      <div class="pb-dialog-text">${paragraphs(message)}</div>
+      <div class="pb-dialog-actions">
+        <button class="btn" data-result="false">Abbrechen</button>
+        <button class="btn primary${danger ? ' danger' : ''}" data-result="true" autofocus>${esc(okLabel)}</button>
+      </div>`);
+    return result === true;
+  }
+
+  /** Hinweis mit OK-Knopf. */
+  function alert(message, { title = 'Hinweis' } = {}) {
+    return open(`
+      <h2>${esc(title)}</h2>
+      <div class="pb-dialog-text">${paragraphs(message)}</div>
+      <div class="pb-dialog-actions"><button class="btn primary" data-result="true" autofocus>OK</button></div>`);
+  }
+
+  async function copyText(textarea) {
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      return true;
+    } catch {
+      textarea.focus();
+      textarea.select();
+      try {
+        return document.execCommand('copy');
+      } catch {
+        return false;
+      }
+    }
+  }
+
+  /**
+   * Export-Dialog: Herunterladen und/oder Kopieren.
+   * download: Funktion, die den Download auslöst.
+   */
+  function exportFile({ title, description, filename, content, download }) {
+    return open(`
+      <h2>${esc(title)}</h2>
+      <p class="pb-dialog-hint">${esc(description)}</p>
+      <textarea class="pb-dialog-code" readonly spellcheck="false">${esc(content)}</textarea>
+      <p class="pb-dialog-hint small">Falls der Download hier blockiert ist (z. B. in einer Vorschau):
+        kopieren, in einen Texteditor einfügen und als <b>${esc(filename)}</b> speichern.</p>
+      <div class="pb-dialog-actions">
+        <span class="pb-dialog-status" aria-live="polite"></span>
+        <button class="btn" data-result="false">Schliessen</button>
+        <button class="btn" data-copy>In Zwischenablage kopieren</button>
+        <button class="btn primary" data-download autofocus>Herunterladen</button>
+      </div>`, (d) => {
+      const status = d.querySelector('.pb-dialog-status');
+      d.querySelector('[data-download]').addEventListener('click', (e) => {
+        e.preventDefault();
+        download();
+        status.textContent = 'Download gestartet – falls nichts passiert: kopieren.';
+      });
+      d.querySelector('[data-copy]').addEventListener('click', async (e) => {
+        e.preventDefault();
+        status.textContent = (await copyText(d.querySelector('textarea'))) ? '✓ Kopiert' : 'Bitte Text markieren und mit Strg+C kopieren';
+      });
+    });
+  }
+
+  /** Import-Dialog: Datei wählen oder Text einfügen. Liefert den Text oder undefined. */
+  function importFile() {
+    return open(`
+      <h2>Board importieren</h2>
+      <p class="pb-dialog-hint">JSON-Datei („prio-board“) oder eine mit „Als HTML“ erstellte Seite.</p>
+      <label class="btn pb-file">Datei wählen…<input type="file" accept=".json,application/json,.html,text/html" hidden></label>
+      <p class="pb-dialog-hint">…oder Inhalt hier einfügen:</p>
+      <textarea class="pb-dialog-code" spellcheck="false" placeholder='{ "format": "prio-board", … }'></textarea>
+      <div class="pb-dialog-actions">
+        <button class="btn" data-result="false">Abbrechen</button>
+        <button class="btn primary" data-import>Importieren</button>
+      </div>`, (d, finish) => {
+      const textarea = d.querySelector('textarea');
+      d.querySelector('input[type=file]').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) finish(await file.text());
+      });
+      d.querySelector('[data-import]').addEventListener('click', (e) => {
+        e.preventDefault();
+        if (textarea.value.trim()) finish(textarea.value);
+        else textarea.focus();
+      });
+    });
+  }
+
+  return { confirm, alert, exportFile, importFile };
+})();
+</script>
+  <script>
+/* js/ui/interactions.js */
+/**
+ * Maus-/Touch-Interaktionen auf der Arbeitsfläche:
+ * Verschieben, Grösse ändern, Abhängigkeiten ziehen, Pannen, Hover, Zoom mit Strg+Mausrad.
+ */
+PB.interactions = (() => {
+  const C = PB.config;
+  const U = PB.util;
+  const model = PB.model;
+  const board = PB.board;
+  const ui = PB.ui;
+
+  /** Ab dieser Mausbewegung (px) gilt ein Klick als Ziehen. */
+  const DRAG_THRESHOLD = 4;
+
+  let dom = null;
+  let actions = null;
+
+  function init(elements, callbacks) {
+    dom = elements;
+    actions = callbacks;
+    dom.canvas.addEventListener('pointerdown', onPointerDown);
+    dom.canvas.addEventListener('wheel', onWheel, { passive: false });
+    dom.world.addEventListener('pointerover', onPointerOver);
+    dom.world.addEventListener('pointerleave', () => actions.hover(null));
+    dom.world.addEventListener('dblclick', onDoubleClick);
+  }
+
+  /* ---------- Verteilung ---------- */
+
+  function onPointerDown(event) {
+    if (event.button !== 0 && event.button !== 1) return;
+    const target = event.target;
+    const block = target.closest('.block');
+    const id = block?.dataset.id;
+    if (block && target.closest('.port')) return startLink(event, id);
+    if (block && target.closest('.rs')) return startResize(event, id);
+    if (block && event.button === 0) return startMove(event, id);
+    const link = target.closest('.link');
+    if (link) return actions.select('dependency', link.dataset.dep);
+    return startPan(event);
+  }
+
+  /** Verfolgt eine Zeigerbewegung bis zum Loslassen. */
+  function track(onMove, onEnd) {
+    const move = (e) => onMove(e);
+    const end = (e) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      ui.dragging = false;
+      onEnd(e);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  }
+
+  /** Startet eine Geste beim ersten echten Bewegen (damit Klicks keinen Historieneintrag erzeugen). */
+  function gesture() {
+    let started = false;
+    return {
+      get started() { return started; },
+      start() {
+        if (started) return;
+        started = true;
+        ui.dragging = true;
+        model.beginGesture();
+        board.applyHighlight();
+      },
+    };
+  }
+
+  /* ---------- Verschieben ---------- */
+
+  function startMove(event, id) {
+    event.preventDefault();
+    actions.select('node', id);
+    const origin = board.toWorld(event.clientX, event.clientY);
+    // Gruppen nehmen ihren Inhalt mit
+    const moving = [id, ...model.descendantsOf(id)].map((nodeId) => {
+      const { x, y } = model.getNode(nodeId).layout;
+      return { id: nodeId, x, y };
+    });
+    const lead = moving[0];
+    const g = gesture();
+
+    track((e) => {
+      const p = board.toWorld(e.clientX, e.clientY);
+      const dx = p.x - origin.x;
+      const dy = p.y - origin.y;
+      if (!g.started && Math.hypot(dx, dy) * model.getState().view.zoom < DRAG_THRESHOLD) return;
+      g.start();
+      const offsetX = Math.max(0, U.snap(lead.x + dx)) - lead.x;
+      const offsetY = Math.max(0, U.snap(lead.y + dy)) - lead.y;
+      moving.forEach((m) => model.setLayout(m.id, { x: m.x + offsetX, y: m.y + offsetY }));
+      board.refreshLayout(moving.map((m) => m.id));
+    }, () => {
+      if (g.started) model.endGesture();
+    });
+  }
+
+  /* ---------- Grösse ändern ---------- */
+
+  function startResize(event, id) {
+    event.preventDefault();
+    event.stopPropagation();
+    actions.select('node', id);
+    const node = model.getNode(id);
+    const origin = board.toWorld(event.clientX, event.clientY);
+    const start = { width: node.layout.width, height: node.layout.height };
+    const min = model.isGroup(id) ? C.MIN_SIZE.group : C.MIN_SIZE.task;
+    const g = gesture();
+
+    track((e) => {
+      g.start();
+      const p = board.toWorld(e.clientX, e.clientY);
+      model.setLayout(id, {
+        width: Math.max(min.width, U.snap(start.width + p.x - origin.x)),
+        height: Math.max(min.height, U.snap(start.height + p.y - origin.y)),
+      });
+      board.refreshLayout([id]);
+    }, () => {
+      if (g.started) model.endGesture();
+    });
+  }
+
+  /* ---------- Abhängigkeit ziehen ---------- */
+
+  function startLink(event, fromId) {
+    event.preventDefault();
+    event.stopPropagation();
+    ui.dragging = true;
+    document.body.classList.add('linking');
+    board.applyHighlight();
+
+    track((e) => {
+      board.showDraftLink(fromId, board.toWorld(e.clientX, e.clientY));
+    }, (e) => {
+      document.body.classList.remove('linking');
+      board.hideDraftLink();
+      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.block');
+      if (target && target.dataset.id !== fromId) actions.addDependency(fromId, target.dataset.id);
+      else board.applyHighlight();
+    });
+  }
+
+  /* ---------- Pannen ---------- */
+
+  function startPan(event) {
+    const canvas = dom.canvas;
+    const start = { left: canvas.scrollLeft, top: canvas.scrollTop, x: event.clientX, y: event.clientY };
+    let moved = false;
+    canvas.classList.add('panning');
+    track((e) => {
+      if (Math.abs(e.clientX - start.x) + Math.abs(e.clientY - start.y) > DRAG_THRESHOLD) moved = true;
+      canvas.scrollLeft = start.left - (e.clientX - start.x);
+      canvas.scrollTop = start.top - (e.clientY - start.y);
+    }, () => {
+      canvas.classList.remove('panning');
+      if (!moved) actions.clearSelection();
+    });
+  }
+
+  /* ---------- Hover, Doppelklick, Zoom ---------- */
+
+  function onPointerOver(event) {
+    if (ui.dragging) return;
+    actions.hover(event.target.closest('.block')?.dataset.id ?? null);
+  }
+
+  function onDoubleClick(event) {
+    const block = event.target.closest('.block');
+    if (!block) return;
+    actions.select('node', block.dataset.id);
+    actions.focusTitle();
+  }
+
+  function onWheel(event) {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    const rect = dom.canvas.getBoundingClientRect();
+    const factor = event.deltaY < 0 ? 1.1 : 1 / 1.1;
+    board.setZoom(model.getState().view.zoom * factor, { x: event.clientX - rect.left, y: event.clientY - rect.top });
+    actions.viewChanged();
+  }
+
+  return { init };
+})();
+</script>
+  <script>
+/* js/app.js */
+/**
+ * Einstiegspunkt: verbindet Modell, Darstellung, Interaktionen und Werkzeugleiste.
+ *
+ * Datenfluss:  Benutzeraktion → PB.model (Änderung) → Ereignis → onModelChange()
+ *              → Analyse → Board + Seitenleiste neu zeichnen → im Browser speichern.
+ */
+PB.app = (() => {
+  const C = PB.config;
+  const U = PB.util;
+  const model = PB.model;
+  const board = PB.board;
+  const sidebar = PB.sidebar;
+  const storage = PB.storage;
+  const format = PB.format;
+  const ui = PB.ui;
+
+  const $ = (selector) => document.querySelector(selector);
+  let analysis = null;
+  let toastTimer = null;
+
+  /* ---------- Start ---------- */
+
+  function init() {
+    PB.diagramStyles.inject();
+    PB.icons.hydrate();
+
+    board.init({
+      canvas: $('#canvas'),
+      sizer: $('#sizer'),
+      world: $('#world'),
+      zones: $('#zones'),
+      links: $('#links'),
+      linkLayer: $('#linkLayer'),
+      draft: $('#draftLink'),
+    });
+    sidebar.init({ tabs: $('#sideTabs'), body: $('#sideBody') }, {
+      goTo, hover, addDependency, run: runAction,
+    });
+    PB.interactions.init({ canvas: $('#canvas'), world: $('#world') }, {
+      select, clearSelection, hover, addDependency, focusTitle, viewChanged: persist,
+    });
+
+    model.subscribe(onModelChange);
+    bindToolbar();
+    bindBoardTitle();
+    bindKeyboard();
+
+    const saved = storage.loadLocal();
+    model.load(saved ? saved.state : format.parse(PB.example));
+    requestAnimationFrame(() => {
+      board.fit();
+      updateHeader();
+      persist();
+      if (saved?.repairs.length) reportRepairs(saved);
+    });
+  }
+
+  function onModelChange(meta = {}) {
+    dropStaleSelection();
+    analysis = PB.analysis.analyze(model);
+    board.render(analysis);
+    if (meta.source !== 'sidebar') sidebar.render(analysis);
+    updateHeader();
+    persist();
+  }
+
+  /** Speichert im Browser; zeigt einen Hinweis, wenn das nicht möglich ist (z. B. Vorschau/Sandbox). */
+  function persist() {
+    const saved = storage.saveLocal(model.getState());
+    $('#saveWarning').hidden = saved;
+  }
+
+  function reportRepairs({ repairs, backupKey }) {
+    const list = repairs.slice(0, 6).map((r) => `• ${r}`).join('\n');
+    const more = repairs.length > 6 ? `\n• … (+${repairs.length - 6})` : '';
+    PB.dialog.alert(
+      `Dein gespeichertes Board hatte kleine Fehler und wurde automatisch repariert:\n${list}${more}\n\n` +
+      `Das Original ist im Browser gesichert (${backupKey}).`,
+      { title: 'Board repariert' });
+  }
+
+  /* ---------- Auswahl & Navigation ---------- */
+
+  function select(type, id) {
+    ui.selection = { type, id };
+    ui.tab = 'details';
+    board.applySelection();
+    sidebar.render(analysis);
+  }
+
+  function clearSelection() {
+    if (!ui.selection.type) return;
+    ui.selection = { type: null, id: null };
+    if (ui.tab === 'details') ui.tab = 'plan';
+    board.applySelection();
+    sidebar.render(analysis);
+  }
+
+  function dropStaleSelection() {
+    const { type, id } = ui.selection;
+    const exists = type === 'node' ? model.getNode(id) : type === 'dependency' ? model.getDependency(id) : true;
+    if (!exists) ui.selection = { type: null, id: null };
+  }
+
+  function hover(id) {
+    if (ui.hoverId === id) return;
+    ui.hoverId = id;
+    board.applyHighlight();
+  }
+
+  function goTo(id) {
+    board.scrollTo(id);
+    select('node', id);
+  }
+
+  function focusTitle() {
+    const input = $('#sideBody [data-field="title"]');
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
+
+  /* ---------- Aktionen ---------- */
+
+  function addNode(kind) {
+    const position = board.viewportCenter();
+    const id = kind === 'group' ? model.addGroup(position) : model.addTask(kind, position);
+    select('node', id);
+    focusTitle();
+  }
+
+  function addDependency(from, to) {
+    const result = model.addDependency(from, to);
+    toast(result.ok
+      ? `„${model.getNode(to).title}“ hängt jetzt von „${model.getNode(from).title}“ ab`
+      : result.error);
+  }
+
+  function deleteSelection() {
+    const { type, id } = ui.selection;
+    if (type === 'node') model.removeNode(id);
+    if (type === 'dependency') model.removeDependency(id);
+  }
+
+  function duplicateSelection() {
+    if (ui.selection.type !== 'node' || model.isGroup(ui.selection.id)) return;
+    const copy = model.duplicateTask(ui.selection.id);
+    if (copy) select('node', copy);
+  }
+
+  function reverseSelectedDependency() {
+    if (ui.selection.type !== 'dependency') return;
+    const result = model.reverseDependency(ui.selection.id);
+    if (!result.ok) toast(result.error);
+  }
+
+  function runAction(name) {
+    const handlers = { delete: deleteSelection, duplicate: duplicateSelection, 'reverse-dependency': reverseSelectedDependency };
+    handlers[name]?.();
+  }
+
+  /* ---------- Import / Export ---------- */
+
+  const fileName = (extension) => `${U.slugify(model.getState().board.title)}-${U.today()}.${extension}`;
+
+  function exportJson() {
+    const filename = fileName('json');
+    const content = JSON.stringify(format.serialize(model.getState(), { model, analysis }), null, 2);
+    PB.dialog.exportFile({
+      title: 'Export (JSON)',
+      description: 'Das Board im Format „prio-board“ – mit „Import“ wieder ladbar.',
+      filename,
+      content,
+      download: () => storage.downloadText(content, filename, 'application/json'),
+    });
+  }
+
+  function exportHtml() {
+    const filename = fileName('html');
+    const content = PB.staticExport.build(analysis);
+    PB.dialog.exportFile({
+      title: 'Als HTML',
+      description: 'Eigenständige Seite nur mit dem Diagramm – zum Verschicken oder Ablegen. Lässt sich auch wieder importieren.',
+      filename,
+      content,
+      download: () => storage.downloadText(content, filename, 'text/html'),
+    });
+  }
+
+  async function importBoard() {
+    let text = await PB.dialog.importFile();
+    if (!text) return;
+    try {
+      if (/^\s*</.test(text)) {
+        text = PB.staticExport.extractData(text);
+        if (!text) throw new format.FormatError(['Die HTML-Datei enthält keine Prio-Board-Daten']);
+      }
+      model.replace(format.parse(text));
+      clearSelection();
+      board.fit();
+      updateHeader();
+      persist();
+      toast(`„${model.getState().board.title}“ importiert`);
+    } catch (error) {
+      if (!(error instanceof format.FormatError)) console.error(error);
+      PB.dialog.alert(error instanceof format.FormatError ? error.message : `Import fehlgeschlagen: ${error.message}`,
+        { title: 'Import nicht möglich' });
+    }
+  }
+
+  async function loadExample() {
+    if (!await PB.dialog.confirm('Aktuelles Board durch das Beispiel ersetzen?\n(Rückgängig möglich)', { okLabel: 'Ersetzen' })) return;
+    model.replace(format.parse(PB.example));
+    board.fit();
+    updateHeader();
+    persist();
+  }
+
+  async function clearBoard() {
+    if (!await PB.dialog.confirm('Alle Blöcke und Abhängigkeiten entfernen?\n(Rückgängig möglich)', { okLabel: 'Leeren', danger: true })) return;
+    model.clear();
+  }
+
+  /* ---------- Werkzeugleiste ---------- */
+
+  function bindToolbar() {
+    const on = (selector, handler) => $(selector).addEventListener('click', handler);
+    on('#addThinking', () => addNode('thinking'));
+    on('#addImplementation', () => addNode('implementation'));
+    on('#addGroup', () => addNode('group'));
+    on('#undo', model.undo);
+    on('#redo', model.redo);
+    on('#zoomIn', () => { board.setZoom(model.getState().view.zoom * C.ZOOM.step); updateHeader(); persist(); });
+    on('#zoomOut', () => { board.setZoom(model.getState().view.zoom / C.ZOOM.step); updateHeader(); persist(); });
+    on('#fit', () => { board.fit(); updateHeader(); persist(); });
+    on('#priorityAxis', () => {
+      model.setView({ showPriorityAxis: !model.getState().view.showPriorityAxis });
+      board.render(analysis);
+      updateHeader();
+      persist();
+    });
+    $('#focusMode').addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-focus]');
+      if (!button) return;
+      ui.focusMode = button.dataset.focus;
+      updateHeader();
+      board.applyHighlight();
+    });
+    bindFileMenu();
+    on('#exportJson', exportJson);
+    on('#exportHtml', exportHtml);
+    on('#importJson', importBoard);
+    on('#loadExample', loadExample);
+    on('#saveWarning', () => PB.dialog.alert(
+      'Diese Ansicht darf nichts im Browser speichern (z. B. eingebettete Vorschau).\n' +
+      'Änderungen gehen beim Schliessen verloren. Sichere dein Board über Datei ▸ Export\n' +
+      'oder öffne prio-board.html direkt im Browser (Chrome, Edge, Firefox).',
+      { title: 'Nicht gespeichert' }));
+    on('#clearBoard', clearBoard);
+  }
+
+  function bindFileMenu() {
+    const menu = $('#fileMenu');
+    const button = $('#fileMenuButton');
+    const setOpen = (open) => {
+      menu.classList.toggle('open', open);
+      button.setAttribute('aria-expanded', String(open));
+    };
+    button.addEventListener('click', () => setOpen(!menu.classList.contains('open')));
+    menu.querySelector('.menu-panel').addEventListener('click', () => setOpen(false));
+    document.addEventListener('pointerdown', (event) => { if (!menu.contains(event.target)) setOpen(false); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setOpen(false); });
+  }
+
+  function bindBoardTitle() {
+    const title = $('#boardTitle');
+    title.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === 'Escape') {
+        event.preventDefault();
+        title.blur();
+      }
+    });
+    title.addEventListener('blur', () => model.setBoardTitle(title.textContent));
+  }
+
+  function updateHeader() {
+    const { board: info, view } = model.getState();
+    const title = $('#boardTitle');
+    if (document.activeElement !== title) title.textContent = info.title;
+    document.title = `${info.title} – Prio-Board`;
+    $('#undo').disabled = !model.canUndo();
+    $('#redo').disabled = !model.canRedo();
+    $('#zoomLabel').textContent = `${Math.round(view.zoom * 100)}%`;
+    $('#priorityAxis').classList.toggle('on', view.showPriorityAxis);
+    document.querySelectorAll('#focusMode button').forEach((b) => b.classList.toggle('on', b.dataset.focus === ui.focusMode));
+  }
+
+  /* ---------- Tastatur ---------- */
+
+  function bindKeyboard() {
+    document.addEventListener('keydown', (event) => {
+      const active = document.activeElement;
+      const typing = active && (/^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName) || active.isContentEditable);
+      const mod = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      if (event.key === 'Escape') {
+        if (typing) active.blur();
+        clearSelection();
+        return;
+      }
+      if (typing) return;
+      if (mod && key === 'z') { event.preventDefault(); event.shiftKey ? model.redo() : model.undo(); }
+      else if (mod && key === 'y') { event.preventDefault(); model.redo(); }
+      else if (mod && key === 'd') { event.preventDefault(); duplicateSelection(); }
+      else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelection(); }
+    });
+  }
+
+  /* ---------- Meldungen ---------- */
+
+  function toast(message) {
+    const el = $('#toast');
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
+  return { init };
+})();
+
+PB.app.init();
+</script>
+</body>
+</html>

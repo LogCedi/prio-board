@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "prio-board.schema.json",
+  "title": "Prio-Board",
+  "description": "Austauschformat des Prio-Boards: Themen (Denken/Umsetzung), Gruppen und Abhängigkeiten. Gruppenzugehörigkeit und Priorität ergeben sich aus dem Layout.",
+  "type": "object",
+  "required": ["format", "version", "groups", "tasks", "dependencies"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "prio-board" },
+    "version": { "type": "integer", "const": 1 },
+    "exportedAt": { "type": "string", "format": "date-time" },
+    "board": {
+      "type": "object",
+      "properties": { "title": { "type": "string" } },
+      "additionalProperties": false
+    },
+    "view": {
+      "type": "object",
+      "properties": {
+        "zoom": { "type": "number", "minimum": 0.25, "maximum": 2 },
+        "showPriorityAxis": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "groups": {
+      "description": "Rahmen (Abhängigkeitsblöcke). Ein Element gehört zur kleinsten Gruppe, die seinen Mittelpunkt enthält.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/group" }
+    },
+    "tasks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/task" }
+    },
+    "dependencies": {
+      "description": "\"from\" muss fertig sein, bevor \"to\" starten kann. Beide können Aufgaben oder Gruppen sein.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/dependency" }
+    },
+    "analysis": {
+      "description": "Nur im Export: beim Export berechnete Auswertung. Wird beim Import ignoriert.",
+      "type": "object",
+      "properties": {
+        "note": { "type": "string" },
+        "tasks": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "priority": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1 = sehr hoch (links) … 5 = sehr tief (rechts)" },
+              "group": { "type": ["string", "null"] },
+              "wave": { "type": ["integer", "null"], "description": "Gleiche Welle = parallel bearbeitbar; null bei erledigt/Zyklus" },
+              "state": { "enum": ["done", "cycle", "in_progress", "ready", "waiting"] },
+              "blockedBy": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "waves": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+        "criticalPath": {
+          "type": "object",
+          "properties": {
+            "tasks": { "type": "array", "items": { "type": "string" } },
+            "effortDays": { "type": "number" }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "layout": {
+      "description": "Position und Grösse in Pixeln auf der Arbeitsfläche. x bestimmt die Priorität (Spalten à 480 px).",
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "group": {
+      "type": "object",
+      "required": ["id", "title", "layout"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "layout": { "$ref": "#/$defs/layout" }
+      },
+      "additionalProperties": false
+    },
+    "task": {
+      "type": "object",
+      "required": ["id", "kind", "title", "layout"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": {
+          "enum": ["thinking", "implementation"],
+          "description": "thinking = Denken (Analyse, braucht Zeit) · implementation = Umsetzung (direkt machbar)"
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "notes": { "type": "array", "items": { "type": "string" }, "description": "Stichpunkte" },
+        "status": { "enum": ["open", "in_progress", "done"], "default": "open" },
+        "effortDays": { "type": ["number", "null"], "minimum": 0, "description": "Aufwand in Personentagen" },
+        "layout": { "$ref": "#/$defs/layout" }
+      },
+      "additionalProperties": false
+    },
+    "dependency": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "from": { "$ref": "#/$defs/id" },
+        "to": { "$ref": "#/$defs/id" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

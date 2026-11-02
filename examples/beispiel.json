@@ -1,0 +1,178 @@
+{
+  "$schema": "../schema/prio-board.schema.json",
+  "format": "prio-board",
+  "version": 1,
+  "exportedAt": "2026-11-02T00:00:00.000Z",
+  "board": {
+    "title": "IT-Priorisierung"
+  },
+  "view": {
+    "zoom": 1,
+    "showPriorityAxis": true
+  },
+  "groups": [
+    {
+      "id": "g-skalierung",
+      "title": "Skalierung – Abhängigkeitsblock",
+      "description": "Harness und Prozessdaten können parallel laufen",
+      "layout": {
+        "x": 920,
+        "y": 120,
+        "width": 920,
+        "height": 520
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t-quickwin-monitoring",
+      "kind": "implementation",
+      "title": "Quick Win: Monitoring-Alerts anpassen",
+      "description": "Keine Abhängigkeit – sofort machbar",
+      "notes": [],
+      "status": "open",
+      "effortDays": 1,
+      "layout": {
+        "x": 100,
+        "y": 180,
+        "width": 300,
+        "height": 140
+      }
+    },
+    {
+      "id": "t-logging",
+      "kind": "implementation",
+      "title": "Logging vereinheitlichen",
+      "description": "",
+      "notes": [],
+      "status": "open",
+      "effortDays": 2,
+      "layout": {
+        "x": 120,
+        "y": 400,
+        "width": 260,
+        "height": 140
+      }
+    },
+    {
+      "id": "t-denken-harness",
+      "kind": "thinking",
+      "title": "Denken Harness",
+      "description": "Wie soll der Harness aufgebaut sein?",
+      "notes": [
+        "Skills",
+        "Workflow",
+        "Sprache"
+      ],
+      "status": "open",
+      "effortDays": 5,
+      "layout": {
+        "x": 980,
+        "y": 180,
+        "width": 540,
+        "height": 180
+      }
+    },
+    {
+      "id": "t-umsetzung-harness",
+      "kind": "implementation",
+      "title": "Umsetzung Harness",
+      "description": "",
+      "notes": [],
+      "status": "open",
+      "effortDays": 3,
+      "layout": {
+        "x": 1560,
+        "y": 180,
+        "width": 240,
+        "height": 180
+      }
+    },
+    {
+      "id": "t-denken-prozessdaten",
+      "kind": "thinking",
+      "title": "Denken Prozessdaten",
+      "description": "",
+      "notes": [
+        "Level 1",
+        "Level 2",
+        "Auswerten"
+      ],
+      "status": "open",
+      "effortDays": 5,
+      "layout": {
+        "x": 980,
+        "y": 420,
+        "width": 540,
+        "height": 180
+      }
+    },
+    {
+      "id": "t-umsetzung-prozess",
+      "kind": "implementation",
+      "title": "Umsetzung Prozess",
+      "description": "",
+      "notes": [],
+      "status": "open",
+      "effortDays": 3,
+      "layout": {
+        "x": 1560,
+        "y": 420,
+        "width": 240,
+        "height": 180
+      }
+    },
+    {
+      "id": "t-lz",
+      "kind": "thinking",
+      "title": "LZ",
+      "description": "Grundlage für den Skalierungsblock",
+      "notes": [],
+      "status": "open",
+      "effortDays": 4,
+      "layout": {
+        "x": 920,
+        "y": 740,
+        "width": 500,
+        "height": 160
+      }
+    },
+    {
+      "id": "t-ui-zielarchitektur",
+      "kind": "thinking",
+      "title": "UI-Zielarchitektur",
+      "description": "Fundament: Zielbild der UI-Architektur",
+      "notes": [],
+      "status": "open",
+      "effortDays": 8,
+      "layout": {
+        "x": 1480,
+        "y": 740,
+        "width": 760,
+        "height": 160
+      }
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "d-harness",
+      "from": "t-denken-harness",
+      "to": "t-umsetzung-harness"
+    },
+    {
+      "id": "d-prozess",
+      "from": "t-denken-prozessdaten",
+      "to": "t-umsetzung-prozess"
+    },
+    {
+      "id": "d-ui-skalierung",
+      "from": "t-ui-zielarchitektur",
+      "to": "g-skalierung"
+    },
+    {
+      "id": "d-lz-skalierung",
+      "from": "t-lz",
+      "to": "g-skalierung"
+    }
+  ]
+}

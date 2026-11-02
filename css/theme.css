@@ -1,0 +1,18 @@
+/*
+ * Prio-Board – Design-Tokens
+ * Farben, Schrift und Radien zentral anpassen (z. B. an das CSS-Corporate-Design).
+ */
+:root{
+  --navy:#0b2d55; --navy-2:#173f72; --navy-soft:#e9eff7;
+  --accent:#009fe3;
+  --bg:#f3f6fa; --panel:#ffffff; --ink:#0b2d55; --text:#24364f; --muted:#62738a; --line:#dbe3ee; --soft:#eef3f9;
+  --thinking:#009fe3; --thinking-bg:#eaf7fd; --thinking-line:#9bd8f3;
+  --impl:#1f9a6b; --impl-bg:#eaf7f1; --impl-line:#a6dcc6;
+  --group:#8a9ab0;
+  --ok:#1a7f4e; --ok-bg:#dcf3e7; --wait:#9a5b00; --wait-bg:#fff1d6; --bad:#c62828; --bad-bg:#fde4e4;
+  --run:#0b5cad; --run-bg:#dcecfb;
+  --link:#7f90a8; --link-done:#9ccfb6;
+  --up:#f29200; --down:#0b5cad; --crit:#d6336c; --sel:#009fe3;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(11,45,85,.06),0 4px 14px rgba(11,45,85,.06);
+}
